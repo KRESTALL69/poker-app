@@ -240,13 +240,13 @@ export default function TournamentsPage() {
   }, [player, playerId]);
 
   async function handleRegister(tournamentId: string) {
-    if (!playerId) return;
+    if (!playerId || !player) return;
 
     try {
       setActionLoadingId(tournamentId);
 
       await registerPlayerForTournament(playerId, tournamentId);
-      await refreshPageData(playerId, { showPromotionToast: false });
+      await refreshPageData(player, { showPromotionToast: false });
     } catch (err) {
       console.error("Register error:", err);
     } finally {
@@ -255,13 +255,13 @@ export default function TournamentsPage() {
   }
 
   async function handleCancel(tournamentId: string) {
-    if (!playerId) return;
+    if (!playerId || !player) return;
 
     try {
       setActionLoadingId(tournamentId);
 
       await cancelPlayerRegistration(playerId, tournamentId);
-      await refreshPageData(playerId, { showPromotionToast: false });
+      await refreshPageData(player, { showPromotionToast: false });
     } catch (err) {
       console.error("Cancel error:", err);
     } finally {
