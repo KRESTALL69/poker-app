@@ -12,6 +12,8 @@ export type PlayerRow = {
   profile_completed_at: string | null;
   nickname_status: string;
   pending_display_name: string | null;
+  can_access_paid: boolean;
+  can_access_cash: boolean;
   created_at: string;
 };
 
@@ -23,6 +25,7 @@ export type TournamentRow = {
   google_sheet_tab_name: string | null;
   start_at: string;
   max_players: number;
+  kind: "free" | "paid" | "cash";
   season_id: string | null;
   status: string;
   created_at: string;

@@ -9,7 +9,7 @@ import {
   TERMS_VERSION,
 } from "@/features/auth";
 import {
-  getOpenTournaments,
+  getVisibleOpenTournamentsForPlayer,
   getPlayerRegistrations,
   getTournamentRegistrationCounts,
 } from "@/features/tournaments";
@@ -261,12 +261,12 @@ export default function HomePage() {
   }, [promotionToast]);
 
   async function refreshHomeData(
-    currentPlayerId: string,
+    currentPlayer: Player,
     options?: { showPromotionToast?: boolean }
   ) {
     const [registrations, tournaments, counts] = await Promise.all([
-      getPlayerRegistrations(currentPlayerId),
-      getOpenTournaments(),
+      getPlayerRegistrations(currentPlayer.id),
+      getVisibleOpenTournamentsForPlayer(currentPlayer),
       getTournamentRegistrationCounts(),
     ]);
 
@@ -321,7 +321,7 @@ export default function HomePage() {
         setProfileError(null);
         setShowProfileSetup(true);
       } else {
-        await refreshHomeData(updatedPlayer.id, {
+        await refreshHomeData(updatedPlayer, {
           showPromotionToast: false,
         });
       }
@@ -360,7 +360,7 @@ export default function HomePage() {
         setShowProfileSetup(false);
         setPromotionToast("Ник отправлен на модерацию");
 
-        await refreshHomeData(result.player.id, {
+        await refreshHomeData(result.player, {
           showPromotionToast: false,
         });
 
@@ -369,7 +369,7 @@ export default function HomePage() {
 
       setShowProfileSetup(false);
 
-      await refreshHomeData(result.player.id, {
+      await refreshHomeData(result.player, {
         showPromotionToast: false,
       });
     } catch (error) {
@@ -422,7 +422,7 @@ export default function HomePage() {
             } else {
               setShowProfileSetup(false);
 
-              await refreshHomeData(ensuredPlayer.id, {
+              await refreshHomeData(ensuredPlayer, {
                 showPromotionToast: false,
               });
             }
@@ -456,7 +456,7 @@ export default function HomePage() {
         },
         async () => {
           try {
-            await refreshHomeData(player.id, {
+            await refreshHomeData(player, {
               showPromotionToast: true,
             });
           } catch (error) {
@@ -477,7 +477,7 @@ export default function HomePage() {
         },
         async () => {
           try {
-            await refreshHomeData(player.id, {
+            await refreshHomeData(player, {
               showPromotionToast: false,
             });
           } catch (error) {
@@ -491,7 +491,7 @@ export default function HomePage() {
       supabase.removeChannel(registrationsChannel);
       supabase.removeChannel(tournamentsChannel);
     };
-  }, [player?.id, showTerms, showProfileSetup]);
+  }, [player, player?.id, showTerms, showProfileSetup]);
 
   const greetingName = useMemo(() => {
     if (player?.display_name) return player.display_name;

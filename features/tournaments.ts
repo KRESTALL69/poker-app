@@ -4,6 +4,7 @@ import type {
   Registration,
   RegistrationStatus,
   Tournament,
+  TournamentKind,
   TournamentParticipant,
   TournamentResult,
   TournamentResultInput,
@@ -23,6 +24,7 @@ function mapTournamentRow(row: TournamentRow): Tournament {
     google_sheet_tab_name: row.google_sheet_tab_name ?? null,
     start_at: row.start_at,
     max_players: row.max_players,
+    kind: row.kind,
     season_id: row.season_id,
     status: row.status as TournamentStatus,
     created_at: row.created_at,
@@ -57,11 +59,46 @@ async function getTournamentsByIds(tournamentIds: string[]) {
   return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
 }
 
+function getAllowedTournamentKinds(player: {
+  can_access_paid?: boolean;
+  can_access_cash?: boolean;
+}): TournamentKind[] {
+  const allowedKinds: TournamentKind[] = ["free"];
+
+  if (player.can_access_paid) {
+    allowedKinds.push("paid");
+  }
+
+  if (player.can_access_cash) {
+    allowedKinds.push("cash");
+  }
+
+  return allowedKinds;
+}
+
 export async function getOpenTournaments() {
   const { data, error } = await supabase
     .from("tournaments")
     .select("*")
     .eq("status", "open")
+    .order("start_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
+}
+
+export async function getVisibleOpenTournamentsForPlayer(player: {
+  can_access_paid?: boolean;
+  can_access_cash?: boolean;
+}) {
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select("*")
+    .eq("status", "open")
+    .in("kind", getAllowedTournamentKinds(player))
     .order("start_at", { ascending: true });
 
   if (error) {
@@ -85,6 +122,24 @@ export async function getCompletedTournaments() {
   return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
 }
 
+export async function getVisibleCompletedTournamentsForPlayer(player: {
+  can_access_paid?: boolean;
+  can_access_cash?: boolean;
+}) {
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select("*")
+    .eq("status", "completed")
+    .in("kind", getAllowedTournamentKinds(player))
+    .order("start_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
+}
+
 export async function getTournamentById(tournamentId: string) {
   const { data, error } = await supabase
     .from("tournaments")
@@ -97,6 +152,22 @@ export async function getTournamentById(tournamentId: string) {
   }
 
   return mapTournamentRow(data as TournamentRow);
+}
+
+export async function getVisibleTournamentByIdForPlayer(
+  tournamentId: string,
+  player: {
+    can_access_paid?: boolean;
+    can_access_cash?: boolean;
+  }
+) {
+  const tournament = await getTournamentById(tournamentId);
+
+  if (!getAllowedTournamentKinds(player).includes(tournament.kind)) {
+    throw new Error("Турнир недоступен");
+  }
+
+  return tournament;
 }
 
 export async function getPlayerRegistrations(playerId: string) {
@@ -157,7 +228,20 @@ export async function registerPlayerForTournament(
     return existingRegistration;
   }
 
-  const tournament = await getTournamentById(tournamentId);
+  const { data: playerData, error: playerError } = await supabase
+    .from("players")
+    .select("can_access_paid, can_access_cash")
+    .eq("id", playerId)
+    .single();
+
+  if (playerError) {
+    throw new Error(playerError.message);
+  }
+
+  const tournament = await getVisibleTournamentByIdForPlayer(tournamentId, {
+    can_access_paid: playerData.can_access_paid,
+    can_access_cash: playerData.can_access_cash,
+  });
   const counts = await getTournamentRegistrationCounts();
   const registeredCount = counts[tournamentId] ?? 0;
 
@@ -430,6 +514,7 @@ export async function createTournament(input: {
   location: string;
   start_at: string;
   max_players: number;
+  kind: TournamentKind;
 }) {
   const { data: activeSeason, error: activeSeasonError } = await supabase
     .from("seasons")
@@ -450,6 +535,7 @@ export async function createTournament(input: {
       location: input.location,
       start_at: input.start_at,
       max_players: input.max_players,
+      kind: input.kind,
       status: "open",
       season_id: activeSeason.id,
     })

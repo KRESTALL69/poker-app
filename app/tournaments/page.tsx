@@ -6,15 +6,15 @@ import { PromotionToast } from "@/components/promotion-toast";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import {
   cancelPlayerRegistration,
-  getCompletedTournaments,
-  getOpenTournaments,
+  getVisibleCompletedTournamentsForPlayer,
+  getVisibleOpenTournamentsForPlayer,
   getPlayerRegistrations,
   getTournamentRegistrationCounts,
   registerPlayerForTournament,
 } from "@/features/tournaments";
 import { supabase } from "@/lib/supabase";
 import { getTelegramUser } from "@/lib/telegram";
-import type { RegistrationStatus, Tournament } from "@/types/domain";
+import type { Player, RegistrationStatus, Tournament } from "@/types/domain";
 
 type TabKey = "active" | "completed";
 
@@ -86,6 +86,7 @@ function formatTournamentDate(date: string) {
 
 export default function TournamentsPage() {
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [player, setPlayer] = useState<Player | null>(null);
   const [openTournaments, setOpenTournaments] = useState<Tournament[]>([]);
   const [completedTournaments, setCompletedTournaments] = useState<Tournament[]>(
     []
@@ -115,13 +116,13 @@ export default function TournamentsPage() {
   }, [promotionToast]);
 
   async function refreshPageData(
-    currentPlayerId: string,
+    currentPlayer: Player,
     options?: { showPromotionToast?: boolean }
   ) {
     const [openData, completedData, registrations, counts] = await Promise.all([
-      getOpenTournaments(),
-      getCompletedTournaments(),
-      getPlayerRegistrations(currentPlayerId),
+      getVisibleOpenTournamentsForPlayer(currentPlayer),
+      getVisibleCompletedTournamentsForPlayer(currentPlayer),
+      getPlayerRegistrations(currentPlayer.id),
       getTournamentRegistrationCounts(),
     ]);
 
@@ -174,10 +175,11 @@ export default function TournamentsPage() {
           throw new Error("Telegram user not found");
         }
 
-        const player = await ensurePlayerFromTelegramUser(telegramUser);
-        setPlayerId(player.id);
+        const currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        setPlayer(currentPlayer);
+        setPlayerId(currentPlayer.id);
 
-        await refreshPageData(player.id, { showPromotionToast: false });
+        await refreshPageData(currentPlayer, { showPromotionToast: false });
       } catch (err) {
         const nextError =
           err instanceof Error ? err.message : "Ошибка загрузки турниров";
@@ -191,7 +193,7 @@ export default function TournamentsPage() {
   }, []);
 
   useEffect(() => {
-    if (!playerId) return;
+    if (!playerId || !player) return;
 
     const registrationsChannel = supabase
       .channel(`registrations-realtime-${playerId}`)
@@ -204,7 +206,7 @@ export default function TournamentsPage() {
         },
         async () => {
           try {
-            await refreshPageData(playerId, { showPromotionToast: true });
+            await refreshPageData(player, { showPromotionToast: true });
           } catch (err) {
             console.error("Registrations realtime refresh error:", err);
           }
@@ -223,7 +225,7 @@ export default function TournamentsPage() {
         },
         async () => {
           try {
-            await refreshPageData(playerId, { showPromotionToast: false });
+            await refreshPageData(player, { showPromotionToast: false });
           } catch (err) {
             console.error("Tournaments realtime refresh error:", err);
           }
@@ -235,7 +237,7 @@ export default function TournamentsPage() {
       supabase.removeChannel(registrationsChannel);
       supabase.removeChannel(tournamentsChannel);
     };
-  }, [playerId]);
+  }, [player, playerId]);
 
   async function handleRegister(tournamentId: string) {
     if (!playerId) return;

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import {
-  getTournamentById,
+  getVisibleTournamentByIdForPlayer,
   getTournamentParticipants,
   getTournamentResults,
   getPlayerRegistrations,
@@ -16,6 +16,7 @@ import {
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
 import { getTelegramUser } from "@/lib/telegram";
 import type {
+  Player,
   RegistrationStatus,
   Tournament,
   TournamentParticipant,
@@ -194,7 +195,7 @@ export default function TournamentDetailsPage() {
   const router = useRouter();
   const tournamentId = params?.id;
 
-  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [player, setPlayer] = useState<Player | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
   const [results, setResults] = useState<TournamentResult[]>([]);
@@ -228,11 +229,11 @@ const waitlistParticipants = participants.filter(
     router.push("/tournaments");
   }
 
-  async function refreshPageData(currentPlayerId: string, currentTournamentId: string) {
+  async function refreshPageData(currentPlayer: Player, currentTournamentId: string) {
     const [tournamentData, participantsData, registrations, counts] = await Promise.all([
-      getTournamentById(currentTournamentId),
+      getVisibleTournamentByIdForPlayer(currentTournamentId, currentPlayer),
       getTournamentParticipants(currentTournamentId),
-      getPlayerRegistrations(currentPlayerId),
+      getPlayerRegistrations(currentPlayer.id),
       getTournamentRegistrationCounts(),
     ]);
 
@@ -265,10 +266,10 @@ const waitlistParticipants = participants.filter(
           throw new Error("Telegram user not found");
         }
 
-        const player = await ensurePlayerFromTelegramUser(telegramUser);
-        setPlayerId(player.id);
+        const currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        setPlayer(currentPlayer);
 
-        await refreshPageData(player.id, tournamentId);
+        await refreshPageData(currentPlayer, tournamentId);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Unknown tournament details error";
@@ -282,13 +283,13 @@ const waitlistParticipants = participants.filter(
   }, [tournamentId]);
 
   async function handleRegister() {
-    if (!playerId || !tournamentId) return;
+    if (!player?.id || !tournamentId) return;
 
     try {
       setActionLoading(true);
       setMessage(null);
 
-      const result = await registerPlayerForTournament(playerId, tournamentId);
+      const result = await registerPlayerForTournament(player.id, tournamentId);
 
       if (result.status === "registered") {
         setMessage("Вы записаны на турнир");
@@ -296,7 +297,7 @@ const waitlistParticipants = participants.filter(
         setMessage("Вы добавлены в список ожидания");
       }
 
-      await refreshPageData(playerId, tournamentId);
+      await refreshPageData(player, tournamentId);
     } catch (err) {
       setMessage("Ошибка записи");
     } finally {
@@ -305,13 +306,13 @@ const waitlistParticipants = participants.filter(
   }
 
   async function handleCancel() {
-    if (!playerId || !tournamentId) return;
+    if (!player?.id || !tournamentId) return;
 
     try {
       setActionLoading(true);
       setMessage(null);
 
-      await cancelPlayerRegistration(playerId, tournamentId);
+      await cancelPlayerRegistration(player.id, tournamentId);
 
       if (registrationStatus === "registered") {
         setMessage("Запись на турнир отменена");
@@ -319,7 +320,7 @@ const waitlistParticipants = participants.filter(
         setMessage("Вы вышли из списка ожидания");
       }
 
-      await refreshPageData(playerId, tournamentId);
+      await refreshPageData(player, tournamentId);
     } catch (err) {
       setMessage("Ошибка отмены записи");
     } finally {

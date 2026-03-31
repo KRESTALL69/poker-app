@@ -11,6 +11,7 @@ export type TournamentStatus =
   | "completed";
 
 export type PlayerRole = "player" | "admin";
+export type TournamentKind = "free" | "paid" | "cash";
 
 export type Player = {
   id: string;
@@ -26,6 +27,8 @@ export type Player = {
   profile_completed_at?: string;
   nickname_status?: "approved" | "pending";
   pending_display_name?: string;
+  can_access_paid?: boolean;
+  can_access_cash?: boolean;
   created_at: string;
 };
 
@@ -34,6 +37,7 @@ export type Tournament = {
   title: string;
   start_at: string;
   max_players: number;
+  kind: TournamentKind;
   season_id: string | null;
   status: TournamentStatus;
   created_at: string;
