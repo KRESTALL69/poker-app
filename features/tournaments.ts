@@ -557,6 +557,7 @@ export async function updateTournament(
     location: string;
     start_at: string;
     max_players: number;
+    kind: TournamentKind;
   }
 ) {
   const { data, error } = await supabase
@@ -567,6 +568,7 @@ export async function updateTournament(
       location: input.location,
       start_at: input.start_at,
       max_players: input.max_players,
+      kind: input.kind,
     })
     .eq("id", tournamentId)
     .select("*")

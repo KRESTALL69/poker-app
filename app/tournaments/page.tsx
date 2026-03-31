@@ -417,7 +417,7 @@ export default function TournamentsPage() {
 
         {showTournamentKindFilters ? (
           <div
-            className={`mt-3 grid gap-3 ${
+            className={`mt-2 grid gap-3 ${
               availableFilters.length === 2 ? "grid-cols-2" : "grid-cols-3"
             }`}
           >
@@ -443,7 +443,7 @@ export default function TournamentsPage() {
         ) : null}
 
         {activeTab === "active" ? (
-          <section className="mt-6">
+          <section className="mt-5">
             {filteredOpenTournaments.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 text-sm text-white/60">
                 Сейчас нет турниров в этом разделе
@@ -489,7 +489,7 @@ export default function TournamentsPage() {
             )}
           </section>
         ) : (
-          <section className="mt-6">
+          <section className="mt-5">
             {filteredCompletedTournaments.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 text-sm text-white/60">
                 Пока нет турниров в этом разделе

@@ -17,6 +17,18 @@ function formatDateTimeWithoutSeconds(date: string) {
   });
 }
 
+function getTournamentKindLabel(kind: Tournament["kind"]) {
+  if (kind === "paid") {
+    return "Платный";
+  }
+
+  if (kind === "cash") {
+    return "Кэш";
+  }
+
+  return "Бесплатный";
+}
+
 export default function AdminTournamentsPage() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [accessChecked, setAccessChecked] = useState(false);
@@ -196,7 +208,12 @@ export default function AdminTournamentsPage() {
                 key={tournament.id}
                 className="rounded-xl border border-white/10 bg-white/5 p-4"
               >
-                <p className="text-lg font-semibold">{tournament.title}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-lg font-semibold">{tournament.title}</p>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+                    {getTournamentKindLabel(tournament.kind)}
+                  </span>
+                </div>
 
                 <p className="mt-2 text-sm text-white/60">
                   {formatDateTimeWithoutSeconds(tournament.start_at)}

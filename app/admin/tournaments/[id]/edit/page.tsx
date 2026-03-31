@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import { getTournamentById, updateTournament } from "@/features/tournaments";
 import { getTelegramUser } from "@/lib/telegram";
-import type { Player } from "@/types/domain";
+import type { Player, TournamentKind } from "@/types/domain";
 
 function toDateTimeLocalValue(value: string): string {
   const date = new Date(value);
@@ -38,6 +38,7 @@ export default function AdminTournamentEditPage() {
   const [location, setLocation] = useState("");
   const [startAt, setStartAt] = useState("");
   const [maxPlayers, setMaxPlayers] = useState("20");
+  const [kind, setKind] = useState<TournamentKind>("free");
 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,7 @@ export default function AdminTournamentEditPage() {
         setLocation(tournament.location ?? "");
         setStartAt(toDateTimeLocalValue(tournament.start_at));
         setMaxPlayers(String(tournament.max_players));
+        setKind(tournament.kind);
       } catch (err) {
         const nextMessage =
           err instanceof Error ? err.message : "Ошибка загрузки турнира";
@@ -123,6 +125,7 @@ export default function AdminTournamentEditPage() {
         location: location.trim(),
         start_at: new Date(startAt).toISOString(),
         max_players: Number(maxPlayers),
+        kind,
       });
 
       setMessage("Турнир обновлен");
@@ -230,6 +233,17 @@ export default function AdminTournamentEditPage() {
             onChange={(e) => setStartAt(e.target.value)}
             className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
           />
+
+          <label className="mt-4 block text-sm text-white/80">Тип турнира</label>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as TournamentKind)}
+            className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+          >
+            <option value="free">Бесплатный турнир</option>
+            <option value="paid">Платный турнир</option>
+            <option value="cash">Кэш-игра</option>
+          </select>
 
           <label className="mt-4 block text-sm text-white/80">Кол-во мест</label>
           <input
