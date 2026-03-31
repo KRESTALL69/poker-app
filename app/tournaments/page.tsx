@@ -14,9 +14,15 @@ import {
 } from "@/features/tournaments";
 import { supabase } from "@/lib/supabase";
 import { getTelegramUser } from "@/lib/telegram";
-import type { Player, RegistrationStatus, Tournament } from "@/types/domain";
+import type {
+  Player,
+  RegistrationStatus,
+  Tournament,
+  TournamentKind,
+} from "@/types/domain";
 
 type TabKey = "active" | "completed";
+type TournamentFilterKey = TournamentKind;
 
 function ArrowUpRightIcon() {
   return (
@@ -102,8 +108,21 @@ export default function TournamentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [promotionToast, setPromotionToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("active");
+  const [activeFilter, setActiveFilter] = useState<TournamentFilterKey>("free");
 
   const registrationsRef = useRef<Record<string, RegistrationStatus>>({});
+  const availableFilters: TournamentFilterKey[] = [
+    "free",
+    ...(player?.can_access_paid ? (["paid"] as TournamentFilterKey[]) : []),
+    ...(player?.can_access_cash ? (["cash"] as TournamentFilterKey[]) : []),
+  ];
+  const showTournamentKindFilters = availableFilters.length > 1;
+  const filteredOpenTournaments = openTournaments.filter(
+    (tournament) => tournament.kind === activeFilter
+  );
+  const filteredCompletedTournaments = completedTournaments.filter(
+    (tournament) => tournament.kind === activeFilter
+  );
 
   useEffect(() => {
     if (!promotionToast) return;
@@ -114,6 +133,12 @@ export default function TournamentsPage() {
 
     return () => clearTimeout(timeout);
   }, [promotionToast]);
+
+  useEffect(() => {
+    if (!availableFilters.includes(activeFilter)) {
+      setActiveFilter("free");
+    }
+  }, [activeFilter, availableFilters]);
 
   async function refreshPageData(
     currentPlayer: Player,
@@ -390,15 +415,38 @@ export default function TournamentsPage() {
           </button>
         </div>
 
+        {showTournamentKindFilters ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {availableFilters.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setActiveFilter(filter)}
+                className={`rounded-full border px-4 py-2.5 text-sm font-medium transition ${
+                  activeFilter === filter
+                    ? "border-white/15 bg-white/[0.08] text-white"
+                    : "border-white/10 bg-transparent text-white/60"
+                }`}
+              >
+                {filter === "free"
+                  ? "Бесплатные"
+                  : filter === "paid"
+                    ? "Платные"
+                    : "Кэш-игра"}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {activeTab === "active" ? (
           <section className="mt-6">
-            {openTournaments.length === 0 ? (
+            {filteredOpenTournaments.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 text-sm text-white/60">
-                Сейчас нет открытых турниров
+                Сейчас нет турниров в этом разделе
               </div>
             ) : (
               <div className="space-y-4">
-                {openTournaments.map((tournament) => {
+                {filteredOpenTournaments.map((tournament) => {
                   const registeredCount = registrationCounts[tournament.id] ?? 0;
 
                   return (
@@ -438,13 +486,13 @@ export default function TournamentsPage() {
           </section>
         ) : (
           <section className="mt-6">
-            {completedTournaments.length === 0 ? (
+            {filteredCompletedTournaments.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 text-sm text-white/60">
-                Пока нет завершённых турниров
+                Пока нет турниров в этом разделе
               </div>
             ) : (
               <div className="space-y-4">
-                {completedTournaments.map((tournament) => (
+                {filteredCompletedTournaments.map((tournament) => (
                   <Link
                     key={tournament.id}
                     href={`/tournaments/${tournament.id}`}
