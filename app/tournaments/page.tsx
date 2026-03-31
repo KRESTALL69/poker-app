@@ -416,13 +416,17 @@ export default function TournamentsPage() {
         </div>
 
         {showTournamentKindFilters ? (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div
+            className={`mt-3 grid gap-3 ${
+              availableFilters.length === 2 ? "grid-cols-2" : "grid-cols-3"
+            }`}
+          >
             {availableFilters.map((filter) => (
               <button
                 key={filter}
                 type="button"
                 onClick={() => setActiveFilter(filter)}
-                className={`rounded-full border px-4 py-2.5 text-sm font-medium transition ${
+                className={`rounded-full border px-4 py-3 text-sm font-medium transition ${
                   activeFilter === filter
                     ? "border-white/15 bg-white/[0.08] text-white"
                     : "border-white/10 bg-transparent text-white/60"

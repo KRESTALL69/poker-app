@@ -17,9 +17,27 @@ export default function AdminPlayerAccessPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [accessChecked, setAccessChecked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [processingKey, setProcessingKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const filteredPlayers = players.filter((targetPlayer) => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    const username = (targetPlayer.username ?? "").toLowerCase();
+    const displayName = targetPlayer.display_name.toLowerCase();
+    const telegramId = String(targetPlayer.telegram_id);
+
+    return (
+      username.includes(query) ||
+      displayName.includes(query) ||
+      telegramId.includes(query)
+    );
+  });
 
   async function loadPlayers() {
     const nextPlayers = await getPlayersForAccessManagement();
@@ -133,6 +151,14 @@ export default function AdminPlayerAccessPage() {
           Выдача доступа к платным турнирам и кэш-играм
         </p>
 
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Поиск по нику или Telegram ID"
+          className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
+        />
+
         {message ? (
           <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-200">
             {message}
@@ -149,9 +175,13 @@ export default function AdminPlayerAccessPage() {
           <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
             Игроки пока не найдены.
           </div>
+        ) : filteredPlayers.length === 0 ? (
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+            По вашему запросу никто не найден.
+          </div>
         ) : (
-          <div className="mt-6 space-y-4">
-            {players.map((targetPlayer) => {
+          <div className="mt-6 space-y-3">
+            {filteredPlayers.map((targetPlayer) => {
               const paidProcessing = processingKey === `${targetPlayer.id}-paid`;
               const cashProcessing = processingKey === `${targetPlayer.id}-cash`;
 
@@ -160,57 +190,53 @@ export default function AdminPlayerAccessPage() {
                   key={targetPlayer.id}
                   className="rounded-xl border border-white/10 bg-white/5 p-4"
                 >
-                  <div className="space-y-2">
-                    <p className="text-lg font-semibold">
-                      {targetPlayer.username
-                        ? `@${targetPlayer.username}`
-                        : targetPlayer.display_name}
-                    </p>
-                    <p className="text-sm text-white/60">
-                      Ник: {targetPlayer.display_name}
-                    </p>
-                    <p className="text-sm text-white/60">
-                      Telegram ID: {targetPlayer.telegram_id}
-                    </p>
-                    <p className="text-sm text-white/60">
-                      Роль: {targetPlayer.role === "admin" ? "Администратор" : "Игрок"}
-                    </p>
-                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold text-white">
+                        {targetPlayer.username
+                          ? `@${targetPlayer.username}`
+                          : targetPlayer.display_name}
+                      </p>
+                      <p className="mt-1 text-xs text-white/55">
+                        Telegram ID: {targetPlayer.telegram_id}
+                      </p>
+                    </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAccess(targetPlayer, "paid")}
-                      disabled={paidProcessing}
-                      className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
-                        targetPlayer.can_access_paid
-                          ? "bg-green-600 text-white"
-                          : "border border-white/10 text-white"
-                      }`}
-                    >
-                      {paidProcessing
-                        ? "Обрабатываем..."
-                        : targetPlayer.can_access_paid
-                          ? "Платные: доступ выдан"
-                          : "Платные: выдать доступ"}
-                    </button>
+                    <div className="grid grid-cols-1 gap-2 sm:min-w-[320px] sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAccess(targetPlayer, "paid")}
+                        disabled={paidProcessing}
+                        className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
+                          targetPlayer.can_access_paid
+                            ? "bg-green-600 text-white"
+                            : "border border-white/10 text-white"
+                        }`}
+                      >
+                        {paidProcessing
+                          ? "Обрабатываем..."
+                          : targetPlayer.can_access_paid
+                            ? "Платные: выдан"
+                            : "Платные: выдать"}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAccess(targetPlayer, "cash")}
-                      disabled={cashProcessing}
-                      className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
-                        targetPlayer.can_access_cash
-                          ? "bg-green-600 text-white"
-                          : "border border-white/10 text-white"
-                      }`}
-                    >
-                      {cashProcessing
-                        ? "Обрабатываем..."
-                        : targetPlayer.can_access_cash
-                          ? "Кэш-игра: доступ выдан"
-                          : "Кэш-игра: выдать доступ"}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAccess(targetPlayer, "cash")}
+                        disabled={cashProcessing}
+                        className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
+                          targetPlayer.can_access_cash
+                            ? "bg-green-600 text-white"
+                            : "border border-white/10 text-white"
+                        }`}
+                      >
+                        {cashProcessing
+                          ? "Обрабатываем..."
+                          : targetPlayer.can_access_cash
+                            ? "Кэш: выдан"
+                            : "Кэш: выдать"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
