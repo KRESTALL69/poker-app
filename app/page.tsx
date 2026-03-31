@@ -672,7 +672,7 @@ export default function HomePage() {
         <header className="mb-8">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-white/40">
-              Игровое пространство RERAISE
+              Игровое пространство DWC
             </p>
             <div className="mt-3 flex items-center justify-between gap-4">
               <h1 className="text-4xl font-bold tracking-tight">Главная</h1>
@@ -700,7 +700,7 @@ export default function HomePage() {
 
             <p className="mt-4 text-sm text-white/75">Привет, {greetingName}</p>
             <p className="mt-1 text-xs text-white/45">
-              Добро пожаловать в ReRaise
+              Добро пожаловать в Don't worry club
             </p>
           </div>
         </header>
