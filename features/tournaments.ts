@@ -439,7 +439,7 @@ export async function createTournament(input: {
     .single();
 
   if (activeSeasonError) {
-    throw new Error("РђРєС‚РёРІРЅС‹Р№ СЃРµР·РѕРЅ РЅРµ РЅР°Р№РґРµРЅ");
+    throw new Error("Активный сезон не найден");
   }
 
   const { data, error } = await supabase
@@ -563,7 +563,7 @@ export async function getTournamentParticipants(
       username: player?.username ?? null,
       telegram_avatar_url: player?.telegram_avatar_url ?? undefined,
       custom_avatar_url: player?.custom_avatar_url ?? undefined,
-      display_name: player?.display_name ?? "РРіСЂРѕРє",
+      display_name: player?.display_name ?? "Игрок",
       rating: ratingsMap.get(row.player_id) ?? 0,
     };
   });
@@ -599,7 +599,7 @@ export async function getTournamentResultsDraft(tournamentId: string) {
       registration_id: row.id,
       player_id: row.player_id,
       username: player?.username ?? null,
-      display_name: player?.display_name ?? "РРіСЂРѕРє",
+      display_name: player?.display_name ?? "Игрок",
       status: row.status as "registered" | "attended",
     };
   });
@@ -708,7 +708,7 @@ export async function getTournamentResults(
       reentries: row.reentries,
       rating_points: row.rating_points,
       username: player?.username ?? null,
-      display_name: player?.display_name ?? "РРіСЂРѕРє",
+      display_name: player?.display_name ?? "Игрок",
     };
   });
 }
@@ -757,7 +757,7 @@ export async function getSeasonLeaderboard(seasonId: string) {
       leaderboardMap.set(row.player_id, {
         player_id: row.player_id,
         username: player?.username ?? null,
-        display_name: player?.display_name ?? "РРіСЂРѕРє",
+        display_name: player?.display_name ?? "Игрок",
         telegram_avatar_url: player?.telegram_avatar_url ?? null,
         custom_avatar_url: player?.custom_avatar_url ?? null,
         rating: row.rating_points ?? 0,
@@ -777,7 +777,7 @@ export async function getActiveSeason() {
     .single();
 
   if (error) {
-    throw new Error("РђРєС‚РёРІРЅС‹Р№ СЃРµР·РѕРЅ РЅРµ РЅР°Р№РґРµРЅ");
+    throw new Error("Активный сезон не найден");
   }
 
   return data;

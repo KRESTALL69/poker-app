@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     const chatId = message?.chat?.id;
     const text = message?.text?.trim();
 
-    if (chatId && text === "/start") {
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    if (chatId && text?.startsWith("/start")) {
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -50,6 +50,11 @@ export async function POST(request: Request) {
           },
         }),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Telegram sendMessage failed: ${errorText}`);
+      }
     }
 
     return NextResponse.json({ ok: true });
