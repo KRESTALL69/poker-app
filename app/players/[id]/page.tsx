@@ -270,7 +270,7 @@ export default function PlayerProfilePage() {
     (completedAchievementsCount / 5) * 100
   );
   const showTournamentKindTags = Boolean(
-    player.can_access_paid || player.can_access_cash
+    player?.can_access_paid || player?.can_access_cash
   );
 
   function getStatusText(status: RegistrationStatus) {
