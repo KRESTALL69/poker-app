@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const WEB_APP_URL = "https://reraise-miniapp.vercel.app";
+const WEB_APP_URL = "https://poker-app-psi-livid.vercel.app/";
 
 type TelegramWebhookUpdate = {
   message?: {

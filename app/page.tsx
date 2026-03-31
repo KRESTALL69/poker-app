@@ -521,7 +521,7 @@ export default function HomePage() {
         <div className="mx-auto flex h-full max-w-md flex-col gap-4">
           <div className="terms-card rounded-[28px] p-5">
             <p className="text-xs uppercase tracking-[0.28em] text-yellow-300/80">
-              Игровое пространство RERAISE
+              Игровое пространство DWC
             </p>
             <h1 className="mt-3 text-3xl font-bold leading-tight">
               Пользовательское соглашение
