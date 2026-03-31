@@ -551,8 +551,6 @@ export default function HomePage() {
                   const isSubtitle = line.startsWith("(") && line.endsWith(")");
                   const isSectionTitle =
                     !/^\d+\.\d+\./.test(line) &&
-                    !line.includes("вЂ”") &&
-                    !line.includes("вЂ“") &&
                     line.length < 40;
                   const isListLead = /:\s*$/.test(line);
 
