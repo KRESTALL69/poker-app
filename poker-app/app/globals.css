@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+:root {
+  --font-ui: Arial, Helvetica, sans-serif;
+  --terms-surface: rgba(255, 255, 255, 0.06);
+  --terms-border: rgba(255, 255, 255, 0.12);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0a0a0a;
+  color: white;
+  font-family: var(--font-ui);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.terms-modal {
+  background:
+    radial-gradient(circle at top, rgba(245, 196, 81, 0.22), transparent 36%),
+    linear-gradient(180deg, #120f0c 0%, #050505 100%);
+}
+
+.terms-card {
+  border: 1px solid var(--terms-border);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.04)
+  );
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+
+.terms-copy {
+  border: 1px solid var(--terms-border);
+  background: var(--terms-surface);
+}
+
+.terms-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.25rem 0 0;
+}
+
+.terms-scroll-chip {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+  color: rgba(16, 16, 16, 0.82);
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  min-width: 3rem;
+  min-height: 3rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+  opacity: 0.92;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -1.5rem;
+}
+
+.terms-scroll-chip:active {
+  transform: scale(0.98);
+}
+
+.terms-text {
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+}
+
+.terms-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.terms-gap {
+  height: 0.35rem;
+}
+
+.terms-divider {
+  margin: 0.2rem 0 0.35rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terms-main-title {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.terms-subtitle {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.terms-section-title {
+  margin: 0.55rem 0 0.1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+
+.terms-paragraph {
+  margin: 0;
+  line-height: 1.58;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.terms-lead {
+  margin-top: 0.15rem;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+/* Telegram Mini App safe area fix */
+
+.telegram-app-body {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 44px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* старые iOS */
+@supports (padding-top: constant(safe-area-inset-top)) {
+  .telegram-app-body {
+    padding-top: calc(constant(safe-area-inset-top) + 44px);
+    padding-bottom: constant(safe-area-inset-bottom);
+  }
+}
