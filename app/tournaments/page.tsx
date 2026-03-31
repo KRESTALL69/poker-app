@@ -90,6 +90,18 @@ function formatTournamentDate(date: string) {
   });
 }
 
+function getTournamentKindLabel(kind: Tournament["kind"]) {
+  if (kind === "paid") {
+    return "Платный";
+  }
+
+  if (kind === "cash") {
+    return "Кэш";
+  }
+
+  return "Бесплатный";
+}
+
 export default function TournamentsPage() {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
@@ -117,6 +129,7 @@ export default function TournamentsPage() {
     ...(player?.can_access_cash ? (["cash"] as TournamentFilterKey[]) : []),
   ];
   const showTournamentKindFilters = availableFilters.length > 1;
+  const showTournamentKindTags = showTournamentKindFilters;
   const filteredOpenTournaments = openTournaments.filter(
     (tournament) => tournament.kind === activeFilter
   );
@@ -460,7 +473,14 @@ export default function TournamentsPage() {
                       className="block rounded-3xl border border-white/10 bg-white/[0.05] p-5"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <h3 className="text-lg font-semibold">{tournament.title}</h3>
+                        <div className="min-w-0">
+                          <h3 className="text-lg font-semibold">{tournament.title}</h3>
+                          {showTournamentKindTags ? (
+                            <span className="mt-2 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/75">
+                              {getTournamentKindLabel(tournament.kind)}
+                            </span>
+                          ) : null}
+                        </div>
                         <div className="inline-flex items-center text-white/55">
                           <ArrowUpRightIcon />
                         </div>
@@ -503,7 +523,14 @@ export default function TournamentsPage() {
                     className="block rounded-3xl border border-white/10 bg-white/[0.05] p-5"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <h3 className="text-lg font-semibold">{tournament.title}</h3>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-semibold">{tournament.title}</h3>
+                        {showTournamentKindTags ? (
+                          <span className="mt-2 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/75">
+                            {getTournamentKindLabel(tournament.kind)}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="inline-flex items-center text-white/45">
                         <ArrowUpRightIcon />
                       </div>

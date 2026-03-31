@@ -25,6 +25,18 @@ import type {
 
 type TabKey = "about" | "participants" | "results";
 
+function getTournamentKindLabel(kind: Tournament["kind"]) {
+  if (kind === "paid") {
+    return "Платный";
+  }
+
+  if (kind === "cash") {
+    return "Кэш";
+  }
+
+  return "Бесплатный";
+}
+
 function CalendarIcon() {
   return (
     <svg
@@ -219,6 +231,9 @@ export default function TournamentDetailsPage() {
 const waitlistParticipants = participants.filter(
   (participant) => participant.status === "waitlist"
 );
+  const showTournamentKindTag = Boolean(
+    player?.can_access_paid || player?.can_access_cash
+  );
 
   function handleBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -419,7 +434,14 @@ const waitlistParticipants = participants.filter(
         </button>
 
         <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-red-900/60 to-black p-5">
-          <p className="text-sm text-white/60">Турнир</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-white/60">Турнир</p>
+            {showTournamentKindTag ? (
+              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] text-white/80">
+                {getTournamentKindLabel(tournament.kind)}
+              </span>
+            ) : null}
+          </div>
           <h1 className="mt-2 text-3xl font-black uppercase tracking-wide">
             {tournament.title}
           </h1>

@@ -23,6 +23,18 @@ import {
 import { TERMS_TEXT } from "@/config/terms";
 import type { Player, Tournament } from "@/types/domain";
 
+function getTournamentKindLabel(kind: Tournament["kind"]) {
+  if (kind === "paid") {
+    return "Платный";
+  }
+
+  if (kind === "cash") {
+    return "Кэш";
+  }
+
+  return "Бесплатный";
+}
+
 function TournamentIcon() {
   return (
     <svg
@@ -502,6 +514,9 @@ export default function HomePage() {
   const homeAvatarUrl =
     player?.custom_avatar_url ?? player?.telegram_avatar_url ?? null;
   const homeAvatarFallback = greetingName.trim()[0]?.toUpperCase() ?? "?";
+  const showTournamentKindTag = Boolean(
+    player?.can_access_paid || player?.can_access_cash
+  );
 
   if (initializing) {
     return (
@@ -736,9 +751,16 @@ export default function HomePage() {
                   href={`/tournaments/${nearestTournament.id}`}
                   className="block rounded-3xl border border-white/10 bg-gradient-to-br from-red-900/60 to-black p-5 transition active:scale-[0.99]"
                 >
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/45">
-                    Ближайший турнир
-                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/45">
+                      Ближайший турнир
+                    </p>
+                    {showTournamentKindTag ? (
+                      <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] text-white/80">
+                        {getTournamentKindLabel(nearestTournament.kind)}
+                      </span>
+                    ) : null}
+                  </div>
 
                   <h3 className="mt-3 text-3xl font-black uppercase leading-none tracking-wide">
                     {nearestTournament.title}
