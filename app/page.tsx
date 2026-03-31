@@ -749,14 +749,14 @@ export default function HomePage() {
               {nearestTournament ? (
                 <Link
                   href={`/tournaments/${nearestTournament.id}`}
-                  className="block rounded-3xl border border-white/10 bg-gradient-to-br from-red-900/60 to-black p-5 transition active:scale-[0.99]"
+                  className="block rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-700/45 to-black p-5 transition active:scale-[0.99]"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs uppercase tracking-[0.18em] text-white/45">
                       Ближайший турнир
                     </p>
                     {showTournamentKindTag ? (
-                      <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] text-white/80">
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/85">
                         {getTournamentKindLabel(nearestTournament.kind)}
                       </span>
                     ) : null}

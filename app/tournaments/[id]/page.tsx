@@ -433,11 +433,11 @@ const waitlistParticipants = participants.filter(
           ← Назад
         </button>
 
-        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-red-900/60 to-black p-5">
+        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-700/45 to-black p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-white/60">Турнир</p>
             {showTournamentKindTag ? (
-              <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] text-white/80">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/85">
                 {getTournamentKindLabel(tournament.kind)}
               </span>
             ) : null}

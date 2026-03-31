@@ -476,7 +476,7 @@ export default function TournamentsPage() {
                         <div className="min-w-0">
                           <h3 className="text-lg font-semibold">{tournament.title}</h3>
                           {showTournamentKindTags ? (
-                            <span className="mt-2 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/75">
+                            <span className="mt-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/80">
                               {getTournamentKindLabel(tournament.kind)}
                             </span>
                           ) : null}
@@ -526,7 +526,7 @@ export default function TournamentsPage() {
                       <div className="min-w-0">
                         <h3 className="text-lg font-semibold">{tournament.title}</h3>
                         {showTournamentKindTags ? (
-                          <span className="mt-2 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/75">
+                          <span className="mt-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/80">
                             {getTournamentKindLabel(tournament.kind)}
                           </span>
                         ) : null}
