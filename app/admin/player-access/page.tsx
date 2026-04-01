@@ -11,7 +11,7 @@ import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
 
 type AccessType = "free" | "paid" | "cash";
-type RightsFilter = "all" | "free-only" | "paid" | "cash" | "all-access";
+type RightsFilter = "free-only" | "paid" | "cash" | "all";
 
 function getRightsCount(targetPlayer: Player) {
   return (
@@ -21,13 +21,26 @@ function getRightsCount(targetPlayer: Player) {
   );
 }
 
+function getRightChipClassName(isEnabled: boolean) {
+  return isEnabled
+    ? "bg-green-500/15 text-green-200"
+    : "bg-white/5 text-white/40";
+}
+
+function getToggleButtonClassName(isEnabled: boolean) {
+  return isEnabled
+    ? "bg-green-600 text-white"
+    : "border border-white/10 text-white";
+}
+
 export default function AdminPlayerAccessPage() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [accessChecked, setAccessChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [rightsFilter, setRightsFilter] = useState<RightsFilter>("all");
+  const [rightsFilter, setRightsFilter] = useState<RightsFilter>("free-only");
+  const [stickyFreePlayerIds, setStickyFreePlayerIds] = useState<string[]>([]);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,9 +75,12 @@ export default function AdminPlayerAccessPage() {
     .filter((targetPlayer) => {
       if (rightsFilter === "free-only") {
         return (
-          Boolean(targetPlayer.can_access_free) &&
-          !targetPlayer.can_access_paid &&
-          !targetPlayer.can_access_cash
+          stickyFreePlayerIds.includes(targetPlayer.id) ||
+          (
+            Boolean(targetPlayer.can_access_free) &&
+            !targetPlayer.can_access_paid &&
+            !targetPlayer.can_access_cash
+          )
         );
       }
 
@@ -74,14 +90,6 @@ export default function AdminPlayerAccessPage() {
 
       if (rightsFilter === "cash") {
         return Boolean(targetPlayer.can_access_cash);
-      }
-
-      if (rightsFilter === "all-access") {
-        return (
-          Boolean(targetPlayer.can_access_free) &&
-          Boolean(targetPlayer.can_access_paid) &&
-          Boolean(targetPlayer.can_access_cash)
-        );
       }
 
       return true;
@@ -135,6 +143,14 @@ export default function AdminPlayerAccessPage() {
       setMessage(null);
       setError(null);
 
+      if (rightsFilter === "free-only") {
+        setStickyFreePlayerIds((currentIds) =>
+          currentIds.includes(targetPlayer.id)
+            ? currentIds
+            : [...currentIds, targetPlayer.id]
+        );
+      }
+
       await updatePlayerTournamentAccess(targetPlayer.id, {
         can_access_free:
           accessType === "free" ? nextValue : targetPlayer.can_access_free,
@@ -145,13 +161,21 @@ export default function AdminPlayerAccessPage() {
       });
 
       await loadPlayers();
-      setMessage("Доступ игрока обновлен");
+      setMessage("Права игрока обновлены");
     } catch (err) {
       const nextMessage =
-        err instanceof Error ? err.message : "Ошибка обновления доступа";
+        err instanceof Error ? err.message : "Ошибка обновления прав";
       setError(nextMessage);
     } finally {
       setProcessingKey(null);
+    }
+  }
+
+  function handleChangeFilter(nextFilter: RightsFilter) {
+    setRightsFilter(nextFilter);
+
+    if (nextFilter !== "free-only") {
+      setStickyFreePlayerIds([]);
     }
   }
 
@@ -199,7 +223,7 @@ export default function AdminPlayerAccessPage() {
 
         <h1 className="text-2xl font-bold">Доступы игроков</h1>
         <p className="mt-2 text-sm text-white/70">
-          Выдача доступа к бесплатным, платным турнирам и кэш-играм
+          Быстрая выдача прав игрокам. По умолчанию выше игроки с меньшим числом доступов.
         </p>
 
         <input
@@ -210,19 +234,18 @@ export default function AdminPlayerAccessPage() {
           className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
         />
 
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="mt-3 flex flex-wrap gap-2">
           {[
-            { key: "all", label: "Все" },
-            { key: "free-only", label: "Бесплатные" },
+            { key: "free-only", label: "Только free" },
             { key: "paid", label: "Платные" },
             { key: "cash", label: "Кэш" },
-            { key: "all-access", label: "Все права" },
+            { key: "all", label: "Все" },
           ].map((filterOption) => (
             <button
               key={filterOption.key}
               type="button"
-              onClick={() => setRightsFilter(filterOption.key as RightsFilter)}
-              className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+              onClick={() => handleChangeFilter(filterOption.key as RightsFilter)}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                 rightsFilter === filterOption.key
                   ? "bg-white/10 text-white"
                   : "border border-white/10 text-white/70"
@@ -275,58 +298,52 @@ export default function AdminPlayerAccessPage() {
                       <p className="mt-1 text-xs text-white/55">
                         Telegram ID: {targetPlayer.telegram_id}
                       </p>
+
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] ${getRightChipClassName(Boolean(targetPlayer.can_access_free))}`}
+                        >
+                          free
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] ${getRightChipClassName(Boolean(targetPlayer.can_access_paid))}`}
+                        >
+                          paid
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] ${getRightChipClassName(Boolean(targetPlayer.can_access_cash))}`}
+                        >
+                          cash
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2 sm:min-w-[480px] sm:grid-cols-3">
+                    <div className="grid grid-cols-3 gap-2 sm:min-w-[280px]">
                       <button
                         type="button"
                         onClick={() => handleToggleAccess(targetPlayer, "free")}
                         disabled={freeProcessing}
-                        className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
-                          targetPlayer.can_access_free
-                            ? "bg-green-600 text-white"
-                            : "border border-white/10 text-white"
-                        }`}
+                        className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${getToggleButtonClassName(Boolean(targetPlayer.can_access_free))}`}
                       >
-                        {freeProcessing
-                          ? "Обрабатываем..."
-                          : targetPlayer.can_access_free
-                            ? "Бесплатные: выдан"
-                            : "Бесплатные: выдать"}
+                        {freeProcessing ? "..." : "Free"}
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleToggleAccess(targetPlayer, "paid")}
                         disabled={paidProcessing}
-                        className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
-                          targetPlayer.can_access_paid
-                            ? "bg-green-600 text-white"
-                            : "border border-white/10 text-white"
-                        }`}
+                        className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${getToggleButtonClassName(Boolean(targetPlayer.can_access_paid))}`}
                       >
-                        {paidProcessing
-                          ? "Обрабатываем..."
-                          : targetPlayer.can_access_paid
-                            ? "Платные: выдан"
-                            : "Платные: выдать"}
+                        {paidProcessing ? "..." : "Paid"}
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleToggleAccess(targetPlayer, "cash")}
                         disabled={cashProcessing}
-                        className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
-                          targetPlayer.can_access_cash
-                            ? "bg-green-600 text-white"
-                            : "border border-white/10 text-white"
-                        }`}
+                        className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-60 ${getToggleButtonClassName(Boolean(targetPlayer.can_access_cash))}`}
                       >
-                        {cashProcessing
-                          ? "Обрабатываем..."
-                          : targetPlayer.can_access_cash
-                            ? "Кэш: выдан"
-                            : "Кэш: выдать"}
+                        {cashProcessing ? "..." : "Cash"}
                       </button>
                     </div>
                   </div>
