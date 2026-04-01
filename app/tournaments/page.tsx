@@ -124,7 +124,7 @@ export default function TournamentsPage() {
 
   const registrationsRef = useRef<Record<string, RegistrationStatus>>({});
   const availableFilters: TournamentFilterKey[] = [
-    "free",
+    ...(player?.can_access_free ?? true ? (["free"] as TournamentFilterKey[]) : []),
     ...(player?.can_access_paid ? (["paid"] as TournamentFilterKey[]) : []),
     ...(player?.can_access_cash ? (["cash"] as TournamentFilterKey[]) : []),
   ];
@@ -149,7 +149,7 @@ export default function TournamentsPage() {
 
   useEffect(() => {
     if (!availableFilters.includes(activeFilter)) {
-      setActiveFilter("free");
+      setActiveFilter(availableFilters[0] ?? "free");
     }
   }, [activeFilter, availableFilters]);
 

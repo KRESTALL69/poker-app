@@ -18,6 +18,7 @@ function mapPlayerRowToDomain(row: PlayerRow): Player {
     profile_completed_at: row.profile_completed_at ?? undefined,
     nickname_status: (row.nickname_status as "approved" | "pending") ?? undefined,
     pending_display_name: row.pending_display_name ?? undefined,
+    can_access_free: row.can_access_free,
     can_access_paid: row.can_access_paid,
     can_access_cash: row.can_access_cash,
     created_at: row.created_at,

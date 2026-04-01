@@ -17,6 +17,7 @@ function mapPlayerRowToDomain(row: PlayerRow): Player {
     profile_completed_at: row.profile_completed_at ?? undefined,
     nickname_status: (row.nickname_status as "approved" | "pending") ?? undefined,
     pending_display_name: row.pending_display_name ?? undefined,
+    can_access_free: row.can_access_free,
     can_access_paid: row.can_access_paid,
     can_access_cash: row.can_access_cash,
     created_at: row.created_at,
@@ -39,14 +40,20 @@ export async function getPlayersForAccessManagement(): Promise<Player[]> {
 export async function updatePlayerTournamentAccess(
   playerId: string,
   input: {
+    can_access_free?: boolean;
     can_access_paid?: boolean;
     can_access_cash?: boolean;
   }
 ): Promise<Player> {
   const payload: {
+    can_access_free?: boolean;
     can_access_paid?: boolean;
     can_access_cash?: boolean;
   } = {};
+
+  if (typeof input.can_access_free === "boolean") {
+    payload.can_access_free = input.can_access_free;
+  }
 
   if (typeof input.can_access_paid === "boolean") {
     payload.can_access_paid = input.can_access_paid;

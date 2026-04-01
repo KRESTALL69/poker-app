@@ -12,6 +12,7 @@ export type PlayerRow = {
   profile_completed_at: string | null;
   nickname_status: string;
   pending_display_name: string | null;
+  can_access_free: boolean;
   can_access_paid: boolean;
   can_access_cash: boolean;
   created_at: string;

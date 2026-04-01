@@ -60,10 +60,15 @@ async function getTournamentsByIds(tournamentIds: string[]) {
 }
 
 function getAllowedTournamentKinds(player: {
+  can_access_free?: boolean;
   can_access_paid?: boolean;
   can_access_cash?: boolean;
 }): TournamentKind[] {
-  const allowedKinds: TournamentKind[] = ["free"];
+  const allowedKinds: TournamentKind[] = [];
+
+  if (player.can_access_free ?? true) {
+    allowedKinds.push("free");
+  }
 
   if (player.can_access_paid) {
     allowedKinds.push("paid");
@@ -91,6 +96,7 @@ export async function getOpenTournaments() {
 }
 
 export async function getVisibleOpenTournamentsForPlayer(player: {
+  can_access_free?: boolean;
   can_access_paid?: boolean;
   can_access_cash?: boolean;
 }) {
@@ -123,6 +129,7 @@ export async function getCompletedTournaments() {
 }
 
 export async function getVisibleCompletedTournamentsForPlayer(player: {
+  can_access_free?: boolean;
   can_access_paid?: boolean;
   can_access_cash?: boolean;
 }) {
@@ -157,6 +164,7 @@ export async function getTournamentById(tournamentId: string) {
 export async function getVisibleTournamentByIdForPlayer(
   tournamentId: string,
   player: {
+    can_access_free?: boolean;
     can_access_paid?: boolean;
     can_access_cash?: boolean;
   }
@@ -230,7 +238,7 @@ export async function registerPlayerForTournament(
 
   const { data: playerData, error: playerError } = await supabase
     .from("players")
-    .select("can_access_paid, can_access_cash")
+    .select("can_access_free, can_access_paid, can_access_cash")
     .eq("id", playerId)
     .single();
 
@@ -239,6 +247,7 @@ export async function registerPlayerForTournament(
   }
 
   const tournament = await getVisibleTournamentByIdForPlayer(tournamentId, {
+    can_access_free: playerData.can_access_free,
     can_access_paid: playerData.can_access_paid,
     can_access_cash: playerData.can_access_cash,
   });
