@@ -21,6 +21,15 @@ const TOURNAMENT_NOTIFICATION_STATUSES: RegistrationStatus[] = [
   "attended",
 ];
 
+export type TournamentNotificationAudience = "registered" | "access";
+
+export type TournamentNotificationRecipient = {
+  player_id: string;
+  telegram_id: number;
+  display_name: string;
+  registration_status: RegistrationStatus | null;
+};
+
 function mapTournamentRow(row: TournamentRow): Tournament {
   return {
     id: row.id,
@@ -811,15 +820,7 @@ export async function getTournamentNotificationRecipients(tournamentId: string) 
     throw new Error(error.message);
   }
 
-  const recipientsMap = new Map<
-    number,
-    {
-      player_id: string;
-      telegram_id: number;
-      display_name: string;
-      registration_status: RegistrationStatus;
-    }
-  >();
+  const recipientsMap = new Map<number, TournamentNotificationRecipient>();
 
   for (const row of data ?? []) {
     const player = Array.isArray((row as any).players)
@@ -843,6 +844,59 @@ export async function getTournamentNotificationRecipients(tournamentId: string) 
   }
 
   return Array.from(recipientsMap.values());
+}
+
+export async function getTournamentAccessRecipientsByKind(
+  kind: TournamentKind
+) {
+  const accessColumn =
+    kind === "paid"
+      ? "can_access_paid"
+      : kind === "cash"
+        ? "can_access_cash"
+        : "can_access_free";
+
+  const { data, error } = await supabase
+    .from("players")
+    .select("id, telegram_id, display_name")
+    .eq(accessColumn, true);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const recipientsMap = new Map<number, TournamentNotificationRecipient>();
+
+  for (const row of data ?? []) {
+    const telegramId = (row as any).telegram_id;
+
+    if (typeof telegramId !== "number") {
+      continue;
+    }
+
+    if (!recipientsMap.has(telegramId)) {
+      recipientsMap.set(telegramId, {
+        player_id: (row as any).id,
+        telegram_id: telegramId,
+        display_name: (row as any).display_name ?? "Игрок",
+        registration_status: null,
+      });
+    }
+  }
+
+  return Array.from(recipientsMap.values());
+}
+
+export async function getTournamentNotificationRecipientsByAudience(input: {
+  tournamentId: string;
+  tournamentKind: TournamentKind;
+  audience: TournamentNotificationAudience;
+}) {
+  if (input.audience === "access") {
+    return getTournamentAccessRecipientsByKind(input.tournamentKind);
+  }
+
+  return getTournamentNotificationRecipients(input.tournamentId);
 }
 
 export async function getTournamentResults(
