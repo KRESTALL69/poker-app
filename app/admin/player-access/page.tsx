@@ -41,6 +41,10 @@ export default function AdminPlayerAccessPage() {
 
   const filteredPlayers = [...players]
     .sort((a, b) => {
+      if (rightsFilter === "free-only") {
+        return 0;
+      }
+
       const rightsDiff = getRightsCount(a) - getRightsCount(b);
 
       if (rightsDiff !== 0) {
