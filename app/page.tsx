@@ -195,6 +195,14 @@ export default function HomePage() {
   );
   const [nearestTournamentRegisteredCount, setNearestTournamentRegisteredCount] =
     useState(0);
+  const [nearestPaidTournament, setNearestPaidTournament] =
+    useState<Tournament | null>(null);
+  const [nearestPaidTournamentRegisteredCount, setNearestPaidTournamentRegisteredCount] =
+    useState(0);
+  const [nearestCashTournament, setNearestCashTournament] =
+    useState<Tournament | null>(null);
+  const [nearestCashTournamentRegisteredCount, setNearestCashTournamentRegisteredCount] =
+    useState(0);
 
   const [initializing, setInitializing] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
@@ -311,10 +319,25 @@ export default function HomePage() {
         }
       }
 
+    const nextNearestFreeTournament =
+      tournaments.find((tournament) => tournament.kind === "free") ?? null;
+    const nextNearestPaidTournament =
+      tournaments.find((tournament) => tournament.kind === "paid") ?? null;
+    const nextNearestCashTournament =
+      tournaments.find((tournament) => tournament.kind === "cash") ?? null;
+
     registrationsRef.current = nextMap;
-    setNearestTournament(tournaments[0] ?? null);
+    setNearestTournament(nextNearestFreeTournament);
     setNearestTournamentRegisteredCount(
-      tournaments[0] ? (counts[tournaments[0].id] ?? 0) : 0
+      nextNearestFreeTournament ? (counts[nextNearestFreeTournament.id] ?? 0) : 0
+    );
+    setNearestPaidTournament(nextNearestPaidTournament);
+    setNearestPaidTournamentRegisteredCount(
+      nextNearestPaidTournament ? (counts[nextNearestPaidTournament.id] ?? 0) : 0
+    );
+    setNearestCashTournament(nextNearestCashTournament);
+    setNearestCashTournamentRegisteredCount(
+      nextNearestCashTournament ? (counts[nextNearestCashTournament.id] ?? 0) : 0
     );
   }
 
@@ -517,6 +540,55 @@ export default function HomePage() {
   const showTournamentKindTag = Boolean(
     player?.can_access_paid || player?.can_access_cash
   );
+  const showAnyTournamentCard = Boolean(
+    nearestTournament ||
+      (player?.can_access_paid && nearestPaidTournament) ||
+      (player?.can_access_cash && nearestCashTournament)
+  );
+
+  function renderTournamentCard(
+    tournament: Tournament,
+    registeredCount: number,
+    title: string,
+    gradientClassName: string
+  ) {
+    return (
+      <Link
+        href={`/tournaments/${tournament.id}`}
+        className={`block rounded-3xl border border-white/10 ${gradientClassName} p-5 transition active:scale-[0.99]`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-white/45">
+            {title}
+          </p>
+          {showTournamentKindTag ? (
+            <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/85">
+              {getTournamentKindLabel(tournament.kind)}
+            </span>
+          ) : null}
+        </div>
+
+        <h3 className="mt-3 text-3xl font-black uppercase leading-none tracking-wide">
+          {tournament.title}
+        </h3>
+
+        <div className="mt-5 flex flex-wrap gap-2 text-sm text-white/80">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2">
+            <CalendarIcon />
+            <span>{formatDateTimeWithoutSeconds(tournament.start_at)}</span>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2">
+            <UserIcon />
+            <span>
+              {registeredCount} / {tournament.max_players}
+            </span>
+          </div>
+        </div>
+
+        <p className="mt-4 text-sm text-white/55">Нажми, чтобы открыть турнир</p>
+      </Link>
+    );
+  }
 
   if (initializing) {
     return (
@@ -745,51 +817,39 @@ export default function HomePage() {
 
         {checkedTelegram && isInsideTelegram && !playerLoading && !playerError ? (
           <>
-            <section className="mt-6">
-              {nearestTournament ? (
-                <Link
-                  href={`/tournaments/${nearestTournament.id}`}
-                  className="block rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-700/45 to-black p-5 transition active:scale-[0.99]"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/45">
-                      Ближайший турнир
-                    </p>
-                    {showTournamentKindTag ? (
-                      <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/85">
-                        {getTournamentKindLabel(nearestTournament.kind)}
-                      </span>
-                    ) : null}
-                  </div>
+            <section className="mt-6 space-y-4">
+              {nearestTournament
+                ? renderTournamentCard(
+                    nearestTournament,
+                    nearestTournamentRegisteredCount,
+                    "Ближайший турнир",
+                    "bg-gradient-to-br from-emerald-700/45 to-black"
+                  )
+                : null}
 
-                  <h3 className="mt-3 text-3xl font-black uppercase leading-none tracking-wide">
-                    {nearestTournament.title}
-                  </h3>
+              {player?.can_access_paid && nearestPaidTournament
+                ? renderTournamentCard(
+                    nearestPaidTournament,
+                    nearestPaidTournamentRegisteredCount,
+                    "Ближайший платный",
+                    "bg-gradient-to-br from-amber-700/35 to-black"
+                  )
+                : null}
 
-                  <div className="mt-5 flex flex-wrap gap-2 text-sm text-white/80">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2">
-                      <CalendarIcon />
-                      <span>
-                        {formatDateTimeWithoutSeconds(nearestTournament.start_at)}
-                      </span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2">
-                      <UserIcon />
-                      <span>
-                        {nearestTournamentRegisteredCount} / {nearestTournament.max_players}
-                      </span>
-                    </div>
-                  </div>
+              {player?.can_access_cash && nearestCashTournament
+                ? renderTournamentCard(
+                    nearestCashTournament,
+                    nearestCashTournamentRegisteredCount,
+                    "Ближайший кэш",
+                    "bg-gradient-to-br from-cyan-700/30 to-black"
+                  )
+                : null}
 
-                  <p className="mt-4 text-sm text-white/55">
-                    Нажми, чтобы открыть турнир
-                  </p>
-                </Link>
-              ) : (
+              {!showAnyTournamentCard ? (
                 <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-5 text-sm text-white/60">
                   Сейчас нет открытых турниров
                 </div>
-              )}
+              ) : null}
             </section>
 
             <section className="mt-4">
