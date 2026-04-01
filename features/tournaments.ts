@@ -15,6 +15,12 @@ import type {
   TournamentRow,
 } from "@/types/database";
 
+const TOURNAMENT_NOTIFICATION_STATUSES: RegistrationStatus[] = [
+  "registered",
+  "waitlist",
+  "attended",
+];
+
 function mapTournamentRow(row: TournamentRow): Tournament {
   return {
     id: row.id,
@@ -120,6 +126,19 @@ export async function getCompletedTournaments() {
     .select("*")
     .eq("status", "completed")
     .order("start_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
+}
+
+export async function getAdminNotificationTournaments() {
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select("*")
+    .order("start_at", { ascending: true });
 
   if (error) {
     throw new Error(error.message);
@@ -770,6 +789,60 @@ export async function saveTournamentResults(
   if (playerIds.length > 0) {
     await syncPlayersAchievements(playerIds);
   }
+}
+
+export async function getTournamentNotificationRecipients(tournamentId: string) {
+  const { data, error } = await supabase
+    .from("registrations")
+    .select(
+      `
+      player_id,
+      status,
+      players (
+        telegram_id,
+        display_name
+      )
+    `
+    )
+    .eq("tournament_id", tournamentId)
+    .in("status", TOURNAMENT_NOTIFICATION_STATUSES);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const recipientsMap = new Map<
+    number,
+    {
+      player_id: string;
+      telegram_id: number;
+      display_name: string;
+      registration_status: RegistrationStatus;
+    }
+  >();
+
+  for (const row of data ?? []) {
+    const player = Array.isArray((row as any).players)
+      ? (row as any).players[0]
+      : (row as any).players;
+
+    const telegramId = player?.telegram_id;
+
+    if (typeof telegramId !== "number") {
+      continue;
+    }
+
+    if (!recipientsMap.has(telegramId)) {
+      recipientsMap.set(telegramId, {
+        player_id: (row as any).player_id,
+        telegram_id: telegramId,
+        display_name: player?.display_name ?? "Игрок",
+        registration_status: (row as any).status as RegistrationStatus,
+      });
+    }
+  }
+
+  return Array.from(recipientsMap.values());
 }
 
 export async function getTournamentResults(
