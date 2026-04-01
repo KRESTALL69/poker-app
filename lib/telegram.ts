@@ -75,12 +75,44 @@ function getTelegramUserFromLaunchParams(): TelegramWebAppUser | null {
   }
 }
 
+function hasTelegramLaunchParams(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(
+      window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash
+    );
+
+    return Boolean(
+      searchParams.get("tgWebAppData") || hashParams.get("tgWebAppData")
+    );
+  } catch (error) {
+    console.error("Failed to detect Telegram launch params:", error);
+    return false;
+  }
+}
+
 export function getTelegramWebApp(): TelegramWebApp | null {
   if (typeof window === "undefined") {
     return null;
   }
 
   return window.Telegram?.WebApp ?? null;
+}
+
+export function isTelegramMiniAppContext(): boolean {
+  const webApp = getTelegramWebApp();
+
+  if (webApp?.initData || webApp?.initDataUnsafe?.user) {
+    return true;
+  }
+
+  return hasTelegramLaunchParams();
 }
 
 export function getTelegramUser(): TelegramWebAppUser | null {

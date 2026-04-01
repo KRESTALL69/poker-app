@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 import {
   getTelegramUser,
   getTelegramWebApp,
+  isTelegramMiniAppContext,
   type TelegramWebAppUser,
 } from "@/lib/telegram";
 import { TERMS_TEXT } from "@/config/terms";
@@ -427,6 +428,10 @@ export default function HomePage() {
           setIsInsideTelegram(true);
           webApp.ready?.();
           webApp.expand?.();
+        }
+
+        if (!webApp && isTelegramMiniAppContext()) {
+          setIsInsideTelegram(true);
         }
 
         const telegramUser = getTelegramUser();

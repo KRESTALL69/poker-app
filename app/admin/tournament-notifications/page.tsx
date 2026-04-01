@@ -40,7 +40,7 @@ function buildNotificationTemplate(tournament: Tournament) {
     ? `Место: ${tournament.location}`
     : "Место: уточняется";
 
-  return `${tournament.title}\n${timeLine}\n${locationLine}`;
+  return `Турнир: ${tournament.title}\nДата и время: ${timeLine}\n${locationLine}`;
 }
 
 type NotificationResult = {
