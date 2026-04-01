@@ -21,12 +21,6 @@ function getRightsCount(targetPlayer: Player) {
   );
 }
 
-function getRightChipClassName(isEnabled: boolean) {
-  return isEnabled
-    ? "bg-green-500/15 text-green-200"
-    : "bg-white/5 text-white/40";
-}
-
 function getToggleButtonClassName(isEnabled: boolean) {
   return isEnabled
     ? "bg-green-600 text-white"
@@ -40,7 +34,7 @@ export default function AdminPlayerAccessPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [rightsFilter, setRightsFilter] = useState<RightsFilter>("free-only");
-  const [stickyFreePlayerIds, setStickyFreePlayerIds] = useState<string[]>([]);
+  const [stickyFilteredPlayerIds, setStickyFilteredPlayerIds] = useState<string[]>([]);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +69,7 @@ export default function AdminPlayerAccessPage() {
     .filter((targetPlayer) => {
       if (rightsFilter === "free-only") {
         return (
-          stickyFreePlayerIds.includes(targetPlayer.id) ||
+          stickyFilteredPlayerIds.includes(targetPlayer.id) ||
           (
             Boolean(targetPlayer.can_access_free) &&
             !targetPlayer.can_access_paid &&
@@ -85,11 +79,17 @@ export default function AdminPlayerAccessPage() {
       }
 
       if (rightsFilter === "paid") {
-        return Boolean(targetPlayer.can_access_paid);
+        return (
+          stickyFilteredPlayerIds.includes(targetPlayer.id) ||
+          Boolean(targetPlayer.can_access_paid)
+        );
       }
 
       if (rightsFilter === "cash") {
-        return Boolean(targetPlayer.can_access_cash);
+        return (
+          stickyFilteredPlayerIds.includes(targetPlayer.id) ||
+          Boolean(targetPlayer.can_access_cash)
+        );
       }
 
       return true;
@@ -143,8 +143,8 @@ export default function AdminPlayerAccessPage() {
       setMessage(null);
       setError(null);
 
-      if (rightsFilter === "free-only") {
-        setStickyFreePlayerIds((currentIds) =>
+      if (rightsFilter !== "all") {
+        setStickyFilteredPlayerIds((currentIds) =>
           currentIds.includes(targetPlayer.id)
             ? currentIds
             : [...currentIds, targetPlayer.id]
@@ -173,10 +173,7 @@ export default function AdminPlayerAccessPage() {
 
   function handleChangeFilter(nextFilter: RightsFilter) {
     setRightsFilter(nextFilter);
-
-    if (nextFilter !== "free-only") {
-      setStickyFreePlayerIds([]);
-    }
+    setStickyFilteredPlayerIds([]);
   }
 
   if (!accessChecked || loading) {
@@ -298,24 +295,6 @@ export default function AdminPlayerAccessPage() {
                       <p className="mt-1 text-xs text-white/55">
                         Telegram ID: {targetPlayer.telegram_id}
                       </p>
-
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] ${getRightChipClassName(Boolean(targetPlayer.can_access_free))}`}
-                        >
-                          free
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] ${getRightChipClassName(Boolean(targetPlayer.can_access_paid))}`}
-                        >
-                          paid
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] ${getRightChipClassName(Boolean(targetPlayer.can_access_cash))}`}
-                        >
-                          cash
-                        </span>
-                      </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 sm:min-w-[280px]">
