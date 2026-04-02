@@ -303,10 +303,13 @@ export default function AdminPlayerAccessPage() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <p className="truncate text-base font-semibold text-white">
-                        {targetPlayer.username
-                          ? `@${targetPlayer.username}`
-                          : getVisibleNickname(targetPlayer)}
+                        {getVisibleNickname(targetPlayer)}
                       </p>
+                      {targetPlayer.username ? (
+                        <p className="mt-1 truncate text-xs text-white/45">
+                          @{targetPlayer.username}
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-xs text-white/55">
                         Telegram ID: {targetPlayer.telegram_id}
                       </p>

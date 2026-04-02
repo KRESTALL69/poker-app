@@ -511,7 +511,7 @@ export default function AdminTournamentResultsPage() {
                   <div className="mb-4">
                     <p className="text-sm text-white/50">Игрок #{index + 1}</p>
                     <p className="mt-1 text-lg font-semibold">
-                      {row.username ? `@${row.username}` : row.display_name}
+                      {row.display_name}
                     </p>
                     {!row.username ? (
                       <p className="text-sm text-white/50">{row.display_name}</p>
@@ -591,7 +591,7 @@ export default function AdminTournamentResultsPage() {
                 className="rounded-xl border border-white/10 bg-white/5 p-3"
               >
                 <p className="text-base font-semibold text-white">
-                  {row.username ? `@${row.username}` : row.display_name}
+                  {row.display_name}
                 </p>
                 {!row.username ? (
                   <p className="mt-1 text-sm text-white/50">{row.display_name}</p>
