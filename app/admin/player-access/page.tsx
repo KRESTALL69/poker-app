@@ -18,6 +18,10 @@ function getRightsCount(targetPlayer: Player) {
   );
 }
 
+function getVisibleNickname(targetPlayer: Player) {
+  return targetPlayer.admin_display_name?.trim() || targetPlayer.display_name;
+}
+
 function getToggleButtonClassName(isEnabled: boolean) {
   return isEnabled ? "bg-green-600 text-white" : "border border-white/10 text-white";
 }
@@ -46,7 +50,7 @@ export default function AdminPlayerAccessPage() {
         return rightsDiff;
       }
 
-      return a.display_name.localeCompare(b.display_name, "ru");
+      return getVisibleNickname(a).localeCompare(getVisibleNickname(b), "ru");
     })
     .filter((targetPlayer) => {
       const query = searchQuery.trim().toLowerCase();
@@ -57,11 +61,13 @@ export default function AdminPlayerAccessPage() {
 
       const username = (targetPlayer.username ?? "").toLowerCase();
       const displayName = targetPlayer.display_name.toLowerCase();
+      const adminDisplayName = (targetPlayer.admin_display_name ?? "").toLowerCase();
       const telegramId = String(targetPlayer.telegram_id);
 
       return (
         username.includes(query) ||
         displayName.includes(query) ||
+        adminDisplayName.includes(query) ||
         telegramId.includes(query)
       );
     })
@@ -299,7 +305,7 @@ export default function AdminPlayerAccessPage() {
                       <p className="truncate text-base font-semibold text-white">
                         {targetPlayer.username
                           ? `@${targetPlayer.username}`
-                          : targetPlayer.display_name}
+                          : getVisibleNickname(targetPlayer)}
                       </p>
                       <p className="mt-1 text-xs text-white/55">
                         Telegram ID: {targetPlayer.telegram_id}

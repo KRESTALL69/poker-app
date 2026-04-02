@@ -46,6 +46,16 @@ export type TournamentLiveSheetRow = {
   sheet_row_number: number | null;
 };
 
+function getPreferredPlayerDisplayName(player: {
+  admin_display_name?: string | null;
+  display_name?: string | null;
+}) {
+  const adminDisplayName = player.admin_display_name?.trim();
+  const displayName = player.display_name?.trim();
+
+  return adminDisplayName || displayName || "Игрок";
+}
+
 function mapTournamentRow(row: TournamentRow): Tournament {
   return {
     id: row.id,
@@ -455,6 +465,7 @@ export async function getTournamentSheetExportData(tournamentId: string) {
       players (
         id,
         username,
+        admin_display_name,
         display_name
       )
     `
@@ -724,7 +735,7 @@ export async function getTournamentParticipants(
       username: player?.username ?? null,
       telegram_avatar_url: player?.telegram_avatar_url ?? undefined,
       custom_avatar_url: player?.custom_avatar_url ?? undefined,
-      display_name: player?.display_name ?? "Игрок",
+      display_name: getPreferredPlayerDisplayName(player ?? {}),
       rating: ratingsMap.get(row.player_id) ?? 0,
     };
   });
@@ -742,6 +753,7 @@ export async function getTournamentResultsDraft(tournamentId: string) {
       players (
         id,
         username,
+        admin_display_name,
         display_name
       )
     `)
@@ -760,7 +772,7 @@ export async function getTournamentResultsDraft(tournamentId: string) {
       registration_id: row.id,
       player_id: row.player_id,
       username: player?.username ?? null,
-      display_name: player?.display_name ?? "Игрок",
+      display_name: getPreferredPlayerDisplayName(player ?? {}),
       status: row.status as "registered" | "attended",
     };
   });
@@ -777,6 +789,7 @@ async function getTournamentLiveEligibleRegistrations(tournamentId: string) {
       players (
         id,
         username,
+        admin_display_name,
         display_name
       )
     `
@@ -871,6 +884,7 @@ export async function getTournamentLiveEntries(
       ),
       players (
         username,
+        admin_display_name,
         display_name
       )
     `
@@ -891,7 +905,7 @@ export async function getTournamentLiveEntries(
 
     return {
       ...base,
-      display_name: player?.display_name ?? "Игрок",
+      display_name: getPreferredPlayerDisplayName(player ?? {}),
       username: player?.username ?? null,
       registration_status:
         (registration?.status as "registered" | "attended") ?? "registered",
@@ -1207,7 +1221,7 @@ export async function getTournamentNotificationRecipients(tournamentId: string) 
       recipientsMap.set(telegramId, {
         player_id: (row as any).player_id,
         telegram_id: telegramId,
-        display_name: player?.display_name ?? "Игрок",
+        display_name: getPreferredPlayerDisplayName(player ?? {}),
         registration_status: (row as any).status as RegistrationStatus,
       });
     }
