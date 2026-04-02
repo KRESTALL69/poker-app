@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import {
   getTournamentById,
@@ -53,6 +52,7 @@ function getTournamentModeTitle(tournament: Tournament | null) {
 
 export default function AdminTournamentResultsPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const tournamentId = params?.id;
 
   const [player, setPlayer] = useState<Player | null>(null);
@@ -66,6 +66,7 @@ export default function AdminTournamentResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [freeRows, setFreeRows] = useState<FreeFormRow[]>([]);
   const [liveRows, setLiveRows] = useState<LiveFormRow[]>([]);
+  const [initialLiveSnapshot, setInitialLiveSnapshot] = useState("");
 
   useEffect(() => {
     async function loadPage() {
@@ -100,20 +101,11 @@ export default function AdminTournamentResultsPage() {
             }))
           );
         } else {
-          const liveEntries = await getTournamentLiveEntries(tournamentId);
-          setLiveRows(
-            liveEntries.map((item) => ({
-              player_id: item.player_id,
-              registration_id: item.registration_id,
-              display_name: item.display_name,
-              username: item.username,
-              arrived: item.arrived,
-              rebuys: String(item.rebuys),
-              addons: String(item.addons),
-              knockouts: String(item.knockouts),
-              place: item.place == null ? "" : String(item.place),
-            }))
+          const nextRows = mapLiveEntriesToFormRows(
+            await getTournamentLiveEntries(tournamentId)
           );
+          setLiveRows(nextRows);
+          setInitialLiveSnapshot(JSON.stringify(nextRows));
         }
       } catch (err) {
         const nextMessage =
@@ -127,6 +119,54 @@ export default function AdminTournamentResultsPage() {
 
     loadPage();
   }, [tournamentId]);
+
+  const isFreeTournament = tournament?.kind === "free";
+  const hasUnsavedLiveChanges = useMemo(() => {
+    if (isFreeTournament || !initialLiveSnapshot) {
+      return false;
+    }
+
+    return JSON.stringify(liveRows) !== initialLiveSnapshot;
+  }, [initialLiveSnapshot, isFreeTournament, liveRows]);
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasUnsavedLiveChanges) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedLiveChanges]);
+
+  function mapLiveEntriesToFormRows(rows: TournamentLiveEntry[]): LiveFormRow[] {
+    return rows.map((item) => ({
+      player_id: item.player_id,
+      registration_id: item.registration_id,
+      display_name: item.display_name,
+      username: item.username,
+      arrived: item.arrived,
+      rebuys: String(item.rebuys),
+      addons: String(item.addons),
+      knockouts: String(item.knockouts),
+      place: item.place == null ? "" : String(item.place),
+    }));
+  }
+
+  function handleBack() {
+    if (
+      hasUnsavedLiveChanges &&
+      !window.confirm("Изменения не сохранены. Выйти со страницы?")
+    ) {
+      return;
+    }
+
+    router.push("/admin");
+  }
 
   function updateFreeRow(
     playerId: string,
@@ -215,7 +255,11 @@ export default function AdminTournamentResultsPage() {
     setError(null);
 
     for (const row of liveRows) {
-      if (Number(row.rebuys) < 0 || Number(row.addons) < 0 || Number(row.knockouts) < 0) {
+      if (
+        Number(row.rebuys) < 0 ||
+        Number(row.addons) < 0 ||
+        Number(row.knockouts) < 0
+      ) {
         setError(`Проверьте числовые поля у игрока ${row.display_name}`);
         return;
       }
@@ -258,11 +302,8 @@ export default function AdminTournamentResultsPage() {
       setTournament((current) =>
         current ? { ...current, google_sheet_tab_name: payload.tabName } : current
       );
-      setMessage(
-        payload.url
-          ? "Данные турнира сохранены и синхронизированы с Google Sheets"
-          : "Данные турнира сохранены"
-      );
+      setInitialLiveSnapshot(JSON.stringify(liveRows));
+      setMessage("Данные турнира сохранены");
     } catch (err) {
       const nextMessage =
         err instanceof Error ? err.message : "Ошибка синхронизации с таблицей";
@@ -295,19 +336,9 @@ export default function AdminTournamentResultsPage() {
         throw new Error(payload.error ?? "Не удалось обновить данные из таблицы");
       }
 
-      const nextRows = (payload.rows as TournamentLiveEntry[]).map((row) => ({
-        player_id: row.player_id,
-        registration_id: row.registration_id,
-        display_name: row.display_name,
-        username: row.username,
-        arrived: row.arrived,
-        rebuys: String(row.rebuys),
-        addons: String(row.addons),
-        knockouts: String(row.knockouts),
-        place: row.place == null ? "" : String(row.place),
-      }));
-
+      const nextRows = mapLiveEntriesToFormRows(payload.rows as TournamentLiveEntry[]);
       setLiveRows(nextRows);
+      setInitialLiveSnapshot(JSON.stringify(nextRows));
       setMessage("Данные подтянуты из Google Sheets");
     } catch (err) {
       const nextMessage =
@@ -355,7 +386,8 @@ export default function AdminTournamentResultsPage() {
       setTournament((current) =>
         current ? { ...current, status: "completed" } : current
       );
-      setMessage("Турнир завершен, live-данные перенесены в results");
+      setInitialLiveSnapshot(JSON.stringify(liveRows));
+      setMessage("Турнир завершен, данные перенесены в results и обновлены в GS");
     } catch (err) {
       const nextMessage =
         err instanceof Error ? err.message : "Ошибка завершения турнира";
@@ -368,7 +400,7 @@ export default function AdminTournamentResultsPage() {
   if (!accessChecked || loading) {
     return (
       <main className="min-h-screen bg-black px-4 py-6 text-white">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-4xl">
           <p className="text-sm text-white/70">Загружаем страницу...</p>
         </div>
       </main>
@@ -378,13 +410,14 @@ export default function AdminTournamentResultsPage() {
   if (player?.role !== "admin") {
     return (
       <main className="min-h-screen bg-black px-4 py-6 text-white">
-        <div className="mx-auto max-w-3xl">
-          <Link
-            href="/admin"
+        <div className="mx-auto max-w-4xl">
+          <button
+            type="button"
+            onClick={handleBack}
             className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
           >
             ← Назад
-          </Link>
+          </button>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
             <h1 className="text-xl font-semibold">Доступ запрещен</h1>
@@ -400,13 +433,14 @@ export default function AdminTournamentResultsPage() {
   if (error && !tournament) {
     return (
       <main className="min-h-screen bg-black px-4 py-6 text-white">
-        <div className="mx-auto max-w-3xl">
-          <Link
-            href="/admin"
+        <div className="mx-auto max-w-4xl">
+          <button
+            type="button"
+            onClick={handleBack}
             className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
           >
             ← Назад
-          </Link>
+          </button>
 
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
             {error}
@@ -416,17 +450,16 @@ export default function AdminTournamentResultsPage() {
     );
   }
 
-  const isFreeTournament = tournament?.kind === "free";
-
   return (
     <main className="min-h-screen bg-black px-4 py-6 text-white">
-      <div className="mx-auto max-w-3xl">
-        <Link
-          href="/admin"
+      <div className="mx-auto max-w-4xl">
+        <button
+          type="button"
+          onClick={handleBack}
           className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
         >
           ← Назад
-        </Link>
+        </button>
 
         <h1 className="text-2xl font-bold">{getTournamentModeTitle(tournament)}</h1>
         <p className="mt-2 text-sm text-white/70">{tournament?.title}</p>
@@ -443,15 +476,42 @@ export default function AdminTournamentResultsPage() {
           </div>
         ) : null}
 
-        {!isFreeTournament ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-            {tournament?.google_sheet_tab_name
-              ? "Данные можно вести и в приложении, и в Google Sheets."
-              : "Сначала сохраните данные, чтобы создать рабочую Google-таблицу для турнира."}
+        {!isFreeTournament && liveRows.length > 0 ? (
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <button
+              type="button"
+              onClick={handleSyncLiveRows}
+              disabled={saving}
+              className="rounded-lg bg-yellow-500 px-3 py-3 text-sm font-semibold text-black disabled:opacity-60"
+            >
+              {saving
+                ? "Сохраняем..."
+                : tournament?.google_sheet_tab_name
+                  ? "Сохранить"
+                  : "Создать таблицу"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePullFromSheet}
+              disabled={pulling || !tournament?.google_sheet_tab_name}
+              className="rounded-lg border border-white/10 px-3 py-3 text-sm font-semibold text-white/85 disabled:opacity-50"
+            >
+              {pulling ? "Обновляем..." : "Из таблицы"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCompleteLiveTournament}
+              disabled={completing}
+              className="rounded-lg bg-green-500 px-3 py-3 text-sm font-semibold text-black disabled:opacity-60"
+            >
+              {completing ? "Завершаем..." : "Завершить"}
+            </button>
           </div>
         ) : null}
 
-        <div className="mt-6 space-y-4">
+        <div className="mt-6 space-y-3">
           {isFreeTournament ? (
             freeRows.length === 0 ? (
               <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
@@ -540,21 +600,28 @@ export default function AdminTournamentResultsPage() {
               В турнире пока нет зарегистрированных игроков для live-таблицы.
             </div>
           ) : (
-            liveRows.map((row, index) => (
+            liveRows.map((row) => (
               <div
                 key={row.player_id}
-                className="rounded-xl border border-white/10 bg-white/5 p-4"
+                className="rounded-xl border border-white/10 bg-white/5 p-3"
               >
-                <div className="mb-4">
-                  <p className="text-sm text-white/50">Игрок #{index + 1}</p>
-                  <p className="mt-1 text-lg font-semibold">
-                    {row.username ? `@${row.username}` : row.display_name}
-                  </p>
-                  <p className="text-sm text-white/50">{row.display_name}</p>
+                <p className="text-base font-semibold text-white">
+                  {row.username ? `@${row.username}` : row.display_name}
+                </p>
+                {!row.username ? (
+                  <p className="mt-1 text-sm text-white/50">{row.display_name}</p>
+                ) : null}
+
+                <div className="mt-3 grid grid-cols-5 gap-2 text-[11px] font-medium text-white/50">
+                  <span>Пришел</span>
+                  <span>Re-buy</span>
+                  <span>Addon</span>
+                  <span>Nok</span>
+                  <span>Место</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="col-span-2 flex items-center gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/85">
+                <div className="mt-2 grid grid-cols-5 gap-2">
+                  <label className="flex h-11 items-center justify-center rounded-lg border border-white/10 bg-black/30">
                     <input
                       type="checkbox"
                       checked={row.arrived}
@@ -563,110 +630,62 @@ export default function AdminTournamentResultsPage() {
                       }
                       className="h-4 w-4 accent-yellow-500"
                     />
-                    Пришел
                   </label>
 
-                  <div>
-                    <label className="block text-sm text-white/80">Re-buy</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.rebuys}
-                      onChange={(e) =>
-                        updateLiveRow(row.player_id, "rebuys", e.target.value)
-                      }
-                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={row.rebuys}
+                    onChange={(e) =>
+                      updateLiveRow(row.player_id, "rebuys", e.target.value)
+                    }
+                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center outline-none"
+                  />
 
-                  <div>
-                    <label className="block text-sm text-white/80">Addon</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.addons}
-                      onChange={(e) =>
-                        updateLiveRow(row.player_id, "addons", e.target.value)
-                      }
-                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={row.addons}
+                    onChange={(e) =>
+                      updateLiveRow(row.player_id, "addons", e.target.value)
+                    }
+                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center outline-none"
+                  />
 
-                  <div>
-                    <label className="block text-sm text-white/80">Nok</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.knockouts}
-                      onChange={(e) =>
-                        updateLiveRow(row.player_id, "knockouts", e.target.value)
-                      }
-                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={row.knockouts}
+                    onChange={(e) =>
+                      updateLiveRow(row.player_id, "knockouts", e.target.value)
+                    }
+                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center outline-none"
+                  />
 
-                  <div>
-                    <label className="block text-sm text-white/80">Место</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={row.place}
-                      onChange={(e) =>
-                        updateLiveRow(row.player_id, "place", e.target.value)
-                      }
-                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    value={row.place}
+                    onChange={(e) =>
+                      updateLiveRow(row.player_id, "place", e.target.value)
+                    }
+                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center outline-none"
+                  />
                 </div>
               </div>
             ))
           )}
         </div>
 
-        {isFreeTournament ? (
-          freeRows.length > 0 ? (
-            <button
-              type="button"
-              onClick={handleSaveFreeResults}
-              disabled={saving}
-              className="mt-6 w-full rounded-lg bg-yellow-500 py-3 font-semibold text-black disabled:opacity-60"
-            >
-              {saving ? "Сохраняем..." : "Сохранить результаты"}
-            </button>
-          ) : null
-        ) : liveRows.length > 0 ? (
-          <div className="mt-6 grid grid-cols-1 gap-3">
-            <button
-              type="button"
-              onClick={handleSyncLiveRows}
-              disabled={saving}
-              className="rounded-lg bg-yellow-500 py-3 font-semibold text-black disabled:opacity-60"
-            >
-              {saving
-                ? "Синхронизируем..."
-                : tournament?.google_sheet_tab_name
-                  ? "Сохранить в таблицу"
-                  : "Создать таблицу"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePullFromSheet}
-              disabled={pulling || !tournament?.google_sheet_tab_name}
-              className="rounded-lg border border-white/10 px-3 py-3 text-sm font-semibold text-white/85 disabled:opacity-50"
-            >
-              {pulling ? "Обновляем..." : "Обновить из таблицы"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCompleteLiveTournament}
-              disabled={completing}
-              className="rounded-lg bg-green-500 py-3 font-semibold text-black disabled:opacity-60"
-            >
-              {completing ? "Завершаем..." : "Завершить турнир"}
-            </button>
-          </div>
+        {isFreeTournament && freeRows.length > 0 ? (
+          <button
+            type="button"
+            onClick={handleSaveFreeResults}
+            disabled={saving}
+            className="mt-6 w-full rounded-lg bg-yellow-500 py-3 font-semibold text-black disabled:opacity-60"
+          >
+            {saving ? "Сохраняем..." : "Сохранить результаты"}
+          </button>
         ) : null}
       </div>
     </main>

@@ -145,6 +145,20 @@ export async function applyTournamentSheetFormatting(tabName: string) {
           },
         },
         {
+          updateDimensionProperties: {
+            range: {
+              sheetId,
+              dimension: "ROWS",
+              startIndex: 0,
+              endIndex: 1,
+            },
+            properties: {
+              hiddenByUser: true,
+            },
+            fields: "hiddenByUser",
+          },
+        },
+        {
           repeatCell: {
             range: {
               sheetId,
@@ -155,6 +169,11 @@ export async function applyTournamentSheetFormatting(tabName: string) {
             },
             cell: {
               userEnteredFormat: {
+                backgroundColor: {
+                  red: 0.98,
+                  green: 0.98,
+                  blue: 0.98,
+                },
                 textFormat: {
                   bold: true,
                   foregroundColor: {
@@ -167,7 +186,7 @@ export async function applyTournamentSheetFormatting(tabName: string) {
               },
             },
             fields:
-              "userEnteredFormat(textFormat.bold,textFormat.foregroundColor,wrapStrategy)",
+              "userEnteredFormat(backgroundColor,textFormat.bold,textFormat.foregroundColor,wrapStrategy)",
           },
         },
         {
@@ -195,10 +214,67 @@ export async function applyTournamentSheetFormatting(tabName: string) {
                   },
                 },
                 wrapStrategy: "WRAP",
+                horizontalAlignment: "CENTER",
               },
             },
             fields:
-              "userEnteredFormat(backgroundColor,textFormat.bold,textFormat.foregroundColor,wrapStrategy)",
+              "userEnteredFormat(backgroundColor,textFormat.bold,textFormat.foregroundColor,wrapStrategy,horizontalAlignment)",
+          },
+        },
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 7,
+              startColumnIndex: 0,
+              endColumnIndex: 10,
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: {
+                  red: 1,
+                  green: 1,
+                  blue: 1,
+                },
+                verticalAlignment: "MIDDLE",
+              },
+            },
+            fields:
+              "userEnteredFormat(backgroundColor,verticalAlignment)",
+          },
+        },
+        {
+          updateBorders: {
+            range: {
+              sheetId,
+              startRowIndex: 6,
+              startColumnIndex: 0,
+              endColumnIndex: 10,
+            },
+            top: {
+              style: "SOLID",
+              color: { red: 0.75, green: 0.78, blue: 0.82 },
+            },
+            bottom: {
+              style: "SOLID",
+              color: { red: 0.75, green: 0.78, blue: 0.82 },
+            },
+            left: {
+              style: "SOLID",
+              color: { red: 0.9, green: 0.9, blue: 0.9 },
+            },
+            right: {
+              style: "SOLID",
+              color: { red: 0.9, green: 0.9, blue: 0.9 },
+            },
+            innerHorizontal: {
+              style: "SOLID",
+              color: { red: 0.9, green: 0.9, blue: 0.9 },
+            },
+            innerVertical: {
+              style: "SOLID",
+              color: { red: 0.9, green: 0.9, blue: 0.9 },
+            },
           },
         },
         {
@@ -211,8 +287,9 @@ export async function applyTournamentSheetFormatting(tabName: string) {
             },
             properties: {
               pixelSize: 180,
+              hiddenByUser: true,
             },
-            fields: "pixelSize",
+            fields: "pixelSize,hiddenByUser",
           },
         },
         {
@@ -221,6 +298,21 @@ export async function applyTournamentSheetFormatting(tabName: string) {
               sheetId,
               dimension: "COLUMNS",
               startIndex: 1,
+              endIndex: 2,
+            },
+            properties: {
+              pixelSize: 180,
+              hiddenByUser: true,
+            },
+            fields: "pixelSize,hiddenByUser",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: {
+              sheetId,
+              dimension: "COLUMNS",
+              startIndex: 2,
               endIndex: 3,
             },
             properties: {
@@ -235,12 +327,131 @@ export async function applyTournamentSheetFormatting(tabName: string) {
               sheetId,
               dimension: "COLUMNS",
               startIndex: 3,
+              endIndex: 4,
+            },
+            properties: {
+              pixelSize: 140,
+            },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: {
+              sheetId,
+              dimension: "COLUMNS",
+              startIndex: 4,
+              endIndex: 5,
+            },
+            properties: {
+              pixelSize: 140,
+            },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: {
+              sheetId,
+              dimension: "COLUMNS",
+              startIndex: 5,
               endIndex: 10,
             },
             properties: {
-              pixelSize: 130,
+              pixelSize: 110,
             },
             fields: "pixelSize",
+          },
+        },
+        {
+          setDataValidation: {
+            range: {
+              sheetId,
+              startRowIndex: 7,
+              startColumnIndex: 5,
+              endColumnIndex: 6,
+            },
+            rule: {
+              condition: {
+                type: "BOOLEAN",
+              },
+              strict: true,
+              showCustomUi: true,
+            },
+          },
+        },
+        {
+          addConditionalFormatRule: {
+            index: 0,
+            rule: {
+              ranges: [
+                {
+                  sheetId,
+                  startRowIndex: 4,
+                  endRowIndex: 5,
+                  startColumnIndex: 1,
+                  endColumnIndex: 2,
+                },
+              ],
+              booleanRule: {
+                condition: {
+                  type: "TEXT_EQ",
+                  values: [{ userEnteredValue: "Открыт" }],
+                },
+                format: {
+                  backgroundColor: {
+                    red: 0.84,
+                    green: 0.95,
+                    blue: 0.85,
+                  },
+                  textFormat: {
+                    bold: true,
+                    foregroundColor: {
+                      red: 0.11,
+                      green: 0.4,
+                      blue: 0.16,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          addConditionalFormatRule: {
+            index: 1,
+            rule: {
+              ranges: [
+                {
+                  sheetId,
+                  startRowIndex: 4,
+                  endRowIndex: 5,
+                  startColumnIndex: 1,
+                  endColumnIndex: 2,
+                },
+              ],
+              booleanRule: {
+                condition: {
+                  type: "TEXT_EQ",
+                  values: [{ userEnteredValue: "Закрыт" }],
+                },
+                format: {
+                  backgroundColor: {
+                    red: 0.98,
+                    green: 0.87,
+                    blue: 0.87,
+                  },
+                  textFormat: {
+                    bold: true,
+                    foregroundColor: {
+                      red: 0.62,
+                      green: 0.13,
+                      blue: 0.13,
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       ],

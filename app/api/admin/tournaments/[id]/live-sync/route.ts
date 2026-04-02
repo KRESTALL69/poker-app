@@ -28,13 +28,27 @@ function buildTabName(title: string, startAt: string, tournamentId: string) {
   return `${day}.${month} | ${shortTitle} | ${tournamentId.slice(0, 4)}`;
 }
 
+function formatTournamentDate(date: string) {
+  return new Date(date).toLocaleString("ru-RU", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getTournamentStatusLabel(status: string) {
+  return status === "completed" ? "Закрыт" : "Открыт";
+}
+
 function buildReadmeSheetValues() {
   return [
     ["README - live-данные турниров"],
     [],
     ["Эта таблица синхронизируется с Mini App."],
     ["Редактировать можно поля: Пришел, Re-buy, Addon, Nok, Место."],
-    ["Не меняйте Player ID и Registration ID, они нужны для синхронизации."],
+    ["Технические поля скрыты и нужны только для синхронизации."],
   ];
 }
 
@@ -44,9 +58,9 @@ function buildLiveSheetValues(
   return [
     ["Tournament ID", exportData.tournament.id],
     ["Название", exportData.tournament.title],
-    ["Дата", exportData.tournament.start_at],
+    ["Дата", formatTournamentDate(exportData.tournament.start_at)],
     ["Локация", exportData.tournament.location ?? ""],
-    ["Статус", exportData.tournament.status],
+    ["Статус", getTournamentStatusLabel(exportData.tournament.status)],
     [],
     [
       "Player ID",
@@ -75,6 +89,44 @@ function buildLiveSheetValues(
   ];
 }
 
+export async function syncTournamentLiveSheet(
+  tournamentId: string,
+  rows?: Array<{
+    player_id: string;
+    arrived: boolean;
+    rebuys: number;
+    addons: number;
+    knockouts: number;
+    place: number | null;
+  }>
+) {
+  await ensureTournamentLiveEntries(tournamentId);
+
+  if (rows?.length) {
+    await updateTournamentLiveEntries(tournamentId, rows);
+  }
+
+  const tournament = await getTournamentById(tournamentId);
+  const tabName =
+    tournament.google_sheet_tab_name?.trim() ||
+    buildTabName(tournament.title, tournament.start_at, tournament.id);
+  const exportData = await getTournamentLiveSheetData(tournamentId);
+
+  await ensureReadmeTab();
+  await replaceSpreadsheetTabValues("README", buildReadmeSheetValues());
+
+  const sheet = await ensureSpreadsheetTab(tabName);
+  await replaceSpreadsheetTabValues(tabName, buildLiveSheetValues(exportData));
+  await applyTournamentSheetFormatting(tabName);
+  await setTournamentGoogleSheetTabName(tournamentId, tabName);
+
+  return {
+    tabName,
+    url: buildSpreadsheetTabUrl(sheet.sheetId),
+    rowsCount: exportData.rows.length,
+  };
+}
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
@@ -94,31 +146,11 @@ export async function POST(
         }
       | null;
 
-    await ensureTournamentLiveEntries(id);
-
-    if (body?.rows?.length) {
-      await updateTournamentLiveEntries(id, body.rows);
-    }
-
-    const tournament = await getTournamentById(id);
-    const tabName =
-      tournament.google_sheet_tab_name?.trim() ||
-      buildTabName(tournament.title, tournament.start_at, tournament.id);
-    const exportData = await getTournamentLiveSheetData(id);
-
-    await ensureReadmeTab();
-    await replaceSpreadsheetTabValues("README", buildReadmeSheetValues());
-
-    const sheet = await ensureSpreadsheetTab(tabName);
-    await replaceSpreadsheetTabValues(tabName, buildLiveSheetValues(exportData));
-    await applyTournamentSheetFormatting(tabName);
-    await setTournamentGoogleSheetTabName(id, tabName);
+    const result = await syncTournamentLiveSheet(id, body?.rows);
 
     return NextResponse.json({
       ok: true,
-      tabName,
-      url: buildSpreadsheetTabUrl(sheet.sheetId),
-      rowsCount: exportData.rows.length,
+      ...result,
     });
   } catch (error) {
     return NextResponse.json(
