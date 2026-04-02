@@ -612,7 +612,7 @@ export default function AdminTournamentResultsPage() {
                   <p className="mt-1 text-sm text-white/50">{row.display_name}</p>
                 ) : null}
 
-                <div className="mt-3 grid grid-cols-5 gap-2 text-[11px] font-medium text-white/50">
+                <div className="mt-3 grid grid-cols-5 gap-2 text-center text-[11px] font-medium text-white/60">
                   <span>Пришел</span>
                   <span>Re-buy</span>
                   <span>Addon</span>
@@ -621,7 +621,7 @@ export default function AdminTournamentResultsPage() {
                 </div>
 
                 <div className="mt-2 grid grid-cols-5 gap-2">
-                  <label className="flex h-11 items-center justify-center rounded-lg border border-white/10 bg-black/30">
+                  <label className="flex h-11 items-center justify-center">
                     <input
                       type="checkbox"
                       checked={row.arrived}
@@ -639,7 +639,7 @@ export default function AdminTournamentResultsPage() {
                     onChange={(e) =>
                       updateLiveRow(row.player_id, "rebuys", e.target.value)
                     }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center outline-none"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
                   />
 
                   <input
@@ -649,7 +649,7 @@ export default function AdminTournamentResultsPage() {
                     onChange={(e) =>
                       updateLiveRow(row.player_id, "addons", e.target.value)
                     }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center outline-none"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
                   />
 
                   <input
@@ -659,7 +659,7 @@ export default function AdminTournamentResultsPage() {
                     onChange={(e) =>
                       updateLiveRow(row.player_id, "knockouts", e.target.value)
                     }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center outline-none"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
                   />
 
                   <input
@@ -669,7 +669,7 @@ export default function AdminTournamentResultsPage() {
                     onChange={(e) =>
                       updateLiveRow(row.player_id, "place", e.target.value)
                     }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center outline-none"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
                   />
                 </div>
               </div>

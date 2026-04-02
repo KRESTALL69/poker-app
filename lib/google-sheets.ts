@@ -164,8 +164,8 @@ export async function applyTournamentSheetFormatting(tabName: string) {
               sheetId,
               startRowIndex: 0,
               endRowIndex: 5,
-              startColumnIndex: 0,
-              endColumnIndex: 2,
+              startColumnIndex: 2,
+              endColumnIndex: 4,
             },
             cell: {
               userEnteredFormat: {
@@ -364,23 +364,6 @@ export async function applyTournamentSheetFormatting(tabName: string) {
           },
         },
         {
-          setDataValidation: {
-            range: {
-              sheetId,
-              startRowIndex: 7,
-              startColumnIndex: 5,
-              endColumnIndex: 6,
-            },
-            rule: {
-              condition: {
-                type: "BOOLEAN",
-              },
-              strict: true,
-              showCustomUi: true,
-            },
-          },
-        },
-        {
           addConditionalFormatRule: {
             index: 0,
             rule: {
@@ -389,8 +372,8 @@ export async function applyTournamentSheetFormatting(tabName: string) {
                   sheetId,
                   startRowIndex: 4,
                   endRowIndex: 5,
-                  startColumnIndex: 1,
-                  endColumnIndex: 2,
+                  startColumnIndex: 3,
+                  endColumnIndex: 4,
                 },
               ],
               booleanRule: {
@@ -426,8 +409,8 @@ export async function applyTournamentSheetFormatting(tabName: string) {
                   sheetId,
                   startRowIndex: 4,
                   endRowIndex: 5,
-                  startColumnIndex: 1,
-                  endColumnIndex: 2,
+                  startColumnIndex: 3,
+                  endColumnIndex: 4,
                 },
               ],
               booleanRule: {

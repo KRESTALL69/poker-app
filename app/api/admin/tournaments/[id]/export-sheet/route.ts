@@ -27,7 +27,7 @@ function buildTabName(title: string, startAt: string, tournamentId: string) {
 
 function buildReadmeSheetValues() {
   return [
-    ["README — Google Sheets для турнирного администратора"],
+    ["README - Google Sheets для турнирного администратора"],
     [],
     ["Что делает этот файл"],
     [
@@ -35,8 +35,8 @@ function buildReadmeSheetValues() {
     ],
     [],
     ["Какие листы в таблице"],
-    ["README — инструкция"],
-    ["Листы турниров — рабочие таблицы по каждому турниру"],
+    ["README - инструкция"],
+    ["Листы турниров - рабочие таблицы по каждому турниру"],
     [],
     ["Какие колонки можно редактировать"],
     ["Пришел"],
@@ -71,10 +71,10 @@ function buildSheetValues(
 ) {
   return [
     ["Tournament ID", exportData.tournament.id],
-    ["Название", exportData.tournament.title],
-    ["Дата", exportData.tournament.start_at],
-    ["Локация", exportData.tournament.location ?? ""],
-    ["Статус", exportData.tournament.status],
+    ["", "", "Название", exportData.tournament.title],
+    ["", "", "Дата", exportData.tournament.start_at],
+    ["", "", "Локация", exportData.tournament.location ?? ""],
+    ["", "", "Статус", exportData.tournament.status],
     [],
     [
       "Player ID",

@@ -57,10 +57,10 @@ function buildLiveSheetValues(
 ) {
   return [
     ["Tournament ID", exportData.tournament.id],
-    ["Название", exportData.tournament.title],
-    ["Дата", formatTournamentDate(exportData.tournament.start_at)],
-    ["Локация", exportData.tournament.location ?? ""],
-    ["Статус", getTournamentStatusLabel(exportData.tournament.status)],
+    ["", "", "Название", exportData.tournament.title],
+    ["", "", "Дата", formatTournamentDate(exportData.tournament.start_at)],
+    ["", "", "Локация", exportData.tournament.location ?? ""],
+    ["", "", "Статус", getTournamentStatusLabel(exportData.tournament.status)],
     [],
     [
       "Player ID",
