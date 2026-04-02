@@ -51,7 +51,7 @@ export async function ensureSpreadsheetTab(tabName: string) {
   const spreadsheetId = getSpreadsheetId();
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const existingSheet = spreadsheet.data.sheets?.find(
-    (sheet) => sheet.properties?.title === tabName
+    (sheet: any) => sheet.properties?.title === tabName
   );
 
   if (existingSheet?.properties?.sheetId != null) {
@@ -120,7 +120,7 @@ export async function applyTournamentSheetFormatting(tabName: string) {
   const spreadsheetId = getSpreadsheetId();
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const targetSheet = spreadsheet.data.sheets?.find(
-    (sheet) => sheet.properties?.title === tabName
+    (sheet: any) => sheet.properties?.title === tabName
   );
 
   const sheetId = targetSheet?.properties?.sheetId;
@@ -177,7 +177,7 @@ export async function applyTournamentSheetFormatting(tabName: string) {
               startRowIndex: 6,
               endRowIndex: 7,
               startColumnIndex: 0,
-              endColumnIndex: 9,
+              endColumnIndex: 10,
             },
             cell: {
               userEnteredFormat: {
@@ -235,7 +235,7 @@ export async function applyTournamentSheetFormatting(tabName: string) {
               sheetId,
               dimension: "COLUMNS",
               startIndex: 3,
-              endIndex: 9,
+              endIndex: 10,
             },
             properties: {
               pixelSize: 130,
@@ -246,6 +246,25 @@ export async function applyTournamentSheetFormatting(tabName: string) {
       ],
     },
   });
+}
+
+export async function readSpreadsheetTabValues(tabName: string) {
+  const sheets = getGoogleSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${tabName}!A:Z`,
+  });
+
+  return response.data.values ?? [];
+}
+
+export async function writeTournamentLiveSheet(
+  tabName: string,
+  values: SheetCellValue[][]
+) {
+  await replaceSpreadsheetTabValues(tabName, values);
+  await applyTournamentSheetFormatting(tabName);
 }
 
 export function buildSpreadsheetTabUrl(sheetId: number) {

@@ -6,11 +6,12 @@ import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import {
   getTournamentById,
+  getTournamentLiveEntries,
   getTournamentResultsDraft,
   saveTournamentResults,
 } from "@/features/tournaments";
 import { getTelegramUser } from "@/lib/telegram";
-import type { Player } from "@/types/domain";
+import type { Player, Tournament, TournamentLiveEntry } from "@/types/domain";
 
 type DraftRow = {
   registration_id: string;
@@ -20,7 +21,7 @@ type DraftRow = {
   status: "registered" | "attended";
 };
 
-type FormRow = {
+type FreeFormRow = {
   player_id: string;
   display_name: string;
   username: string | null;
@@ -30,19 +31,41 @@ type FormRow = {
   rating_points: string;
 };
 
+type LiveFormRow = {
+  player_id: string;
+  registration_id: string;
+  display_name: string;
+  username: string | null;
+  arrived: boolean;
+  rebuys: string;
+  addons: string;
+  knockouts: string;
+  place: string;
+};
+
+function getTournamentModeTitle(tournament: Tournament | null) {
+  if (!tournament) {
+    return "Данные турнира";
+  }
+
+  return tournament.kind === "free" ? "Результаты турнира" : "Данные турнира";
+}
+
 export default function AdminTournamentResultsPage() {
   const params = useParams<{ id: string }>();
   const tournamentId = params?.id;
 
   const [player, setPlayer] = useState<Player | null>(null);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
   const [accessChecked, setAccessChecked] = useState(false);
-
-  const [title, setTitle] = useState("");
-  const [rows, setRows] = useState<FormRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [freeRows, setFreeRows] = useState<FreeFormRow[]>([]);
+  const [liveRows, setLiveRows] = useState<LiveFormRow[]>([]);
 
   useEffect(() => {
     async function loadPage() {
@@ -60,25 +83,41 @@ export default function AdminTournamentResultsPage() {
         const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
         setPlayer(ensuredPlayer);
 
-        const tournament = await getTournamentById(tournamentId);
-        setTitle(tournament.title);
+        const nextTournament = await getTournamentById(tournamentId);
+        setTournament(nextTournament);
 
-        const draft = await getTournamentResultsDraft(tournamentId);
-
-        const nextRows: FormRow[] = draft.map((item: DraftRow) => ({
-          player_id: item.player_id,
-          display_name: item.display_name,
-          username: item.username,
-          place: "",
-          reentries: "0",
-          knockouts: "0",
-          rating_points: "0",
-        }));
-
-        setRows(nextRows);
+        if (nextTournament.kind === "free") {
+          const draft = await getTournamentResultsDraft(tournamentId);
+          setFreeRows(
+            draft.map((item: DraftRow) => ({
+              player_id: item.player_id,
+              display_name: item.display_name,
+              username: item.username,
+              place: "",
+              reentries: "0",
+              knockouts: "0",
+              rating_points: "0",
+            }))
+          );
+        } else {
+          const liveEntries = await getTournamentLiveEntries(tournamentId);
+          setLiveRows(
+            liveEntries.map((item) => ({
+              player_id: item.player_id,
+              registration_id: item.registration_id,
+              display_name: item.display_name,
+              username: item.username,
+              arrived: item.arrived,
+              rebuys: String(item.rebuys),
+              addons: String(item.addons),
+              knockouts: String(item.knockouts),
+              place: item.place == null ? "" : String(item.place),
+            }))
+          );
+        }
       } catch (err) {
         const nextMessage =
-          err instanceof Error ? err.message : "Ошибка загрузки результатов";
+          err instanceof Error ? err.message : "Ошибка загрузки страницы";
         setError(nextMessage);
       } finally {
         setAccessChecked(true);
@@ -89,25 +128,39 @@ export default function AdminTournamentResultsPage() {
     loadPage();
   }, [tournamentId]);
 
-  function updateRow(
+  function updateFreeRow(
     playerId: string,
     field: "place" | "reentries" | "knockouts" | "rating_points",
     value: string
   ) {
-    setRows((prev) =>
+    setFreeRows((prev) =>
       prev.map((row) =>
         row.player_id === playerId ? { ...row, [field]: value } : row
       )
     );
   }
 
-  async function handleSave() {
-    if (!tournamentId) return;
+  function updateLiveRow(
+    playerId: string,
+    field: "arrived" | "rebuys" | "addons" | "knockouts" | "place",
+    value: boolean | string
+  ) {
+    setLiveRows((prev) =>
+      prev.map((row) =>
+        row.player_id === playerId ? { ...row, [field]: value } : row
+      )
+    );
+  }
+
+  async function handleSaveFreeResults() {
+    if (!tournamentId) {
+      return;
+    }
 
     setMessage(null);
     setError(null);
 
-    for (const row of rows) {
+    for (const row of freeRows) {
       if (!row.place || Number(row.place) <= 0) {
         setError(`Укажите корректное место для игрока ${row.display_name}`);
         return;
@@ -134,7 +187,7 @@ export default function AdminTournamentResultsPage() {
 
       await saveTournamentResults(
         tournamentId,
-        rows.map((row) => ({
+        freeRows.map((row) => ({
           player_id: row.player_id,
           place: Number(row.place),
           reentries: Number(row.reentries),
@@ -153,11 +206,170 @@ export default function AdminTournamentResultsPage() {
     }
   }
 
+  async function handleSyncLiveRows() {
+    if (!tournamentId) {
+      return;
+    }
+
+    setMessage(null);
+    setError(null);
+
+    for (const row of liveRows) {
+      if (Number(row.rebuys) < 0 || Number(row.addons) < 0 || Number(row.knockouts) < 0) {
+        setError(`Проверьте числовые поля у игрока ${row.display_name}`);
+        return;
+      }
+
+      if (row.place && Number(row.place) <= 0) {
+        setError(`Укажите корректное место для игрока ${row.display_name}`);
+        return;
+      }
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(
+        `/api/admin/tournaments/${tournamentId}/live-sync`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            rows: liveRows.map((row) => ({
+              player_id: row.player_id,
+              arrived: row.arrived,
+              rebuys: Number(row.rebuys),
+              addons: Number(row.addons),
+              knockouts: Number(row.knockouts),
+              place: row.place ? Number(row.place) : null,
+            })),
+          }),
+        }
+      );
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Не удалось сохранить данные турнира");
+      }
+
+      setTournament((current) =>
+        current ? { ...current, google_sheet_tab_name: payload.tabName } : current
+      );
+      setMessage(
+        payload.url
+          ? "Данные турнира сохранены и синхронизированы с Google Sheets"
+          : "Данные турнира сохранены"
+      );
+    } catch (err) {
+      const nextMessage =
+        err instanceof Error ? err.message : "Ошибка синхронизации с таблицей";
+      setError(nextMessage);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handlePullFromSheet() {
+    if (!tournamentId) {
+      return;
+    }
+
+    setMessage(null);
+    setError(null);
+
+    try {
+      setPulling(true);
+
+      const response = await fetch(
+        `/api/admin/tournaments/${tournamentId}/pull-sheet`,
+        {
+          method: "POST",
+        }
+      );
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Не удалось обновить данные из таблицы");
+      }
+
+      const nextRows = (payload.rows as TournamentLiveEntry[]).map((row) => ({
+        player_id: row.player_id,
+        registration_id: row.registration_id,
+        display_name: row.display_name,
+        username: row.username,
+        arrived: row.arrived,
+        rebuys: String(row.rebuys),
+        addons: String(row.addons),
+        knockouts: String(row.knockouts),
+        place: row.place == null ? "" : String(row.place),
+      }));
+
+      setLiveRows(nextRows);
+      setMessage("Данные подтянуты из Google Sheets");
+    } catch (err) {
+      const nextMessage =
+        err instanceof Error ? err.message : "Ошибка чтения данных из таблицы";
+      setError(nextMessage);
+    } finally {
+      setPulling(false);
+    }
+  }
+
+  async function handleCompleteLiveTournament() {
+    if (!tournamentId) {
+      return;
+    }
+
+    setMessage(null);
+    setError(null);
+
+    const playersWithoutPlace = liveRows.filter((row) => !row.place.trim());
+
+    if (playersWithoutPlace.length > 0) {
+      setError(
+        `Перед завершением заполните место для всех игроков. Не заполнено: ${playersWithoutPlace
+          .map((row) => row.display_name)
+          .join(", ")}`
+      );
+      return;
+    }
+
+    try {
+      setCompleting(true);
+
+      const response = await fetch(
+        `/api/admin/tournaments/${tournamentId}/complete-live`,
+        {
+          method: "POST",
+        }
+      );
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Не удалось завершить турнир");
+      }
+
+      setTournament((current) =>
+        current ? { ...current, status: "completed" } : current
+      );
+      setMessage("Турнир завершен, live-данные перенесены в results");
+    } catch (err) {
+      const nextMessage =
+        err instanceof Error ? err.message : "Ошибка завершения турнира";
+      setError(nextMessage);
+    } finally {
+      setCompleting(false);
+    }
+  }
+
   if (!accessChecked || loading) {
     return (
       <main className="min-h-screen bg-black px-4 py-6 text-white">
         <div className="mx-auto max-w-3xl">
-          <p className="text-sm text-white/70">Загружаем страницу результатов...</p>
+          <p className="text-sm text-white/70">Загружаем страницу...</p>
         </div>
       </main>
     );
@@ -168,7 +380,7 @@ export default function AdminTournamentResultsPage() {
       <main className="min-h-screen bg-black px-4 py-6 text-white">
         <div className="mx-auto max-w-3xl">
           <Link
-            href="/"
+            href="/admin"
             className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
           >
             ← Назад
@@ -185,7 +397,7 @@ export default function AdminTournamentResultsPage() {
     );
   }
 
-  if (error && rows.length === 0) {
+  if (error && !tournament) {
     return (
       <main className="min-h-screen bg-black px-4 py-6 text-white">
         <div className="mx-auto max-w-3xl">
@@ -204,6 +416,8 @@ export default function AdminTournamentResultsPage() {
     );
   }
 
+  const isFreeTournament = tournament?.kind === "free";
+
   return (
     <main className="min-h-screen bg-black px-4 py-6 text-white">
       <div className="mx-auto max-w-3xl">
@@ -214,8 +428,8 @@ export default function AdminTournamentResultsPage() {
           ← Назад
         </Link>
 
-        <h1 className="text-2xl font-bold">Результаты турнира</h1>
-        <p className="mt-2 text-sm text-white/70">{title}</p>
+        <h1 className="text-2xl font-bold">{getTournamentModeTitle(tournament)}</h1>
+        <p className="mt-2 text-sm text-white/70">{tournament?.title}</p>
 
         {message ? (
           <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-200">
@@ -229,13 +443,104 @@ export default function AdminTournamentResultsPage() {
           </div>
         ) : null}
 
+        {!isFreeTournament ? (
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+            {tournament?.google_sheet_tab_name
+              ? "Данные можно вести и в приложении, и в Google Sheets."
+              : "Сначала сохраните данные, чтобы создать рабочую Google-таблицу для турнира."}
+          </div>
+        ) : null}
+
         <div className="mt-6 space-y-4">
-          {rows.length === 0 ? (
+          {isFreeTournament ? (
+            freeRows.length === 0 ? (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                В турнире пока нет игроков для внесения результатов.
+              </div>
+            ) : (
+              freeRows.map((row, index) => (
+                <div
+                  key={row.player_id}
+                  className="rounded-xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="mb-4">
+                    <p className="text-sm text-white/50">Игрок #{index + 1}</p>
+                    <p className="mt-1 text-lg font-semibold">
+                      {row.username ? `@${row.username}` : row.display_name}
+                    </p>
+                    {!row.username ? (
+                      <p className="text-sm text-white/50">{row.display_name}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm text-white/80">Место</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={row.place}
+                        onChange={(e) =>
+                          updateFreeRow(row.player_id, "place", e.target.value)
+                        }
+                        className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-white/80">Докупы</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.reentries}
+                        onChange={(e) =>
+                          updateFreeRow(row.player_id, "reentries", e.target.value)
+                        }
+                        className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-white/80">Нокауты</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.knockouts}
+                        onChange={(e) =>
+                          updateFreeRow(row.player_id, "knockouts", e.target.value)
+                        }
+                        className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-white/80">
+                        Очки рейтинга
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.rating_points}
+                        onChange={(e) =>
+                          updateFreeRow(
+                            row.player_id,
+                            "rating_points",
+                            e.target.value
+                          )
+                        }
+                        className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )
+          ) : liveRows.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-              В турнире пока нет игроков для внесения результатов.
+              В турнире пока нет зарегистрированных игроков для live-таблицы.
             </div>
           ) : (
-            rows.map((row, index) => (
+            liveRows.map((row, index) => (
               <div
                 key={row.player_id}
                 className="rounded-xl border border-white/10 bg-white/5 p-4"
@@ -245,12 +550,61 @@ export default function AdminTournamentResultsPage() {
                   <p className="mt-1 text-lg font-semibold">
                     {row.username ? `@${row.username}` : row.display_name}
                   </p>
-                  {!row.username ? (
-                    <p className="text-sm text-white/50">{row.display_name}</p>
-                  ) : null}
+                  <p className="text-sm text-white/50">{row.display_name}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
+                  <label className="col-span-2 flex items-center gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/85">
+                    <input
+                      type="checkbox"
+                      checked={row.arrived}
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "arrived", e.target.checked)
+                      }
+                      className="h-4 w-4 accent-yellow-500"
+                    />
+                    Пришел
+                  </label>
+
+                  <div>
+                    <label className="block text-sm text-white/80">Re-buy</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.rebuys}
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "rebuys", e.target.value)
+                      }
+                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-white/80">Addon</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.addons}
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "addons", e.target.value)
+                      }
+                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-white/80">Nok</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.knockouts}
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "knockouts", e.target.value)
+                      }
+                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-sm text-white/80">Место</label>
                     <input
@@ -258,48 +612,7 @@ export default function AdminTournamentResultsPage() {
                       min="1"
                       value={row.place}
                       onChange={(e) =>
-                        updateRow(row.player_id, "place", e.target.value)
-                      }
-                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-white/80">Докупы</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.reentries}
-                      onChange={(e) =>
-                        updateRow(row.player_id, "reentries", e.target.value)
-                      }
-                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-white/80">Нокауты</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.knockouts}
-                      onChange={(e) =>
-                        updateRow(row.player_id, "knockouts", e.target.value)
-                      }
-                      className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-white/80">
-                      Очки рейтинга
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.rating_points}
-                      onChange={(e) =>
-                        updateRow(row.player_id, "rating_points", e.target.value)
+                        updateLiveRow(row.player_id, "place", e.target.value)
                       }
                       className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
                     />
@@ -310,15 +623,50 @@ export default function AdminTournamentResultsPage() {
           )}
         </div>
 
-        {rows.length > 0 ? (
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="mt-6 w-full rounded-lg bg-yellow-500 py-3 font-semibold text-black disabled:opacity-60"
-          >
-            {saving ? "Сохраняем..." : "Сохранить результаты"}
-          </button>
+        {isFreeTournament ? (
+          freeRows.length > 0 ? (
+            <button
+              type="button"
+              onClick={handleSaveFreeResults}
+              disabled={saving}
+              className="mt-6 w-full rounded-lg bg-yellow-500 py-3 font-semibold text-black disabled:opacity-60"
+            >
+              {saving ? "Сохраняем..." : "Сохранить результаты"}
+            </button>
+          ) : null
+        ) : liveRows.length > 0 ? (
+          <div className="mt-6 grid grid-cols-1 gap-3">
+            <button
+              type="button"
+              onClick={handleSyncLiveRows}
+              disabled={saving}
+              className="rounded-lg bg-yellow-500 py-3 font-semibold text-black disabled:opacity-60"
+            >
+              {saving
+                ? "Синхронизируем..."
+                : tournament?.google_sheet_tab_name
+                  ? "Сохранить в таблицу"
+                  : "Создать таблицу"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePullFromSheet}
+              disabled={pulling || !tournament?.google_sheet_tab_name}
+              className="rounded-lg border border-white/10 px-3 py-3 text-sm font-semibold text-white/85 disabled:opacity-50"
+            >
+              {pulling ? "Обновляем..." : "Обновить из таблицы"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCompleteLiveTournament}
+              disabled={completing}
+              className="rounded-lg bg-green-500 py-3 font-semibold text-black disabled:opacity-60"
+            >
+              {completing ? "Завершаем..." : "Завершить турнир"}
+            </button>
+          </div>
         ) : null}
       </div>
     </main>

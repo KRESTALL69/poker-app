@@ -5,6 +5,7 @@ import type {
   RegistrationStatus,
   Tournament,
   TournamentKind,
+  TournamentLiveEntry,
   TournamentParticipant,
   TournamentResult,
   TournamentResultInput,
@@ -12,6 +13,7 @@ import type {
 } from "@/types/domain";
 import type {
   RegistrationRow,
+  TournamentLiveEntryRow,
   TournamentRow,
 } from "@/types/database";
 
@@ -28,6 +30,20 @@ export type TournamentNotificationRecipient = {
   telegram_id: number;
   display_name: string;
   registration_status: RegistrationStatus | null;
+};
+
+export type TournamentLiveSheetRow = {
+  player_id: string;
+  registration_id: string;
+  display_name: string;
+  username: string | null;
+  registration_status: "registered" | "attended";
+  arrived: boolean;
+  rebuys: number;
+  addons: number;
+  knockouts: number;
+  place: number | null;
+  sheet_row_number: number | null;
 };
 
 function mapTournamentRow(row: TournamentRow): Tournament {
@@ -53,6 +69,26 @@ function mapRegistrationRow(row: RegistrationRow): Registration {
     tournament_id: row.tournament_id,
     status: row.status as RegistrationStatus,
     created_at: row.created_at,
+  };
+}
+
+function mapTournamentLiveEntryRow(
+  row: TournamentLiveEntryRow
+): TournamentLiveEntry {
+  return {
+    id: row.id,
+    tournament_id: row.tournament_id,
+    registration_id: row.registration_id,
+    player_id: row.player_id,
+    display_name: "",
+    username: null,
+    registration_status: "registered",
+    arrived: row.arrived,
+    rebuys: row.rebuys,
+    addons: row.addons,
+    knockouts: row.knockouts,
+    place: row.place,
+    sheet_row_number: row.sheet_row_number,
   };
 }
 
@@ -728,6 +764,340 @@ export async function getTournamentResultsDraft(tournamentId: string) {
       status: row.status as "registered" | "attended",
     };
   });
+}
+
+async function getTournamentLiveEligibleRegistrations(tournamentId: string) {
+  const { data, error } = await supabase
+    .from("registrations")
+    .select(
+      `
+      id,
+      status,
+      player_id,
+      players (
+        id,
+        username,
+        display_name
+      )
+    `
+    )
+    .eq("tournament_id", tournamentId)
+    .in("status", ["registered", "attended"])
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row: any) => {
+    const player = Array.isArray(row.players) ? row.players[0] : row.players;
+
+    return {
+      registration_id: row.id as string,
+      player_id: row.player_id as string,
+      username: player?.username ?? null,
+      display_name: player?.display_name ?? "Игрок",
+      registration_status: row.status as "registered" | "attended",
+    };
+  });
+}
+
+export async function ensureTournamentLiveEntries(tournamentId: string) {
+  const tournament = await getTournamentById(tournamentId);
+
+  if (tournament.kind === "free") {
+    throw new Error("Live-режим доступен только для платных турниров и кэш-игр");
+  }
+
+  const eligibleRegistrations = await getTournamentLiveEligibleRegistrations(
+    tournamentId
+  );
+
+  const { data: existingEntriesData, error: existingEntriesError } = await supabase
+    .from("tournament_live_entries")
+    .select("player_id")
+    .eq("tournament_id", tournamentId);
+
+  if (existingEntriesError) {
+    throw new Error(existingEntriesError.message);
+  }
+
+  const existingPlayerIds = new Set(
+    (existingEntriesData ?? []).map((row: any) => row.player_id as string)
+  );
+
+  const rowsToInsert = eligibleRegistrations
+    .filter((row) => !existingPlayerIds.has(row.player_id))
+    .map((row) => ({
+      tournament_id: tournamentId,
+      player_id: row.player_id,
+      registration_id: row.registration_id,
+      arrived: false,
+      rebuys: 0,
+      addons: 0,
+      knockouts: 0,
+      place: null,
+    }));
+
+  if (rowsToInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from("tournament_live_entries")
+      .insert(rowsToInsert);
+
+    if (insertError) {
+      throw new Error(insertError.message);
+    }
+  }
+}
+
+export async function getTournamentLiveEntries(
+  tournamentId: string
+): Promise<TournamentLiveEntry[]> {
+  const tournament = await getTournamentById(tournamentId);
+
+  if (tournament.kind === "free") {
+    throw new Error("Live-режим доступен только для платных турниров и кэш-игр");
+  }
+
+  await ensureTournamentLiveEntries(tournamentId);
+
+  const { data, error } = await supabase
+    .from("tournament_live_entries")
+    .select(
+      `
+      *,
+      registrations (
+        status
+      ),
+      players (
+        username,
+        display_name
+      )
+    `
+    )
+    .eq("tournament_id", tournamentId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row: any) => {
+    const base = mapTournamentLiveEntryRow(row as TournamentLiveEntryRow);
+    const player = Array.isArray(row.players) ? row.players[0] : row.players;
+    const registration = Array.isArray(row.registrations)
+      ? row.registrations[0]
+      : row.registrations;
+
+    return {
+      ...base,
+      display_name: player?.display_name ?? "Игрок",
+      username: player?.username ?? null,
+      registration_status:
+        (registration?.status as "registered" | "attended") ?? "registered",
+    };
+  });
+}
+
+export async function updateTournamentLiveEntries(
+  tournamentId: string,
+  rows: Array<{
+    player_id: string;
+    arrived: boolean;
+    rebuys: number;
+    addons: number;
+    knockouts: number;
+    place: number | null;
+  }>
+) {
+  const tournament = await getTournamentById(tournamentId);
+
+  if (tournament.kind === "free") {
+    throw new Error("Live-режим доступен только для платных турниров и кэш-игр");
+  }
+
+  if (rows.length === 0) {
+    return getTournamentLiveEntries(tournamentId);
+  }
+
+  await ensureTournamentLiveEntries(tournamentId);
+
+  for (const row of rows) {
+    const { error } = await supabase
+      .from("tournament_live_entries")
+      .update({
+        arrived: row.arrived,
+        rebuys: row.rebuys,
+        addons: row.addons,
+        knockouts: row.knockouts,
+        place: row.place,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("tournament_id", tournamentId)
+      .eq("player_id", row.player_id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  return getTournamentLiveEntries(tournamentId);
+}
+
+export async function getTournamentLiveSheetData(
+  tournamentId: string
+): Promise<{
+  tournament: Tournament;
+  rows: TournamentLiveSheetRow[];
+}> {
+  const tournament = await getTournamentById(tournamentId);
+  const rows = await getTournamentLiveEntries(tournamentId);
+
+  return {
+    tournament,
+    rows: rows.map((row, index) => ({
+      player_id: row.player_id,
+      registration_id: row.registration_id,
+      display_name: row.display_name,
+      username: row.username,
+      registration_status: row.registration_status,
+      arrived: row.arrived,
+      rebuys: row.rebuys,
+      addons: row.addons,
+      knockouts: row.knockouts,
+      place: row.place,
+      sheet_row_number: row.sheet_row_number ?? index + 8,
+    })),
+  };
+}
+
+export async function applyTournamentLiveSheetRows(
+  tournamentId: string,
+  rows: Array<{
+    player_id: string;
+    arrived: boolean;
+    rebuys: number;
+    addons: number;
+    knockouts: number;
+    place: number | null;
+    sheet_row_number?: number | null;
+  }>
+) {
+  if (rows.length === 0) {
+    return getTournamentLiveEntries(tournamentId);
+  }
+
+  for (const row of rows) {
+    const payload: Record<string, unknown> = {
+      arrived: row.arrived,
+      rebuys: row.rebuys,
+      addons: row.addons,
+      knockouts: row.knockouts,
+      place: row.place,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (row.sheet_row_number != null) {
+      payload.sheet_row_number = row.sheet_row_number;
+    }
+
+    const { error } = await supabase
+      .from("tournament_live_entries")
+      .update(payload)
+      .eq("tournament_id", tournamentId)
+      .eq("player_id", row.player_id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  return getTournamentLiveEntries(tournamentId);
+}
+
+export async function completeTournamentFromLiveEntries(tournamentId: string) {
+  const tournament = await getTournamentById(tournamentId);
+
+  if (tournament.kind === "free") {
+    throw new Error("Завершение через live-режим доступно только для платных турниров и кэш-игр");
+  }
+
+  const liveEntries = await getTournamentLiveEntries(tournamentId);
+
+  if (liveEntries.length === 0) {
+    throw new Error("Для турнира нет live-данных");
+  }
+
+  const entriesWithoutPlace = liveEntries.filter((entry) => entry.place == null);
+
+  if (entriesWithoutPlace.length > 0) {
+    throw new Error(
+      `Заполните место для всех игроков. Не заполнено: ${entriesWithoutPlace
+        .map((entry) => entry.display_name)
+        .join(", ")}`
+    );
+  }
+
+  const { data: tournamentRow, error: tournamentError } = await supabase
+    .from("tournaments")
+    .select("id, season_id")
+    .eq("id", tournamentId)
+    .single();
+
+  if (tournamentError) {
+    throw new Error(tournamentError.message);
+  }
+
+  const { error: deleteError } = await supabase
+    .from("results")
+    .delete()
+    .eq("tournament_id", tournamentId);
+
+  if (deleteError) {
+    throw new Error(deleteError.message);
+  }
+
+  const payload = liveEntries.map((entry) => ({
+    tournament_id: tournamentId,
+    player_id: entry.player_id,
+    season_id: tournamentRow.season_id ?? null,
+    place: entry.place,
+    reentries: entry.rebuys,
+    knockouts: entry.knockouts,
+    rating_points: 0,
+  }));
+
+  const { error: insertError } = await supabase.from("results").insert(payload);
+
+  if (insertError) {
+    throw new Error(insertError.message);
+  }
+
+  const playerIds = liveEntries.map((entry) => entry.player_id);
+
+  const { error: registrationsError } = await supabase
+    .from("registrations")
+    .update({ status: "attended" })
+    .eq("tournament_id", tournamentId)
+    .in("player_id", playerIds)
+    .in("status", ["registered", "attended"]);
+
+  if (registrationsError) {
+    throw new Error(registrationsError.message);
+  }
+
+  const { error: tournamentStatusError } = await supabase
+    .from("tournaments")
+    .update({ status: "completed" })
+    .eq("id", tournamentId);
+
+  if (tournamentStatusError) {
+    throw new Error(tournamentStatusError.message);
+  }
+
+  return {
+    completedCount: liveEntries.length,
+  };
 }
 
 export async function saveTournamentResults(

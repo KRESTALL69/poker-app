@@ -94,6 +94,22 @@ export type TournamentResult = {
   display_name: string;
 };
 
+export type TournamentLiveEntry = {
+  id: string;
+  tournament_id: string;
+  registration_id: string;
+  player_id: string;
+  display_name: string;
+  username: string | null;
+  registration_status: "registered" | "attended";
+  arrived: boolean;
+  rebuys: number;
+  addons: number;
+  knockouts: number;
+  place: number | null;
+  sheet_row_number: number | null;
+};
+
 export type PlayerAchievement = {
   id: string;
   player_id: string;

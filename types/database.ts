@@ -52,6 +52,21 @@ export type ResultRow = {
   created_at: string;
 };
 
+export type TournamentLiveEntryRow = {
+  id: string;
+  tournament_id: string;
+  player_id: string;
+  registration_id: string;
+  arrived: boolean;
+  rebuys: number;
+  addons: number;
+  knockouts: number;
+  place: number | null;
+  sheet_row_number: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PlayerAchievementRow = {
   id: string;
   player_id: string;
