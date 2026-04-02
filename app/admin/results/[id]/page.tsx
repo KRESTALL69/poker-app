@@ -513,8 +513,8 @@ export default function AdminTournamentResultsPage() {
                     <p className="mt-1 text-lg font-semibold">
                       {row.display_name}
                     </p>
-                    {!row.username ? (
-                      <p className="text-sm text-white/50">{row.display_name}</p>
+                    {row.username ? (
+                      <p className="text-sm text-white/45">@{row.username}</p>
                     ) : null}
                   </div>
 
@@ -593,8 +593,8 @@ export default function AdminTournamentResultsPage() {
                 <p className="text-base font-semibold text-white">
                   {row.display_name}
                 </p>
-                {!row.username ? (
-                  <p className="mt-1 text-sm text-white/50">{row.display_name}</p>
+                {row.username ? (
+                  <p className="mt-1 text-sm text-white/45">@{row.username}</p>
                 ) : null}
 
                 <div className="mt-3 grid grid-cols-5 gap-2 text-center text-[11px] font-medium text-white/60">

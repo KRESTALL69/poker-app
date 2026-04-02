@@ -265,14 +265,14 @@ export default function AdminModerationPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-white">
-                          {pendingPlayer.username
-                            ? `@${pendingPlayer.username}`
-                            : pendingPlayer.display_name}
+                          {getVisibleNickname(pendingPlayer)}
                         </p>
-                        <p className="mt-1 text-sm text-white/60">
-                          Текущий ник: {pendingPlayer.display_name}
-                        </p>
-                        <p className="text-sm text-yellow-300">
+                        {pendingPlayer.username ? (
+                          <p className="mt-1 text-xs text-white/45">
+                            @{pendingPlayer.username}
+                          </p>
+                        ) : null}
+                        <p className="mt-1 text-sm text-yellow-300">
                           Новый ник: {pendingPlayer.pending_display_name}
                         </p>
                       </div>
