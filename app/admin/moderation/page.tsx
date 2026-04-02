@@ -358,12 +358,6 @@ export default function AdminModerationPage() {
                     )}
 
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-white">
-                        {targetPlayer.username
-                          ? `@${targetPlayer.username}`
-                          : `Telegram ID: ${targetPlayer.telegram_id}`}
-                      </p>
-
                       {isEditing ? (
                         <input
                           type="text"
@@ -378,13 +372,24 @@ export default function AdminModerationPage() {
                           className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none"
                         />
                       ) : (
-                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                          <span className="text-white">{getVisibleNickname(targetPlayer)}</span>
+                        <div className="text-sm">
+                          <p className="truncate font-semibold text-white">
+                            {getVisibleNickname(targetPlayer)}
+                          </p>
+                          {targetPlayer.username ? (
+                            <p className="mt-1 truncate text-xs text-white/45">
+                              @{targetPlayer.username}
+                            </p>
+                          ) : (
+                            <p className="mt-1 truncate text-xs text-white/45">
+                              Telegram ID: {targetPlayer.telegram_id}
+                            </p>
+                          )}
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                           {targetPlayer.admin_display_name ? (
                             <span className="text-xs text-yellow-300">админский ник</span>
                           ) : null}
-                          <span className="text-white/40">·</span>
-                          <span className="text-white/55">{targetPlayer.display_name}</span>
+                          </div>
                         </div>
                       )}
                     </div>
