@@ -5,6 +5,8 @@ export type TelegramWebAppUser = {
   username?: string;
 };
 
+const TELEGRAM_USER_CACHE_KEY = "dwc.telegram.user";
+
 export type TelegramWebApp = {
   initData?: string;
   initDataUnsafe?: {
@@ -75,6 +77,37 @@ function getTelegramUserFromLaunchParams(): TelegramWebAppUser | null {
   }
 }
 
+function readCachedTelegramUser(): TelegramWebAppUser | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawValue = window.sessionStorage.getItem(TELEGRAM_USER_CACHE_KEY);
+
+    if (!rawValue) {
+      return null;
+    }
+
+    return JSON.parse(rawValue) as TelegramWebAppUser;
+  } catch (error) {
+    console.error("Failed to read cached Telegram user:", error);
+    return null;
+  }
+}
+
+function cacheTelegramUser(user: TelegramWebAppUser | null) {
+  if (typeof window === "undefined" || !user) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(TELEGRAM_USER_CACHE_KEY, JSON.stringify(user));
+  } catch (error) {
+    console.error("Failed to cache Telegram user:", error);
+  }
+}
+
 function hasTelegramLaunchParams(): boolean {
   if (typeof window === "undefined") {
     return false;
@@ -119,8 +152,16 @@ export function getTelegramUser(): TelegramWebAppUser | null {
   const webApp = getTelegramWebApp();
 
   if (webApp?.initDataUnsafe?.user) {
+    cacheTelegramUser(webApp.initDataUnsafe.user);
     return webApp.initDataUnsafe.user;
   }
 
-  return getTelegramUserFromLaunchParams();
+  const launchParamsUser = getTelegramUserFromLaunchParams();
+
+  if (launchParamsUser) {
+    cacheTelegramUser(launchParamsUser);
+    return launchParamsUser;
+  }
+
+  return readCachedTelegramUser();
 }
