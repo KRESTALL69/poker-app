@@ -9,6 +9,7 @@ import {
   getTournamentResultsDraft,
   saveTournamentResults,
 } from "@/features/tournaments";
+import { fetchJsonWithRetry } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, Tournament, TournamentLiveEntry } from "@/types/domain";
 
@@ -273,7 +274,7 @@ export default function AdminTournamentResultsPage() {
     try {
       setSaving(true);
 
-      const response = await fetch(
+      const payload = await fetchJsonWithRetry<{ tabName: string }>(
         `/api/admin/tournaments/${tournamentId}/live-sync`,
         {
           method: "POST",
@@ -292,12 +293,6 @@ export default function AdminTournamentResultsPage() {
           }),
         }
       );
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Не удалось сохранить данные турнира");
-      }
 
       setTournament((current) =>
         current ? { ...current, google_sheet_tab_name: payload.tabName } : current
@@ -324,17 +319,12 @@ export default function AdminTournamentResultsPage() {
     try {
       setPulling(true);
 
-      const response = await fetch(
+      const payload = await fetchJsonWithRetry<{ rows: TournamentLiveEntry[] }>(
         `/api/admin/tournaments/${tournamentId}/pull-sheet`,
         {
           method: "POST",
         }
       );
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Не удалось обновить данные из таблицы");
-      }
 
       const nextRows = mapLiveEntriesToFormRows(payload.rows as TournamentLiveEntry[]);
       setLiveRows(nextRows);
@@ -371,17 +361,12 @@ export default function AdminTournamentResultsPage() {
     try {
       setCompleting(true);
 
-      const response = await fetch(
+      await fetchJsonWithRetry<{ ok: true }>(
         `/api/admin/tournaments/${tournamentId}/complete-live`,
         {
           method: "POST",
         }
       );
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Не удалось завершить турнир");
-      }
 
       setTournament((current) =>
         current ? { ...current, status: "completed" } : current

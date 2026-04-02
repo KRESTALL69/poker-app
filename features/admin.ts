@@ -8,6 +8,7 @@ function mapPlayerRowToDomain(row: PlayerRow): Player {
     telegram_id: row.telegram_id,
     username: row.username,
     display_name: row.display_name,
+    admin_display_name: row.admin_display_name ?? undefined,
     telegram_avatar_url: row.telegram_avatar_url ?? undefined,
     custom_avatar_url: row.custom_avatar_url ?? undefined,
     avatar_updated_at: row.avatar_updated_at ?? undefined,
@@ -35,6 +36,41 @@ export async function getPlayersForAccessManagement(): Promise<Player[]> {
   }
 
   return (data ?? []).map((row) => mapPlayerRowToDomain(row as PlayerRow));
+}
+
+export async function getPlayersForNicknameDirectory(): Promise<Player[]> {
+  const { data, error } = await supabase
+    .from("players")
+    .select("*")
+    .order("display_name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Ошибка загрузки игроков: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => mapPlayerRowToDomain(row as PlayerRow));
+}
+
+export async function updatePlayerAdminDisplayName(
+  playerId: string,
+  adminDisplayName: string | null
+): Promise<Player> {
+  const normalizedDisplayName = adminDisplayName?.trim() ?? "";
+
+  const { data, error } = await supabase
+    .from("players")
+    .update({
+      admin_display_name: normalizedDisplayName || null,
+    })
+    .eq("id", playerId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(`Ошибка обновления админского ника: ${error.message}`);
+  }
+
+  return mapPlayerRowToDomain(data as PlayerRow);
 }
 
 export async function updatePlayerTournamentAccess(

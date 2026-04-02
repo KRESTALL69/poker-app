@@ -9,6 +9,7 @@ function mapPlayerRowToDomain(row: PlayerRow): Player {
     telegram_id: row.telegram_id,
     username: row.username,
     display_name: row.display_name,
+    admin_display_name: row.admin_display_name ?? undefined,
     telegram_avatar_url: row.telegram_avatar_url ?? undefined,
     custom_avatar_url: row.custom_avatar_url ?? undefined,
     avatar_updated_at: row.avatar_updated_at ?? undefined,

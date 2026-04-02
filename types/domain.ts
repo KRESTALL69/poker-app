@@ -18,6 +18,7 @@ export type Player = {
   telegram_id: number;
   username: string | null;
   display_name: string;
+  admin_display_name?: string;
   telegram_avatar_url?: string;
   custom_avatar_url?: string;
   avatar_updated_at?: string;
