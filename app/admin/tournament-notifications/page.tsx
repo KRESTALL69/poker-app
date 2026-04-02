@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
-import {
-  getAdminNotificationTournaments,
-  getTournamentNotificationRecipientsByAudience,
-  type TournamentNotificationAudience,
-  type TournamentNotificationRecipient,
-} from "@/features/tournaments";
+import { fetchJsonWithRetry } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, Tournament, TournamentKind } from "@/types/domain";
+import type {
+  TournamentNotificationAudience,
+  TournamentNotificationRecipient,
+} from "@/features/tournaments";
 
 function formatDateTimeWithoutSeconds(date: string) {
   return new Date(date).toLocaleString("ru-RU", {
@@ -23,14 +22,8 @@ function formatDateTimeWithoutSeconds(date: string) {
 }
 
 function getTournamentKindLabel(kind: Tournament["kind"]) {
-  if (kind === "paid") {
-    return "Платный";
-  }
-
-  if (kind === "cash") {
-    return "Кэш";
-  }
-
+  if (kind === "paid") return "Платный";
+  if (kind === "cash") return "Кэш";
   return "Бесплатный";
 }
 
@@ -80,26 +73,42 @@ export default function AdminTournamentNotificationsPage() {
     [selectedTournamentId, filteredTournaments]
   );
 
+  async function loadRecipients(
+    tournamentId: string,
+    tournamentKind: TournamentKind,
+    targetAudience: TournamentNotificationAudience
+  ) {
+    const params = new URLSearchParams({
+      tournamentId,
+      tournamentKind,
+      audience: targetAudience,
+    });
+
+    const payload = await fetchJsonWithRetry<{
+      recipients: TournamentNotificationRecipient[];
+    }>(`/api/admin/tournaments/recipients?${params.toString()}`);
+
+    return payload.recipients;
+  }
+
   useEffect(() => {
     async function loadPage() {
       try {
         const telegramUser = getTelegramUser();
 
-        if (!telegramUser) {
-          return;
-        }
+        if (!telegramUser) return;
 
         const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
         setPlayer(ensuredPlayer);
 
         if (ensuredPlayer.role === "admin") {
-          const nextTournaments = await getAdminNotificationTournaments();
-          setTournaments(nextTournaments);
+          const payload = await fetchJsonWithRetry<{ tournaments: Tournament[] }>(
+            "/api/admin/tournaments?scope=all"
+          );
+          setTournaments(payload.tournaments);
         }
       } catch (err) {
-        const nextMessage =
-          err instanceof Error ? err.message : "Ошибка загрузки страницы";
-        setError(nextMessage);
+        setError(err instanceof Error ? err.message : "Ошибка загрузки страницы");
       } finally {
         setAccessChecked(true);
         setLoading(false);
@@ -137,24 +146,22 @@ export default function AdminTournamentNotificationsPage() {
           filteredTournaments.map(async (tournament) => {
             if (audience === "access") {
               if (!kindCountsCache.has(tournament.kind)) {
-                const sameKindRecipients =
-                  await getTournamentNotificationRecipientsByAudience({
-                    tournamentId: tournament.id,
-                    tournamentKind: tournament.kind,
-                    audience,
-                  });
+                const sameKindRecipients = await loadRecipients(
+                  tournament.id,
+                  tournament.kind,
+                  audience
+                );
                 kindCountsCache.set(tournament.kind, sameKindRecipients.length);
               }
 
               return [tournament.id, kindCountsCache.get(tournament.kind) ?? 0] as const;
             }
 
-            const tournamentRecipients =
-              await getTournamentNotificationRecipientsByAudience({
-                tournamentId: tournament.id,
-                tournamentKind: tournament.kind,
-                audience,
-              });
+            const tournamentRecipients = await loadRecipients(
+              tournament.id,
+              tournament.kind,
+              audience
+            );
 
             return [tournament.id, tournamentRecipients.length] as const;
           })
@@ -162,9 +169,7 @@ export default function AdminTournamentNotificationsPage() {
 
         setRecipientCountsMap(Object.fromEntries(countEntries));
       } catch (err) {
-        const nextMessage =
-          err instanceof Error ? err.message : "Ошибка загрузки получателей";
-        setError(nextMessage);
+        setError(err instanceof Error ? err.message : "Ошибка загрузки получателей");
       }
     }
 
@@ -172,27 +177,25 @@ export default function AdminTournamentNotificationsPage() {
   }, [filteredTournaments, audience]);
 
   useEffect(() => {
-    async function loadRecipients() {
+    async function loadCurrentRecipients() {
       if (!selectedTournament) {
         setRecipients([]);
         return;
       }
 
       try {
-        const nextRecipients = await getTournamentNotificationRecipientsByAudience({
-          tournamentId: selectedTournament.id,
-          tournamentKind: selectedTournament.kind,
-          audience,
-        });
+        const nextRecipients = await loadRecipients(
+          selectedTournament.id,
+          selectedTournament.kind,
+          audience
+        );
         setRecipients(nextRecipients);
       } catch (err) {
-        const nextMessage =
-          err instanceof Error ? err.message : "Ошибка загрузки получателей";
-        setError(nextMessage);
+        setError(err instanceof Error ? err.message : "Ошибка загрузки получателей");
       }
     }
 
-    loadRecipients();
+    loadCurrentRecipients();
   }, [selectedTournament, audience]);
 
   useEffect(() => {
@@ -220,29 +223,22 @@ export default function AdminTournamentNotificationsPage() {
       setError(null);
       setResult(null);
 
-      const response = await fetch("/api/admin/tournaments/notify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tournamentId: selectedTournament.id,
-          audience,
-          message: messageText.trim(),
-        }),
-      });
+      const payload = await fetchJsonWithRetry<NotificationResult>(
+        "/api/admin/tournaments/notify",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tournamentId: selectedTournament.id,
+            audience,
+            message: messageText.trim(),
+          }),
+        }
+      );
 
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Не удалось отправить уведомления");
-      }
-
-      setResult(payload as NotificationResult);
+      setResult(payload);
     } catch (err) {
-      const nextMessage =
-        err instanceof Error ? err.message : "Ошибка отправки уведомлений";
-      setError(nextMessage);
+      setError(err instanceof Error ? err.message : "Ошибка отправки уведомлений");
     } finally {
       setSending(false);
     }

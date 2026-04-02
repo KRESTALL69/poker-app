@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
-import {
-  getPlayersForAccessManagement,
-  updatePlayerTournamentAccess,
-} from "@/features/admin";
+import { fetchJsonWithRetry } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
 
@@ -22,9 +19,7 @@ function getRightsCount(targetPlayer: Player) {
 }
 
 function getToggleButtonClassName(isEnabled: boolean) {
-  return isEnabled
-    ? "bg-green-600 text-white"
-    : "border border-white/10 text-white";
+  return isEnabled ? "bg-green-600 text-white" : "border border-white/10 text-white";
 }
 
 export default function AdminPlayerAccessPage() {
@@ -74,11 +69,9 @@ export default function AdminPlayerAccessPage() {
       if (rightsFilter === "free-only") {
         return (
           stickyFilteredPlayerIds.includes(targetPlayer.id) ||
-          (
-            Boolean(targetPlayer.can_access_free) &&
+          (Boolean(targetPlayer.can_access_free) &&
             !targetPlayer.can_access_paid &&
-            !targetPlayer.can_access_cash
-          )
+            !targetPlayer.can_access_cash)
         );
       }
 
@@ -100,8 +93,10 @@ export default function AdminPlayerAccessPage() {
     });
 
   async function loadPlayers() {
-    const nextPlayers = await getPlayersForAccessManagement();
-    setPlayers(nextPlayers);
+    const payload = await fetchJsonWithRetry<{ players: Player[] }>(
+      "/api/admin/players/access"
+    );
+    setPlayers(payload.players);
   }
 
   useEffect(() => {
@@ -121,7 +116,7 @@ export default function AdminPlayerAccessPage() {
         }
       } catch (err) {
         const nextMessage =
-          err instanceof Error ? err.message : "Ошибка загрузки доступов";
+          err instanceof Error ? err.message : "Ошибка загрузки игроков";
         setError(nextMessage);
       } finally {
         setAccessChecked(true);
@@ -155,14 +150,23 @@ export default function AdminPlayerAccessPage() {
         );
       }
 
-      await updatePlayerTournamentAccess(targetPlayer.id, {
-        can_access_free:
-          accessType === "free" ? nextValue : targetPlayer.can_access_free,
-        can_access_paid:
-          accessType === "paid" ? nextValue : targetPlayer.can_access_paid,
-        can_access_cash:
-          accessType === "cash" ? nextValue : targetPlayer.can_access_cash,
-      });
+      await fetchJsonWithRetry<{ player: Player }>(
+        `/api/admin/players/${targetPlayer.id}/access`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            can_access_free:
+              accessType === "free" ? nextValue : targetPlayer.can_access_free,
+            can_access_paid:
+              accessType === "paid" ? nextValue : targetPlayer.can_access_paid,
+            can_access_cash:
+              accessType === "cash" ? nextValue : targetPlayer.can_access_cash,
+          }),
+        }
+      );
 
       await loadPlayers();
       setMessage("Права игрока обновлены");
@@ -224,7 +228,8 @@ export default function AdminPlayerAccessPage() {
 
         <h1 className="text-2xl font-bold">Доступы игроков</h1>
         <p className="mt-2 text-sm text-white/70">
-          Быстрая выдача прав игрокам. По умолчанию выше игроки с меньшим числом доступов.
+          Быстрая выдача прав игрокам. По умолчанию выше игроки с меньшим числом
+          доступов.
         </p>
 
         <input

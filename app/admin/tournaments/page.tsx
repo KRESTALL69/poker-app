@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
-import { deleteTournament, getOpenTournaments } from "@/features/tournaments";
+import { deleteTournament } from "@/features/tournaments";
+import { fetchJsonWithRetry } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, Tournament } from "@/types/domain";
 
@@ -18,14 +19,8 @@ function formatDateTimeWithoutSeconds(date: string) {
 }
 
 function getTournamentKindLabel(kind: Tournament["kind"]) {
-  if (kind === "paid") {
-    return "Платный";
-  }
-
-  if (kind === "cash") {
-    return "Кэш";
-  }
-
+  if (kind === "paid") return "Платный";
+  if (kind === "cash") return "Кэш";
   return "Бесплатный";
 }
 
@@ -46,8 +41,10 @@ export default function AdminTournamentsPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function loadTournaments() {
-    const nextTournaments = await getOpenTournaments();
-    setTournaments(nextTournaments);
+    const payload = await fetchJsonWithRetry<{ tournaments: Tournament[] }>(
+      "/api/admin/tournaments"
+    );
+    setTournaments(payload.tournaments);
   }
 
   useEffect(() => {
@@ -66,9 +63,7 @@ export default function AdminTournamentsPage() {
           await loadTournaments();
         }
       } catch (err) {
-        const nextMessage =
-          err instanceof Error ? err.message : "Ошибка загрузки турниров";
-        setError(nextMessage);
+        setError(err instanceof Error ? err.message : "Ошибка загрузки турниров");
       } finally {
         setAccessChecked(true);
         setLoading(false);
@@ -100,9 +95,7 @@ export default function AdminTournamentsPage() {
 
       setMessage(`Турнир "${tournamentTitle}" удален`);
     } catch (err) {
-      const nextMessage =
-        err instanceof Error ? err.message : "Ошибка удаления турнира";
-      setError(nextMessage);
+      setError(err instanceof Error ? err.message : "Ошибка удаления турнира");
     } finally {
       setActionLoading(false);
     }
@@ -117,26 +110,16 @@ export default function AdminTournamentsPage() {
       const routePath = supportsLiveMode(tournament.kind)
         ? `/api/admin/tournaments/${tournament.id}/live-sync`
         : `/api/admin/tournaments/${tournament.id}/export-sheet`;
-      const response = await fetch(
-        routePath,
-        {
-          method: "POST",
-        }
-      );
 
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Не удалось экспортировать турнир");
-      }
+      const payload = await fetchJsonWithRetry<{ url: string }>(routePath, {
+        method: "POST",
+      });
 
       setMessage(`Google Sheets обновлен для турнира "${tournament.title}"`);
       window.open(payload.url, "_blank", "noopener,noreferrer");
       await loadTournaments();
     } catch (err) {
-      const nextMessage =
-        err instanceof Error ? err.message : "Ошибка экспорта Google Sheets";
-      setError(nextMessage);
+      setError(err instanceof Error ? err.message : "Ошибка экспорта Google Sheets");
     } finally {
       setExportingTournamentId(null);
     }
