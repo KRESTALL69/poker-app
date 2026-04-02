@@ -115,7 +115,10 @@ export async function replaceSpreadsheetTabValues(
   });
 }
 
-export async function applyTournamentSheetFormatting(tabName: string) {
+export async function applyTournamentSheetFormatting(
+  tabName: string,
+  playerRowsCount?: number
+) {
   const sheets = getGoogleSheetsClient();
   const spreadsheetId = getSpreadsheetId();
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
@@ -128,6 +131,8 @@ export async function applyTournamentSheetFormatting(tabName: string) {
   if (sheetId == null) {
     throw new Error(`Spreadsheet tab "${tabName}" not found`);
   }
+
+  const dataEndRowIndex = 7 + Math.max(playerRowsCount ?? 0, 0);
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
@@ -364,6 +369,24 @@ export async function applyTournamentSheetFormatting(tabName: string) {
           },
         },
         {
+          setDataValidation: {
+            range: {
+              sheetId,
+              startRowIndex: 7,
+              endRowIndex: dataEndRowIndex,
+              startColumnIndex: 5,
+              endColumnIndex: 6,
+            },
+            rule: {
+              condition: {
+                type: "BOOLEAN",
+              },
+              strict: true,
+              showCustomUi: true,
+            },
+          },
+        },
+        {
           addConditionalFormatRule: {
             index: 0,
             rule: {
@@ -458,7 +481,7 @@ export async function writeTournamentLiveSheet(
   values: SheetCellValue[][]
 ) {
   await replaceSpreadsheetTabValues(tabName, values);
-  await applyTournamentSheetFormatting(tabName);
+  await applyTournamentSheetFormatting(tabName, Math.max(values.length - 8, 0));
 }
 
 export function buildSpreadsheetTabUrl(sheetId: number) {

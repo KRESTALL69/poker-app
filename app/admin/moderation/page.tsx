@@ -2,12 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  approveNickname,
-  ensurePlayerFromTelegramUser,
-  getPendingNicknames,
-  rejectNickname,
-} from "@/features/auth";
+import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { fetchJsonWithRetry } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
 
@@ -21,8 +17,10 @@ export default function AdminModerationPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function loadModerationData() {
-    const nextPendingPlayers = await getPendingNicknames();
-    setPendingPlayers(nextPendingPlayers);
+    const payload = await fetchJsonWithRetry<{ players: Player[] }>(
+      "/api/admin/nicknames/pending"
+    );
+    setPendingPlayers(payload.players);
   }
 
   useEffect(() => {
@@ -59,7 +57,18 @@ export default function AdminModerationPage() {
       setMessage(null);
       setError(null);
 
-      await approveNickname(playerId);
+      await fetchJsonWithRetry<{ player: Player }>(
+        `/api/admin/nicknames/${playerId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "approve",
+          }),
+        }
+      );
       await loadModerationData();
 
       setMessage("Ник одобрен");
@@ -78,7 +87,18 @@ export default function AdminModerationPage() {
       setMessage(null);
       setError(null);
 
-      await rejectNickname(playerId);
+      await fetchJsonWithRetry<{ player: Player }>(
+        `/api/admin/nicknames/${playerId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "reject",
+          }),
+        }
+      );
       await loadModerationData();
 
       setMessage("Ник отклонён");

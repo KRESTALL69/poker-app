@@ -121,7 +121,7 @@ export async function POST(
 
     const sheet = await ensureSpreadsheetTab(tabName);
     await replaceSpreadsheetTabValues(tabName, buildSheetValues(exportData));
-    await applyTournamentSheetFormatting(tabName);
+    await applyTournamentSheetFormatting(tabName, exportData.rows.length);
     await setTournamentGoogleSheetTabName(id, tabName);
 
     return NextResponse.json({

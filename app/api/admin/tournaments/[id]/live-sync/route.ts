@@ -117,7 +117,7 @@ export async function syncTournamentLiveSheet(
 
   const sheet = await ensureSpreadsheetTab(tabName);
   await replaceSpreadsheetTabValues(tabName, buildLiveSheetValues(exportData));
-  await applyTournamentSheetFormatting(tabName);
+  await applyTournamentSheetFormatting(tabName, exportData.rows.length);
   await setTournamentGoogleSheetTabName(tournamentId, tabName);
 
   return {
