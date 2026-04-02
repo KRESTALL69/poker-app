@@ -143,6 +143,10 @@ a {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.telegram-top-action {
+  margin-top: 0.5rem;
+}
+
 /* старые iOS */
 @supports (padding-top: constant(safe-area-inset-top)) {
   .telegram-app-body {

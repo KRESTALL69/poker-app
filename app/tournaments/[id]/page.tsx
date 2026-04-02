@@ -409,7 +409,7 @@ const waitlistParticipants = participants.filter(
           <button
             type="button"
             onClick={handleBack}
-            className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
+            className="telegram-top-action mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
           >
             ← Назад
           </button>
@@ -428,7 +428,7 @@ const waitlistParticipants = participants.filter(
         <button
           type="button"
           onClick={handleBack}
-          className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
+          className="telegram-top-action mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
         >
           ← Назад
         </button>

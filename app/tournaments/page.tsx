@@ -374,7 +374,7 @@ export default function TournamentsPage() {
         <div className="mx-auto max-w-md">
           <Link
             href="/"
-            className="inline-flex items-center rounded-full border border-white/[0.08] bg-transparent px-3.5 py-2 text-sm text-white/60"
+            className="telegram-top-action inline-flex items-center rounded-full border border-white/[0.08] bg-transparent px-3.5 py-2 text-sm text-white/60"
           >
             ← Назад
           </Link>
@@ -392,7 +392,7 @@ export default function TournamentsPage() {
       <div className="mx-auto max-w-md">
         <Link
           href="/"
-          className="inline-flex items-center rounded-full border border-white/[0.08] bg-transparent px-3.5 py-2 text-sm text-white/60"
+          className="telegram-top-action inline-flex items-center rounded-full border border-white/[0.08] bg-transparent px-3.5 py-2 text-sm text-white/60"
         >
           ← Назад
         </Link>
