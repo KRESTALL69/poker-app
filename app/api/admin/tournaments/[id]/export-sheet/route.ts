@@ -34,6 +34,32 @@ function buildTabName(title: string, startAt: string, tournamentId: string) {
   return `${day}.${month} | ${shortTitle} | ${tournamentId.slice(0, 4)}`;
 }
 
+function formatTournamentDate(date: string) {
+  return new Date(date).toLocaleString("ru-RU", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getFreeTournamentStatusLabel(status: string) {
+  if (status === "open") {
+    return "Открыт";
+  }
+
+  if (status === "closed") {
+    return "Закрыт";
+  }
+
+  if (status === "completed") {
+    return "Завершен";
+  }
+
+  return "Черновик";
+}
+
 function buildReadmeSheetValues() {
   return [
     ["README - Google Sheets для турнирного администратора"],
@@ -62,9 +88,9 @@ function buildFreeSheetValues(
   return [
     ["Tournament ID", exportData.tournament.id],
     ["", "", "Название", exportData.tournament.title],
-    ["", "", "Дата", exportData.tournament.start_at],
+    ["", "", "Дата", formatTournamentDate(exportData.tournament.start_at)],
     ["", "", "Локация", exportData.tournament.location ?? ""],
-    ["", "", "Статус", exportData.tournament.status],
+    ["", "", "Статус", getFreeTournamentStatusLabel(exportData.tournament.status)],
     [],
     [
       "Player ID",
