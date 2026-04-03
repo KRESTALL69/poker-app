@@ -3,6 +3,7 @@ import {
   applyTournamentLiveSheetRows,
   getTournamentById,
   getTournamentLiveEntries,
+  getTournamentResultsDraft,
 } from "@/features/tournaments";
 import { readSpreadsheetTabValues } from "@/lib/google-sheets";
 
@@ -49,7 +50,7 @@ export async function POST(
     const dataRows = values.slice(7);
 
     if (tournament.kind === "free") {
-      const rows = dataRows
+      const sheetRows = dataRows
         .map((row: string[]) => ({
           player_id: row[0],
           display_name: row[2] ?? "Игрок",
@@ -64,6 +65,25 @@ export async function POST(
           (row) =>
             typeof row.player_id === "string" && row.player_id.trim().length > 0
         );
+
+      const sheetRowsMap = new Map(
+        sheetRows.map((row) => [row.player_id, row])
+      );
+      const draftRows = await getTournamentResultsDraft(id);
+      const rows = draftRows.map((row) => {
+        const sheetRow = sheetRowsMap.get(row.player_id);
+
+        return {
+          player_id: row.player_id,
+          display_name: row.display_name,
+          username: row.username,
+          arrived: sheetRow?.arrived ?? false,
+          rebuys: sheetRow?.rebuys ?? 0,
+          addons: sheetRow?.addons ?? 0,
+          knockouts: sheetRow?.knockouts ?? 0,
+          place: sheetRow?.place ?? null,
+        };
+      });
 
       return NextResponse.json({
         ok: true,
