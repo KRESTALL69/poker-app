@@ -201,6 +201,7 @@ export async function getAdminNotificationTournaments() {
   const { data, error } = await supabase
     .from("tournaments")
     .select("*")
+    .neq("status", "completed")
     .order("start_at", { ascending: true });
 
   if (error) {
