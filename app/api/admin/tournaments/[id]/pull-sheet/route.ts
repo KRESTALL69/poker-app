@@ -54,10 +54,11 @@ export async function POST(
           player_id: row[0],
           display_name: row[2] ?? "Игрок",
           username: row[3]?.trim().replace(/^@/, "") || null,
-          place: parseNullableNumberCell(row[8]),
-          reentries: parseNumberCell(row[6]),
-          knockouts: parseNumberCell(row[7]),
-          rating_points: 0,
+          arrived: parseBooleanCell(row[5]),
+          rebuys: parseNumberCell(row[6]),
+          addons: parseNumberCell(row[7]),
+          knockouts: parseNumberCell(row[8]),
+          place: parseNullableNumberCell(row[9]),
         }))
         .filter(
           (row) =>

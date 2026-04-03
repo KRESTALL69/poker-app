@@ -11,9 +11,11 @@ export async function POST(
     const body = (await request.json()) as {
       rows?: Array<{
         player_id: string;
-        place: number;
-        reentries: number;
+        arrived?: boolean;
+        rebuys: number;
+        addons?: number;
         knockouts: number;
+        place: number;
       }>;
     };
 
@@ -24,13 +26,23 @@ export async function POST(
       rows.map((row) => ({
         player_id: row.player_id,
         place: row.place,
-        reentries: row.reentries,
+        reentries: row.rebuys,
         knockouts: row.knockouts,
         rating_points: 0, // TODO: restore automatic rating calculation for free tournaments.
       }))
     );
 
-    await syncTournamentSheet(id, rows);
+    await syncTournamentSheet(
+      id,
+      rows.map((row) => ({
+        player_id: row.player_id,
+        arrived: row.arrived ?? false,
+        rebuys: row.rebuys,
+        addons: row.addons ?? 0,
+        knockouts: row.knockouts,
+        place: row.place,
+      }))
+    );
 
     return NextResponse.json({
       ok: true,

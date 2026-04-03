@@ -13,9 +13,11 @@ import {
 
 type FreeSheetRowInput = {
   player_id: string;
-  place: number | null;
-  reentries: number;
+  arrived: boolean;
+  rebuys: number;
+  addons: number;
   knockouts: number;
+  place: number | null;
 };
 
 function buildTabName(title: string, startAt: string, tournamentId: string) {
@@ -71,8 +73,9 @@ function buildFreeSheetValues(
       "Telegram",
       "Статус регистрации",
       "Пришел",
-      "Re-entry",
-      "Нокауты",
+      "Re-buy",
+      "Addon",
+      "Nok",
       "Место",
     ],
     ...exportData.rows.map((row) => {
@@ -84,8 +87,9 @@ function buildFreeSheetValues(
         row.display_name,
         row.username ? `@${row.username}` : "",
         row.registration_status,
-        "",
-        values?.reentries ?? 0,
+        values?.arrived ?? false,
+        values?.rebuys ?? 0,
+        values?.addons ?? 0,
         values?.knockouts ?? 0,
         values?.place ?? "",
       ];
