@@ -136,7 +136,7 @@ export default function AdminTournamentsPage() {
           ← Назад
         </Link>
 
-        <h1 className="text-2xl font-bold">Модерация турниров</h1>
+        <h1 className="text-2xl font-bold">Модерация турниров и игроков</h1>
         <p className="mt-2 text-sm text-white/70">
           Управление открытыми турнирами
         </p>

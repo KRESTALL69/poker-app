@@ -15,7 +15,7 @@ export type TournamentKind = "free" | "paid" | "cash";
 
 export type Player = {
   id: string;
-  telegram_id: number;
+  telegram_id: number | null;
   username: string | null;
   display_name: string;
   admin_display_name?: string;

@@ -62,7 +62,10 @@ export default function AdminPlayerAccessPage() {
       const username = (targetPlayer.username ?? "").toLowerCase();
       const displayName = targetPlayer.display_name.toLowerCase();
       const adminDisplayName = (targetPlayer.admin_display_name ?? "").toLowerCase();
-      const telegramId = String(targetPlayer.telegram_id);
+      const telegramId =
+        typeof targetPlayer.telegram_id === "number"
+          ? String(targetPlayer.telegram_id)
+          : "";
 
       return (
         username.includes(query) ||
@@ -311,7 +314,7 @@ export default function AdminPlayerAccessPage() {
                         </p>
                       ) : null}
                       <p className="mt-1 text-xs text-white/55">
-                        Telegram ID: {targetPlayer.telegram_id}
+                        Telegram ID: {targetPlayer.telegram_id ?? "—"}
                       </p>
                     </div>
 
