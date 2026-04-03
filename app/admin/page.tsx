@@ -138,7 +138,7 @@ export default function AdminPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
               MT
             </div>
-            <h2 className="mt-4 text-lg font-semibold">Модерация турниров и игроков</h2>
+            <h2 className="mt-4 text-lg font-semibold">Модерация турниров</h2>
             <p className="mt-2 text-sm text-white/70">
               Открытие, редактирование, результаты и удаление турниров
             </p>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -54,10 +54,10 @@ type LiveFormRow = {
 
 function getTournamentModeTitle(tournament: Tournament | null) {
   if (!tournament) {
-    return "Данные турнира";
+    return "Р”Р°РЅРЅС‹Рµ С‚СѓСЂРЅРёСЂР°";
   }
 
-  return tournament.kind === "free" ? "Результаты турнира" : "Данные турнира";
+  return tournament.kind === "free" ? "Р РµР·СѓР»СЊС‚Р°С‚С‹ С‚СѓСЂРЅРёСЂР°" : "Р”Р°РЅРЅС‹Рµ С‚СѓСЂРЅРёСЂР°";
 }
 
 function clearZeroValue(value: string) {
@@ -84,6 +84,7 @@ export default function AdminTournamentResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [freeRows, setFreeRows] = useState<FreeFormRow[]>([]);
   const [liveRows, setLiveRows] = useState<LiveFormRow[]>([]);
+  const [initialFreeSnapshot, setInitialFreeSnapshot] = useState("");
   const [initialLiveSnapshot, setInitialLiveSnapshot] = useState("");
 
   useEffect(() => {
@@ -106,9 +107,35 @@ export default function AdminTournamentResultsPage() {
         setTournament(nextTournament);
 
         if (nextTournament.kind === "free") {
-          const draft = await getTournamentResultsDraft(tournamentId);
-          setFreeRows(
-            draft.map((item: DraftRow) => ({
+          let nextRows: FreeFormRow[] = [];
+
+          if (nextTournament.google_sheet_tab_name?.trim()) {
+            try {
+              const payload = await fetchJsonWithRetry<{ rows: PulledFreeRow[] }>(
+                `/api/admin/tournaments/${tournamentId}/pull-sheet`,
+                {
+                  method: "POST",
+                }
+              );
+
+              nextRows = payload.rows.map((row) => ({
+                player_id: row.player_id,
+                display_name: row.display_name,
+                username: row.username,
+                arrived: row.arrived,
+                rebuys: String(row.rebuys),
+                addons: String(row.addons),
+                knockouts: String(row.knockouts),
+                place: row.place == null ? "" : String(row.place),
+              }));
+            } catch {
+              nextRows = [];
+            }
+          }
+
+          if (nextRows.length === 0) {
+            const draft = await getTournamentResultsDraft(tournamentId);
+            nextRows = draft.map((item: DraftRow) => ({
               player_id: item.player_id,
               display_name: item.display_name,
               username: item.username,
@@ -117,18 +144,35 @@ export default function AdminTournamentResultsPage() {
               addons: "0",
               knockouts: "0",
               place: "",
-            }))
-          );
+            }));
+          }
+
+          setFreeRows(nextRows);
+          setInitialFreeSnapshot(JSON.stringify(nextRows));
         } else {
-          const nextRows = mapLiveEntriesToFormRows(
-            await getTournamentLiveEntries(tournamentId)
-          );
+          let entries = await getTournamentLiveEntries(tournamentId);
+
+          if (nextTournament.google_sheet_tab_name?.trim()) {
+            try {
+              const payload = await fetchJsonWithRetry<{ rows: TournamentLiveEntry[] }>(
+                `/api/admin/tournaments/${tournamentId}/pull-sheet`,
+                {
+                  method: "POST",
+                }
+              );
+              entries = payload.rows;
+            } catch {
+              // fallback to DB rows from getTournamentLiveEntries
+            }
+          }
+
+          const nextRows = mapLiveEntriesToFormRows(entries);
           setLiveRows(nextRows);
           setInitialLiveSnapshot(JSON.stringify(nextRows));
         }
       } catch (err) {
         const nextMessage =
-          err instanceof Error ? err.message : "Ошибка загрузки страницы";
+          err instanceof Error ? err.message : "РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё СЃС‚СЂР°РЅРёС†С‹";
         setError(nextMessage);
       } finally {
         setAccessChecked(true);
@@ -140,6 +184,14 @@ export default function AdminTournamentResultsPage() {
   }, [tournamentId]);
 
   const isFreeTournament = tournament?.kind === "free";
+  const hasUnsavedFreeChanges = useMemo(() => {
+    if (!isFreeTournament || !initialFreeSnapshot) {
+      return false;
+    }
+
+    return JSON.stringify(freeRows) !== initialFreeSnapshot;
+  }, [freeRows, initialFreeSnapshot, isFreeTournament]);
+
   const hasUnsavedLiveChanges = useMemo(() => {
     if (isFreeTournament || !initialLiveSnapshot) {
       return false;
@@ -147,10 +199,11 @@ export default function AdminTournamentResultsPage() {
 
     return JSON.stringify(liveRows) !== initialLiveSnapshot;
   }, [initialLiveSnapshot, isFreeTournament, liveRows]);
+  const hasUnsavedChanges = hasUnsavedFreeChanges || hasUnsavedLiveChanges;
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
-      if (!hasUnsavedLiveChanges) {
+      if (!hasUnsavedChanges) {
         return;
       }
 
@@ -160,7 +213,7 @@ export default function AdminTournamentResultsPage() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedLiveChanges]);
+  }, [hasUnsavedChanges]);
 
   function mapLiveEntriesToFormRows(rows: TournamentLiveEntry[]): LiveFormRow[] {
     return rows.map((item) => ({
@@ -177,11 +230,13 @@ export default function AdminTournamentResultsPage() {
   }
 
   function handleBack() {
-    if (
-      hasUnsavedLiveChanges &&
-      !window.confirm("Изменения не сохранены. Выйти со страницы?")
-    ) {
-      return;
+    if (hasUnsavedChanges) {
+      const shouldLeave = window.confirm("Изменения не сохранены. Выйти со страницы?");
+
+      if (!shouldLeave) {
+        setError("Результаты не сохранены. Сохраните изменения перед выходом.");
+        return;
+      }
     }
 
     router.push("/admin");
@@ -225,12 +280,12 @@ export default function AdminTournamentResultsPage() {
         Number(row.addons || 0) < 0 ||
         Number(row.knockouts || 0) < 0
       ) {
-        setError(`Проверьте числовые поля у игрока ${row.display_name}`);
+        setError(`РџСЂРѕРІРµСЂСЊС‚Рµ С‡РёСЃР»РѕРІС‹Рµ РїРѕР»СЏ Сѓ РёРіСЂРѕРєР° ${row.display_name}`);
         return;
       }
 
       if (row.place && Number(row.place) <= 0) {
-        setError(`Укажите корректное место для игрока ${row.display_name}`);
+        setError(`РЈРєР°Р¶РёС‚Рµ РєРѕСЂСЂРµРєС‚РЅРѕРµ РјРµСЃС‚Рѕ РґР»СЏ РёРіСЂРѕРєР° ${row.display_name}`);
         return;
       }
     }
@@ -261,10 +316,11 @@ export default function AdminTournamentResultsPage() {
       setTournament((current) =>
         current ? { ...current, google_sheet_tab_name: payload.tabName } : current
       );
-      setMessage("Данные турнира сохранены");
+      setInitialFreeSnapshot(JSON.stringify(freeRows));
+      setMessage("Р”Р°РЅРЅС‹Рµ С‚СѓСЂРЅРёСЂР° СЃРѕС…СЂР°РЅРµРЅС‹");
     } catch (err) {
       const nextMessage =
-        err instanceof Error ? err.message : "Ошибка синхронизации с таблицей";
+        err instanceof Error ? err.message : "РћС€РёР±РєР° СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё СЃ С‚Р°Р±Р»РёС†РµР№";
       setError(nextMessage);
     } finally {
       setSaving(false);
@@ -289,22 +345,22 @@ export default function AdminTournamentResultsPage() {
         }
       );
 
-      setFreeRows(
-        payload.rows.map((row) => ({
-          player_id: row.player_id,
-          display_name: row.display_name,
-          username: row.username,
-          arrived: row.arrived,
-          rebuys: String(row.rebuys),
-          addons: String(row.addons),
-          knockouts: String(row.knockouts),
-          place: row.place == null ? "" : String(row.place),
-        }))
-      );
-      setMessage("Данные подтянуты из Google Sheets");
+      const nextRows = payload.rows.map((row) => ({
+        player_id: row.player_id,
+        display_name: row.display_name,
+        username: row.username,
+        arrived: row.arrived,
+        rebuys: String(row.rebuys),
+        addons: String(row.addons),
+        knockouts: String(row.knockouts),
+        place: row.place == null ? "" : String(row.place),
+      }));
+      setFreeRows(nextRows);
+      setInitialFreeSnapshot(JSON.stringify(nextRows));
+      setMessage("Р”Р°РЅРЅС‹Рµ РїРѕРґС‚СЏРЅСѓС‚С‹ РёР· Google Sheets");
     } catch (err) {
       const nextMessage =
-        err instanceof Error ? err.message : "Ошибка чтения данных из таблицы";
+        err instanceof Error ? err.message : "РћС€РёР±РєР° С‡С‚РµРЅРёСЏ РґР°РЅРЅС‹С… РёР· С‚Р°Р±Р»РёС†С‹";
       setError(nextMessage);
     } finally {
       setPulling(false);
@@ -323,7 +379,7 @@ export default function AdminTournamentResultsPage() {
 
     if (playersWithoutPlace.length > 0) {
       setError(
-        `Перед завершением заполните место для всех игроков. Не заполнено: ${playersWithoutPlace
+        `РџРµСЂРµРґ Р·Р°РІРµСЂС€РµРЅРёРµРј Р·Р°РїРѕР»РЅРёС‚Рµ РјРµСЃС‚Рѕ РґР»СЏ РІСЃРµС… РёРіСЂРѕРєРѕРІ. РќРµ Р·Р°РїРѕР»РЅРµРЅРѕ: ${playersWithoutPlace
           .map((row) => row.display_name)
           .join(", ")}`
       );
@@ -356,10 +412,11 @@ export default function AdminTournamentResultsPage() {
       setTournament((current) =>
         current ? { ...current, status: "completed" } : current
       );
-      setMessage("Турнир завершен, данные сохранены и обновлены в GS");
+      setInitialFreeSnapshot(JSON.stringify(freeRows));
+      setMessage("РўСѓСЂРЅРёСЂ Р·Р°РІРµСЂС€РµРЅ, РґР°РЅРЅС‹Рµ СЃРѕС…СЂР°РЅРµРЅС‹ Рё РѕР±РЅРѕРІР»РµРЅС‹ РІ GS");
     } catch (err) {
       const nextMessage =
-        err instanceof Error ? err.message : "Ошибка завершения турнира";
+        err instanceof Error ? err.message : "РћС€РёР±РєР° Р·Р°РІРµСЂС€РµРЅРёСЏ С‚СѓСЂРЅРёСЂР°";
       setError(nextMessage);
     } finally {
       setCompleting(false);
@@ -380,12 +437,12 @@ export default function AdminTournamentResultsPage() {
         Number(row.addons || 0) < 0 ||
         Number(row.knockouts || 0) < 0
       ) {
-        setError(`Проверьте числовые поля у игрока ${row.display_name}`);
+        setError(`РџСЂРѕРІРµСЂСЊС‚Рµ С‡РёСЃР»РѕРІС‹Рµ РїРѕР»СЏ Сѓ РёРіСЂРѕРєР° ${row.display_name}`);
         return;
       }
 
       if (row.place && Number(row.place) <= 0) {
-        setError(`Укажите корректное место для игрока ${row.display_name}`);
+        setError(`РЈРєР°Р¶РёС‚Рµ РєРѕСЂСЂРµРєС‚РЅРѕРµ РјРµСЃС‚Рѕ РґР»СЏ РёРіСЂРѕРєР° ${row.display_name}`);
         return;
       }
     }
@@ -417,10 +474,10 @@ export default function AdminTournamentResultsPage() {
         current ? { ...current, google_sheet_tab_name: payload.tabName } : current
       );
       setInitialLiveSnapshot(JSON.stringify(liveRows));
-      setMessage("Данные турнира сохранены");
+      setMessage("Р”Р°РЅРЅС‹Рµ С‚СѓСЂРЅРёСЂР° СЃРѕС…СЂР°РЅРµРЅС‹");
     } catch (err) {
       const nextMessage =
-        err instanceof Error ? err.message : "Ошибка синхронизации с таблицей";
+        err instanceof Error ? err.message : "РћС€РёР±РєР° СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё СЃ С‚Р°Р±Р»РёС†РµР№";
       setError(nextMessage);
     } finally {
       setSaving(false);
@@ -448,10 +505,10 @@ export default function AdminTournamentResultsPage() {
       const nextRows = mapLiveEntriesToFormRows(payload.rows);
       setLiveRows(nextRows);
       setInitialLiveSnapshot(JSON.stringify(nextRows));
-      setMessage("Данные подтянуты из Google Sheets");
+      setMessage("Р”Р°РЅРЅС‹Рµ РїРѕРґС‚СЏРЅСѓС‚С‹ РёР· Google Sheets");
     } catch (err) {
       const nextMessage =
-        err instanceof Error ? err.message : "Ошибка чтения данных из таблицы";
+        err instanceof Error ? err.message : "РћС€РёР±РєР° С‡С‚РµРЅРёСЏ РґР°РЅРЅС‹С… РёР· С‚Р°Р±Р»РёС†С‹";
       setError(nextMessage);
     } finally {
       setPulling(false);
@@ -470,7 +527,7 @@ export default function AdminTournamentResultsPage() {
 
     if (playersWithoutPlace.length > 0) {
       setError(
-        `Перед завершением заполните место для всех игроков. Не заполнено: ${playersWithoutPlace
+        `РџРµСЂРµРґ Р·Р°РІРµСЂС€РµРЅРёРµРј Р·Р°РїРѕР»РЅРёС‚Рµ РјРµСЃС‚Рѕ РґР»СЏ РІСЃРµС… РёРіСЂРѕРєРѕРІ. РќРµ Р·Р°РїРѕР»РЅРµРЅРѕ: ${playersWithoutPlace
           .map((row) => row.display_name)
           .join(", ")}`
       );
@@ -492,11 +549,11 @@ export default function AdminTournamentResultsPage() {
       );
       setInitialLiveSnapshot(JSON.stringify(liveRows));
       setMessage(
-        "Турнир завершен, данные перенесены в results и обновлены в GS"
+        "РўСѓСЂРЅРёСЂ Р·Р°РІРµСЂС€РµРЅ, РґР°РЅРЅС‹Рµ РїРµСЂРµРЅРµСЃРµРЅС‹ РІ results Рё РѕР±РЅРѕРІР»РµРЅС‹ РІ GS"
       );
     } catch (err) {
       const nextMessage =
-        err instanceof Error ? err.message : "Ошибка завершения турнира";
+        err instanceof Error ? err.message : "РћС€РёР±РєР° Р·Р°РІРµСЂС€РµРЅРёСЏ С‚СѓСЂРЅРёСЂР°";
       setError(nextMessage);
     } finally {
       setCompleting(false);
@@ -507,7 +564,7 @@ export default function AdminTournamentResultsPage() {
     return (
       <main className="min-h-screen bg-black px-4 py-6 text-white">
         <div className="mx-auto max-w-4xl">
-          <p className="text-sm text-white/70">Загружаем страницу...</p>
+          <p className="text-sm text-white/70">Р—Р°РіСЂСѓР¶Р°РµРј СЃС‚СЂР°РЅРёС†Сѓ...</p>
         </div>
       </main>
     );
@@ -522,13 +579,13 @@ export default function AdminTournamentResultsPage() {
             onClick={handleBack}
             className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
           >
-            ← Назад
+            в†ђ РќР°Р·Р°Рґ
           </button>
 
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <h1 className="text-xl font-semibold">Доступ запрещен</h1>
+            <h1 className="text-xl font-semibold">Р”РѕСЃС‚СѓРї Р·Р°РїСЂРµС‰РµРЅ</h1>
             <p className="mt-2 text-sm text-white/70">
-              Эта страница доступна только администратору.
+              Р­С‚Р° СЃС‚СЂР°РЅРёС†Р° РґРѕСЃС‚СѓРїРЅР° С‚РѕР»СЊРєРѕ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂСѓ.
             </p>
           </div>
         </div>
@@ -545,7 +602,7 @@ export default function AdminTournamentResultsPage() {
             onClick={handleBack}
             className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
           >
-            ← Назад
+            в†ђ РќР°Р·Р°Рґ
           </button>
 
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
@@ -564,7 +621,7 @@ export default function AdminTournamentResultsPage() {
           onClick={handleBack}
           className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
         >
-          ← Назад
+          в†ђ РќР°Р·Р°Рґ
         </button>
 
         <h1 className="text-2xl font-bold">{getTournamentModeTitle(tournament)}</h1>
@@ -591,10 +648,10 @@ export default function AdminTournamentResultsPage() {
               className="rounded-lg bg-yellow-500 px-3 py-3 text-sm font-semibold text-black disabled:opacity-60"
             >
               {saving
-                ? "Сохраняем..."
+                ? "РЎРѕС…СЂР°РЅСЏРµРј..."
                 : tournament?.google_sheet_tab_name
-                  ? "Сохранить в GS"
-                  : "Создать таблицу"}
+                  ? "РЎРѕС…СЂР°РЅРёС‚СЊ РІ GS"
+                  : "РЎРѕР·РґР°С‚СЊ С‚Р°Р±Р»РёС†Сѓ"}
             </button>
 
             <button
@@ -603,7 +660,7 @@ export default function AdminTournamentResultsPage() {
               disabled={pulling || !tournament?.google_sheet_tab_name}
               className="rounded-lg border border-white/10 px-3 py-3 text-sm font-semibold text-white/85 disabled:opacity-50"
             >
-              {pulling ? "Обновляем..." : "Обновить из GS"}
+              {pulling ? "РћР±РЅРѕРІР»СЏРµРј..." : "РћР±РЅРѕРІРёС‚СЊ РёР· GS"}
             </button>
 
             <button
@@ -616,7 +673,7 @@ export default function AdminTournamentResultsPage() {
               disabled={completing}
               className="rounded-lg bg-green-500 px-3 py-3 text-sm font-semibold text-black disabled:opacity-60"
             >
-              {completing ? "Завершаем..." : "Завершить турнир"}
+              {completing ? "Р—Р°РІРµСЂС€Р°РµРј..." : "Р—Р°РІРµСЂС€РёС‚СЊ С‚СѓСЂРЅРёСЂ"}
             </button>
           </div>
         ) : null}
@@ -625,7 +682,7 @@ export default function AdminTournamentResultsPage() {
           {isFreeTournament ? (
             freeRows.length === 0 ? (
               <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                В турнире пока нет игроков для внесения результатов.
+                Р’ С‚СѓСЂРЅРёСЂРµ РїРѕРєР° РЅРµС‚ РёРіСЂРѕРєРѕРІ РґР»СЏ РІРЅРµСЃРµРЅРёСЏ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ.
               </div>
             ) : (
               freeRows.map((row) => (
@@ -641,11 +698,11 @@ export default function AdminTournamentResultsPage() {
                   ) : null}
 
                   <div className="mt-3 grid grid-cols-5 gap-2 text-center text-[11px] font-medium text-white/60">
-                    <span>Пришел</span>
+                    <span>РџСЂРёС€РµР»</span>
                     <span>Re-buy</span>
                     <span>Addon</span>
                     <span>Nok</span>
-                    <span>Место</span>
+                    <span>РњРµСЃС‚Рѕ</span>
                   </div>
 
                   <div className="mt-2 grid grid-cols-5 gap-2">
@@ -747,7 +804,7 @@ export default function AdminTournamentResultsPage() {
             )
           ) : liveRows.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-              В турнире пока нет зарегистрированных игроков для live-таблицы.
+              Р’ С‚СѓСЂРЅРёСЂРµ РїРѕРєР° РЅРµС‚ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅРЅС‹С… РёРіСЂРѕРєРѕРІ РґР»СЏ live-С‚Р°Р±Р»РёС†С‹.
             </div>
           ) : (
             liveRows.map((row) => (
@@ -763,11 +820,11 @@ export default function AdminTournamentResultsPage() {
                 ) : null}
 
                 <div className="mt-3 grid grid-cols-5 gap-2 text-center text-[11px] font-medium text-white/60">
-                  <span>Пришел</span>
+                  <span>РџСЂРёС€РµР»</span>
                   <span>Re-buy</span>
                   <span>Addon</span>
                   <span>Nok</span>
-                  <span>Место</span>
+                  <span>РњРµСЃС‚Рѕ</span>
                 </div>
 
                 <div className="mt-2 grid grid-cols-5 gap-2">
@@ -872,3 +929,4 @@ export default function AdminTournamentResultsPage() {
     </main>
   );
 }
+
