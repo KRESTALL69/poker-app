@@ -39,7 +39,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
         <TelegramAppShell />
-        {children}
+        <div className="telegram-app-safe-area min-h-screen">{children}</div>
       </body>
     </html>
   );

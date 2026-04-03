@@ -5,6 +5,13 @@ export type TelegramWebAppUser = {
   username?: string;
 };
 
+export type TelegramWebAppInset = {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+};
+
 const TELEGRAM_USER_CACHE_KEY = "dwc.telegram.user";
 
 export type TelegramWebApp = {
@@ -13,8 +20,16 @@ export type TelegramWebApp = {
     user?: TelegramWebAppUser;
     [key: string]: unknown;
   };
+  safeAreaInset?: TelegramWebAppInset;
+  contentSafeAreaInset?: TelegramWebAppInset;
   ready?: () => void;
   expand?: () => void;
+  requestFullscreen?: () => void;
+  disableVerticalSwipes?: () => void;
+  setBackgroundColor?: (color: string) => void;
+  setHeaderColor?: (color: string) => void;
+  onEvent?: (eventType: string, eventHandler: () => void) => void;
+  offEvent?: (eventType: string, eventHandler: () => void) => void;
 };
 
 declare global {

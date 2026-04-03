@@ -593,7 +593,7 @@ export default function AdminTournamentResultsPage() {
               {saving
                 ? "Сохраняем..."
                 : tournament?.google_sheet_tab_name
-                  ? "Сохранить"
+                  ? "Сохранить в GS"
                   : "Создать таблицу"}
             </button>
 
@@ -603,7 +603,7 @@ export default function AdminTournamentResultsPage() {
               disabled={pulling || !tournament?.google_sheet_tab_name}
               className="rounded-lg border border-white/10 px-3 py-3 text-sm font-semibold text-white/85 disabled:opacity-50"
             >
-              {pulling ? "Обновляем..." : "Из таблицы"}
+              {pulling ? "Обновляем..." : "Обновить из GS"}
             </button>
 
             <button
@@ -616,7 +616,7 @@ export default function AdminTournamentResultsPage() {
               disabled={completing}
               className="rounded-lg bg-green-500 px-3 py-3 text-sm font-semibold text-black disabled:opacity-60"
             >
-              {completing ? "Завершаем..." : "Завершить"}
+              {completing ? "Завершаем..." : "Завершить турнир"}
             </button>
           </div>
         ) : null}
