@@ -54,7 +54,7 @@ export async function POST(
           player_id: row[0],
           display_name: row[2] ?? "Игрок",
           username: row[3]?.trim().replace(/^@/, "") || null,
-          place: parseNullableNumberCell(row[5]),
+          place: parseNullableNumberCell(row[8]),
           reentries: parseNumberCell(row[6]),
           knockouts: parseNumberCell(row[7]),
           rating_points: 0,

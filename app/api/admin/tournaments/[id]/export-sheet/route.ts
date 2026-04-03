@@ -70,9 +70,10 @@ function buildFreeSheetValues(
       "Ник",
       "Telegram",
       "Статус регистрации",
-      "Место",
+      "Пришел",
       "Re-entry",
       "Нокауты",
+      "Место",
     ],
     ...exportData.rows.map((row) => {
       const values = rowsMap.get(row.player_id);
@@ -83,9 +84,10 @@ function buildFreeSheetValues(
         row.display_name,
         row.username ? `@${row.username}` : "",
         row.registration_status,
-        values?.place ?? "",
+        "",
         values?.reentries ?? 0,
         values?.knockouts ?? 0,
+        values?.place ?? "",
       ];
     }),
   ];
