@@ -46,6 +46,14 @@ export type TournamentLiveSheetRow = {
   sheet_row_number: number | null;
 };
 
+export type AdminTournamentParticipant = {
+  registration_id: string;
+  player_id: string;
+  admin_nick: string;
+  custom_avatar_url?: string;
+  telegram_avatar_url?: string;
+};
+
 function getPreferredPlayerDisplayName(player: {
   admin_display_name?: string | null;
   display_name?: string | null;
@@ -776,6 +784,94 @@ export async function getTournamentResultsDraft(tournamentId: string) {
       status: row.status as "registered" | "attended",
     };
   });
+}
+
+export async function getAdminTournamentParticipants(
+  tournamentId: string
+): Promise<AdminTournamentParticipant[]> {
+  const { data, error } = await supabase
+    .from("registrations")
+    .select(
+      `
+      id,
+      player_id,
+      players (
+        admin_display_name,
+        display_name,
+        telegram_avatar_url,
+        custom_avatar_url
+      )
+    `
+    )
+    .eq("tournament_id", tournamentId)
+    .in("status", ["registered", "attended", "waitlist"])
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row: any) => {
+    const player = Array.isArray(row.players) ? row.players[0] : row.players;
+
+    return {
+      registration_id: row.id as string,
+      player_id: row.player_id as string,
+      admin_nick: getPreferredPlayerDisplayName(player ?? {}),
+      telegram_avatar_url: player?.telegram_avatar_url ?? undefined,
+      custom_avatar_url: player?.custom_avatar_url ?? undefined,
+    };
+  });
+}
+
+export async function addAdminTournamentParticipant(
+  tournamentId: string,
+  nick: string
+) {
+  const normalizedNick = nick.trim();
+
+  if (!normalizedNick) {
+    throw new Error("Введите ник");
+  }
+
+  const { data: playerData, error: playerError } = await supabase
+    .from("players")
+    .insert({
+      telegram_id: null,
+      username: null,
+      display_name: normalizedNick,
+      admin_display_name: normalizedNick,
+      role: "player",
+    })
+    .select("id")
+    .single();
+
+  if (playerError) {
+    throw new Error(playerError.message);
+  }
+
+  const { error: registrationError } = await supabase
+    .from("registrations")
+    .insert({
+      player_id: playerData.id,
+      tournament_id: tournamentId,
+      status: "registered",
+    });
+
+  if (registrationError) {
+    throw new Error(registrationError.message);
+  }
+}
+
+export async function removeAdminTournamentParticipant(registrationId: string) {
+  const { error } = await supabase
+    .from("registrations")
+    .delete()
+    .eq("id", registrationId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 async function getTournamentLiveEligibleRegistrations(tournamentId: string) {

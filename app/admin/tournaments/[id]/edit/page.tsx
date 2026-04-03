@@ -1,10 +1,18 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
-import { getTournamentById, updateTournament } from "@/features/tournaments";
+import {
+  addAdminTournamentParticipant,
+  getAdminTournamentParticipants,
+  getTournamentById,
+  removeAdminTournamentParticipant,
+  updateTournament,
+  type AdminTournamentParticipant,
+} from "@/features/tournaments";
+import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, TournamentKind } from "@/types/domain";
 
@@ -40,8 +48,19 @@ export default function AdminTournamentEditPage() {
   const [maxPlayers, setMaxPlayers] = useState("20");
   const [kind, setKind] = useState<TournamentKind>("free");
 
+  const [participants, setParticipants] = useState<AdminTournamentParticipant[]>([]);
+  const [showAddParticipantForm, setShowAddParticipantForm] = useState(false);
+  const [newParticipantNick, setNewParticipantNick] = useState("");
+  const [participantSaving, setParticipantSaving] = useState(false);
+  const [deletingRegistrationId, setDeletingRegistrationId] = useState<string | null>(null);
+
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function loadParticipants(currentTournamentId: string) {
+    const participantsData = await getAdminTournamentParticipants(currentTournamentId);
+    setParticipants(participantsData);
+  }
 
   useEffect(() => {
     async function loadPage() {
@@ -64,6 +83,7 @@ export default function AdminTournamentEditPage() {
         }
 
         const tournament = await getTournamentById(tournamentId);
+        const participantsData = await getAdminTournamentParticipants(tournamentId);
 
         setTitle(tournament.title);
         setDescription(tournament.description ?? "");
@@ -71,6 +91,7 @@ export default function AdminTournamentEditPage() {
         setStartAt(toDateTimeLocalValue(tournament.start_at));
         setMaxPlayers(String(tournament.max_players));
         setKind(tournament.kind);
+        setParticipants(participantsData);
       } catch (err) {
         const nextMessage =
           err instanceof Error ? err.message : "Ошибка загрузки турнира";
@@ -135,6 +156,59 @@ export default function AdminTournamentEditPage() {
       setError(nextMessage);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAddParticipant() {
+    if (!tournamentId) {
+      return;
+    }
+
+    if (!newParticipantNick.trim()) {
+      setError("Введите ник");
+      return;
+    }
+
+    try {
+      setParticipantSaving(true);
+      setMessage(null);
+      setError(null);
+
+      await addAdminTournamentParticipant(tournamentId, newParticipantNick);
+      await loadParticipants(tournamentId);
+
+      setNewParticipantNick("");
+      setShowAddParticipantForm(false);
+      setMessage("Участник добавлен");
+    } catch (err) {
+      const nextMessage =
+        err instanceof Error ? err.message : "Ошибка добавления участника";
+      setError(nextMessage);
+    } finally {
+      setParticipantSaving(false);
+    }
+  }
+
+  async function handleDeleteParticipant(registrationId: string) {
+    if (!tournamentId) {
+      return;
+    }
+
+    try {
+      setDeletingRegistrationId(registrationId);
+      setMessage(null);
+      setError(null);
+
+      await removeAdminTournamentParticipant(registrationId);
+      await loadParticipants(tournamentId);
+
+      setMessage("Участник удален из регистрации");
+    } catch (err) {
+      const nextMessage =
+        err instanceof Error ? err.message : "Ошибка удаления участника";
+      setError(nextMessage);
+    } finally {
+      setDeletingRegistrationId(null);
     }
   }
 
@@ -262,6 +336,107 @@ export default function AdminTournamentEditPage() {
           >
             {saving ? "Сохраняем..." : "Сохранить изменения"}
           </button>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">Участники</h2>
+            <button
+              type="button"
+              onClick={() => setShowAddParticipantForm((prev) => !prev)}
+              className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85"
+            >
+              Добавить участника
+            </button>
+          </div>
+
+          {showAddParticipantForm ? (
+            <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
+              <label className="block text-sm text-white/80">Ник</label>
+              <input
+                type="text"
+                value={newParticipantNick}
+                onChange={(e) => setNewParticipantNick(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                placeholder="Введите ник"
+              />
+
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddParticipant}
+                  disabled={participantSaving}
+                  className="rounded-lg bg-yellow-500 px-3 py-2 text-sm font-semibold text-black disabled:opacity-60"
+                >
+                  {participantSaving ? "Добавляем..." : "Создать"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddParticipantForm(false);
+                    setNewParticipantNick("");
+                  }}
+                  disabled={participantSaving}
+                  className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 disabled:opacity-60"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-4 divide-y divide-white/10 rounded-lg border border-white/10 bg-black/20">
+            {participants.length === 0 ? (
+              <div className="px-3 py-4 text-sm text-white/60">Участников пока нет</div>
+            ) : (
+              participants.map((participant) => {
+                const avatarUrl = getPlayerAvatarUrl({
+                  display_name: participant.admin_nick,
+                  custom_avatar_url: participant.custom_avatar_url,
+                  telegram_avatar_url: participant.telegram_avatar_url,
+                });
+                const avatarFallback = getPlayerAvatarFallback({
+                  display_name: participant.admin_nick,
+                });
+
+                return (
+                  <div
+                    key={participant.registration_id}
+                    className="flex items-center justify-between gap-3 px-3 py-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={participant.admin_nick}
+                          className="h-9 w-9 rounded-full border border-white/10 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-semibold text-white/80">
+                          {avatarFallback}
+                        </div>
+                      )}
+
+                      <p className="truncate text-sm font-medium text-white">
+                        {participant.admin_nick}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteParticipant(participant.registration_id)}
+                      disabled={deletingRegistrationId === participant.registration_id}
+                      className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-300 disabled:opacity-60"
+                    >
+                      {deletingRegistrationId === participant.registration_id
+                        ? "Удаляем..."
+                        : "Удалить"}
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </main>
