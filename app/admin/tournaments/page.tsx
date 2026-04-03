@@ -246,11 +246,9 @@ export default function AdminTournamentsPage() {
                     href={`/admin/results/${tournament.id}`}
                     className="rounded-lg bg-yellow-500 px-3 py-2 text-center text-sm font-semibold text-black"
                   >
-                    {supportsLiveMode(tournament.kind)
-                      ? tournament.google_sheet_tab_name
-                        ? "Внести данные"
-                        : "Создать таблицу"
-                      : "Внести результаты"}
+                    {tournament.google_sheet_tab_name
+                      ? "Внести данные"
+                      : "Создать таблицу"}
                   </Link>
 
                   <button

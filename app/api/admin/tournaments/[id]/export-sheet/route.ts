@@ -6,10 +6,17 @@ import {
 import {
   applyTournamentSheetFormatting,
   buildSpreadsheetTabUrl,
-  ensureSpreadsheetTab,
   ensureReadmeTab,
+  ensureSpreadsheetTab,
   replaceSpreadsheetTabValues,
 } from "@/lib/google-sheets";
+
+type FreeSheetRowInput = {
+  player_id: string;
+  place: number | null;
+  reentries: number;
+  knockouts: number;
+};
 
 function buildTabName(title: string, startAt: string, tournamentId: string) {
   const date = new Date(startAt);
@@ -31,42 +38,60 @@ function buildReadmeSheetValues() {
     [],
     ["Что делает этот файл"],
     [
-      "В этой таблице администратор на площадке отмечает, кто реально сыграл, считает повторные входы, нокауты и итоговые места.",
+      "В этой таблице администратор на площадке заполняет игровые данные и итоговые места участников турнира.",
     ],
     [],
     ["Какие листы в таблице"],
     ["README - инструкция"],
     ["Листы турниров - рабочие таблицы по каждому турниру"],
     [],
-    ["Какие колонки можно редактировать"],
-    ["Пришел"],
-    ["Re-entry"],
-    ["Нокауты"],
-    ["Место"],
-    ["Комментарий"],
-    [],
-    ["Какие колонки нельзя менять"],
-    ["Player ID"],
-    ["Ник"],
-    ["Telegram"],
-    ["Статус регистрации"],
-    [],
-    ["Правила заполнения"],
-    ["Пришел: ставьте TRUE или Да только если игрок реально сделал хотя бы один вход в турнир."],
-    ["Если игрок зарегистрирован, но не приехал или не сыграл ни одного входа, Пришел не заполняйте."],
-    ["Если игрок был в waitlist, но по факту сел в турнир и сыграл, тоже ставьте Пришел = TRUE / Да."],
-    ["Re-entry: количество повторных входов. Если повторных входов не было, ставьте 0."],
-    ["Нокауты: количество выбитых игроков. Если нокаутов не было, ставьте 0."],
-    ["Место: итоговое место игрока, когда турнир завершен или место уже известно."],
-    [],
     ["Важно"],
     ["Не удаляйте строки и не меняйте Player ID"],
     ["Повторная выгрузка того же турнира обновляет тот же лист, а не создает новый."],
-    ["README также переиспользуется и обновляется, а не создается заново."],
   ];
 }
 
-function buildSheetValues(
+function buildFreeSheetValues(
+  exportData: Awaited<ReturnType<typeof getTournamentSheetExportData>>,
+  rows?: FreeSheetRowInput[]
+) {
+  const rowsMap = new Map((rows ?? []).map((row) => [row.player_id, row]));
+
+  return [
+    ["Tournament ID", exportData.tournament.id],
+    ["", "", "Название", exportData.tournament.title],
+    ["", "", "Дата", exportData.tournament.start_at],
+    ["", "", "Локация", exportData.tournament.location ?? ""],
+    ["", "", "Статус", exportData.tournament.status],
+    [],
+    [
+      "Player ID",
+      "System",
+      "Ник",
+      "Telegram",
+      "Статус регистрации",
+      "Место",
+      "Re-entry",
+      "Нокауты",
+    ],
+    ...exportData.rows.map((row) => {
+      const values = rowsMap.get(row.player_id);
+
+      return [
+        row.player_id,
+        row.username ?? "",
+        row.display_name,
+        row.username ? `@${row.username}` : "",
+        row.registration_status,
+        values?.place ?? "",
+        values?.reentries ?? 0,
+        values?.knockouts ?? 0,
+      ];
+    }),
+  ];
+}
+
+function buildLiveSheetValues(
   exportData: Awaited<ReturnType<typeof getTournamentSheetExportData>>
 ) {
   return [
@@ -101,33 +126,55 @@ function buildSheetValues(
   ];
 }
 
+export async function syncTournamentSheet(
+  tournamentId: string,
+  rows?: FreeSheetRowInput[]
+) {
+  const exportData = await getTournamentSheetExportData(tournamentId);
+  const tabName =
+    exportData.tournament.google_sheet_tab_name?.trim() ||
+    buildTabName(
+      exportData.tournament.title,
+      exportData.tournament.start_at,
+      exportData.tournament.id
+    );
+
+  await ensureReadmeTab();
+  await replaceSpreadsheetTabValues("README", buildReadmeSheetValues());
+
+  const sheet = await ensureSpreadsheetTab(tabName);
+  const values =
+    exportData.tournament.kind === "free"
+      ? buildFreeSheetValues(exportData, rows)
+      : buildLiveSheetValues(exportData);
+
+  await replaceSpreadsheetTabValues(tabName, values);
+  await applyTournamentSheetFormatting(tabName, exportData.rows.length);
+  await setTournamentGoogleSheetTabName(tournamentId, tabName);
+
+  return {
+    tabName,
+    url: buildSpreadsheetTabUrl(sheet.sheetId),
+  };
+}
+
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await context.params;
-    const exportData = await getTournamentSheetExportData(id);
-    const tabName =
-      exportData.tournament.google_sheet_tab_name?.trim() ||
-      buildTabName(
-        exportData.tournament.title,
-        exportData.tournament.start_at,
-        exportData.tournament.id
-      );
+    const body = (await request.json().catch(() => null)) as
+      | {
+          rows?: FreeSheetRowInput[];
+        }
+      | null;
 
-    await ensureReadmeTab();
-    await replaceSpreadsheetTabValues("README", buildReadmeSheetValues());
-
-    const sheet = await ensureSpreadsheetTab(tabName);
-    await replaceSpreadsheetTabValues(tabName, buildSheetValues(exportData));
-    await applyTournamentSheetFormatting(tabName, exportData.rows.length);
-    await setTournamentGoogleSheetTabName(id, tabName);
+    const result = await syncTournamentSheet(id, body?.rows);
 
     return NextResponse.json({
       ok: true,
-      tabName,
-      url: buildSpreadsheetTabUrl(sheet.sheetId),
+      ...result,
     });
   } catch (error) {
     return NextResponse.json(

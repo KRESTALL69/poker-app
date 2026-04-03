@@ -48,6 +48,28 @@ export async function POST(
     const values = await readSpreadsheetTabValues(tournament.google_sheet_tab_name);
     const dataRows = values.slice(7);
 
+    if (tournament.kind === "free") {
+      const rows = dataRows
+        .map((row: string[]) => ({
+          player_id: row[0],
+          display_name: row[2] ?? "Игрок",
+          username: row[3]?.trim().replace(/^@/, "") || null,
+          place: parseNullableNumberCell(row[5]),
+          reentries: parseNumberCell(row[6]),
+          knockouts: parseNumberCell(row[7]),
+          rating_points: 0,
+        }))
+        .filter(
+          (row) =>
+            typeof row.player_id === "string" && row.player_id.trim().length > 0
+        );
+
+      return NextResponse.json({
+        ok: true,
+        rows,
+      });
+    }
+
     const updates = dataRows
       .map((row: string[], index: number) => ({
         player_id: row[0],
