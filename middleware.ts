@@ -21,9 +21,9 @@ async function verifyTelegramInitData(
 
   const encoder = new TextEncoder();
 
-  const botKeyMaterial = await crypto.subtle.importKey(
+  const webAppKeyMaterial = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(botToken),
+    encoder.encode("WebAppData"),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -31,8 +31,8 @@ async function verifyTelegramInitData(
 
   const secretKey = await crypto.subtle.sign(
     "HMAC",
-    botKeyMaterial,
-    encoder.encode("WebAppData")
+    webAppKeyMaterial,
+    encoder.encode(botToken)
   );
 
   const secretKeyImported = await crypto.subtle.importKey(
@@ -86,13 +86,23 @@ export async function middleware(request: NextRequest) {
   const initData = request.headers.get("x-telegram-init-data");
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-  if (!initData || !botToken) {
+  if (!initData) {
+    console.log("[admin-auth] 401: no x-telegram-init-data header");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!botToken) {
+    console.log("[admin-auth] 401: TELEGRAM_BOT_TOKEN not configured");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const telegramId = await verifyTelegramInitData(initData, botToken);
 
   if (!telegramId) {
+    console.log("[admin-auth] 401: initData verification failed (hash mismatch or expired)", {
+      initDataLength: initData.length,
+      hasHash: new URLSearchParams(initData).has("hash"),
+      hasUser: new URLSearchParams(initData).has("user"),
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -112,6 +122,7 @@ export async function middleware(request: NextRequest) {
     .maybeSingle();
 
   if (!player) {
+    console.log("[admin-auth] 401: player not found for telegram_id", telegramId);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
