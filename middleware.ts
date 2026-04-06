@@ -57,6 +57,19 @@ async function verifyTelegramInitData(
     return null;
   }
 
+  const authDate = params.get("auth_date");
+
+  if (!authDate) {
+    return null;
+  }
+
+  const authDateSeconds = parseInt(authDate, 10);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  if (isNaN(authDateSeconds) || nowSeconds - authDateSeconds > 3600) {
+    return null;
+  }
+
   const userRaw = params.get("user");
 
   if (!userRaw) {
