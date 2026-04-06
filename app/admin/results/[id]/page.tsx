@@ -8,7 +8,7 @@ import {
   getTournamentLiveEntries,
   getTournamentResultsDraft,
 } from "@/features/tournaments";
-import { fetchJsonWithRetry } from "@/lib/client-request";
+import { fetchAdminJson } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, Tournament, TournamentLiveEntry } from "@/types/domain";
 
@@ -111,7 +111,7 @@ export default function AdminTournamentResultsPage() {
 
           if (nextTournament.google_sheet_tab_name?.trim()) {
             try {
-              const payload = await fetchJsonWithRetry<{ rows: PulledFreeRow[] }>(
+              const payload = await fetchAdminJson<{ rows: PulledFreeRow[] }>(
                 `/api/admin/tournaments/${tournamentId}/pull-sheet`,
                 {
                   method: "POST",
@@ -154,7 +154,7 @@ export default function AdminTournamentResultsPage() {
 
           if (nextTournament.google_sheet_tab_name?.trim()) {
             try {
-              const payload = await fetchJsonWithRetry<{ rows: TournamentLiveEntry[] }>(
+              const payload = await fetchAdminJson<{ rows: TournamentLiveEntry[] }>(
                 `/api/admin/tournaments/${tournamentId}/pull-sheet`,
                 {
                   method: "POST",
@@ -293,7 +293,7 @@ export default function AdminTournamentResultsPage() {
     try {
       setSaving(true);
 
-      const payload = await fetchJsonWithRetry<{ tabName: string }>(
+      const payload = await fetchAdminJson<{ tabName: string }>(
         `/api/admin/tournaments/${tournamentId}/export-sheet`,
         {
           method: "POST",
@@ -338,7 +338,7 @@ export default function AdminTournamentResultsPage() {
     try {
       setPulling(true);
 
-      const payload = await fetchJsonWithRetry<{ rows: PulledFreeRow[] }>(
+      const payload = await fetchAdminJson<{ rows: PulledFreeRow[] }>(
         `/api/admin/tournaments/${tournamentId}/pull-sheet`,
         {
           method: "POST",
@@ -389,7 +389,7 @@ export default function AdminTournamentResultsPage() {
     try {
       setCompleting(true);
 
-      await fetchJsonWithRetry<{ ok: true }>(
+      await fetchAdminJson<{ ok: true }>(
         `/api/admin/tournaments/${tournamentId}/complete-free`,
         {
           method: "POST",
@@ -450,7 +450,7 @@ export default function AdminTournamentResultsPage() {
     try {
       setSaving(true);
 
-      const payload = await fetchJsonWithRetry<{ tabName: string }>(
+      const payload = await fetchAdminJson<{ tabName: string }>(
         `/api/admin/tournaments/${tournamentId}/live-sync`,
         {
           method: "POST",
@@ -495,7 +495,7 @@ export default function AdminTournamentResultsPage() {
     try {
       setPulling(true);
 
-      const payload = await fetchJsonWithRetry<{ rows: TournamentLiveEntry[] }>(
+      const payload = await fetchAdminJson<{ rows: TournamentLiveEntry[] }>(
         `/api/admin/tournaments/${tournamentId}/pull-sheet`,
         {
           method: "POST",
@@ -537,7 +537,7 @@ export default function AdminTournamentResultsPage() {
     try {
       setCompleting(true);
 
-      await fetchJsonWithRetry<{ ok: true }>(
+      await fetchAdminJson<{ ok: true }>(
         `/api/admin/tournaments/${tournamentId}/complete-live`,
         {
           method: "POST",

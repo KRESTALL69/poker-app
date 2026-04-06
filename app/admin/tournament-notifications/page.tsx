@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
-import { fetchJsonWithRetry } from "@/lib/client-request";
+import { fetchAdminJson } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, Tournament, TournamentKind } from "@/types/domain";
 import type {
@@ -84,7 +84,7 @@ export default function AdminTournamentNotificationsPage() {
       audience: targetAudience,
     });
 
-    const payload = await fetchJsonWithRetry<{
+    const payload = await fetchAdminJson<{
       recipients: TournamentNotificationRecipient[];
     }>(`/api/admin/tournaments/recipients?${params.toString()}`);
 
@@ -102,7 +102,7 @@ export default function AdminTournamentNotificationsPage() {
         setPlayer(ensuredPlayer);
 
         if (ensuredPlayer.role === "admin") {
-          const payload = await fetchJsonWithRetry<{ tournaments: Tournament[] }>(
+          const payload = await fetchAdminJson<{ tournaments: Tournament[] }>(
             "/api/admin/tournaments?scope=all"
           );
           setTournaments(payload.tournaments);
@@ -223,7 +223,7 @@ export default function AdminTournamentNotificationsPage() {
       setError(null);
       setResult(null);
 
-      const payload = await fetchJsonWithRetry<NotificationResult>(
+      const payload = await fetchAdminJson<NotificationResult>(
         "/api/admin/tournaments/notify",
         {
           method: "POST",

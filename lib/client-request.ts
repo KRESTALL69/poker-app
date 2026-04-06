@@ -1,3 +1,27 @@
+function getAdminHeaders(): Record<string, string> {
+  const initData =
+    typeof window !== "undefined"
+      ? (window.Telegram?.WebApp?.initData ?? "")
+      : "";
+
+  return initData ? { "X-Telegram-Init-Data": initData } : {};
+}
+
+export async function fetchAdminJson<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<T> {
+  const adminHeaders = getAdminHeaders();
+
+  return fetchJsonWithRetry<T>(input, {
+    ...init,
+    headers: {
+      ...adminHeaders,
+      ...(init?.headers as Record<string, string> | undefined),
+    },
+  });
+}
+
 export async function fetchJsonWithRetry<T>(
   input: RequestInfo | URL,
   init?: RequestInit,

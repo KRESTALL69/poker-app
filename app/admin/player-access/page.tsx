@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
-import { fetchJsonWithRetry } from "@/lib/client-request";
+import { fetchAdminJson } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
 
@@ -102,7 +102,7 @@ export default function AdminPlayerAccessPage() {
     });
 
   async function loadPlayers() {
-    const payload = await fetchJsonWithRetry<{ players: Player[] }>(
+    const payload = await fetchAdminJson<{ players: Player[] }>(
       "/api/admin/players/access"
     );
     setPlayers(payload.players);
@@ -159,7 +159,7 @@ export default function AdminPlayerAccessPage() {
         );
       }
 
-      await fetchJsonWithRetry<{ player: Player }>(
+      await fetchAdminJson<{ player: Player }>(
         `/api/admin/players/${targetPlayer.id}/access`,
         {
           method: "PATCH",

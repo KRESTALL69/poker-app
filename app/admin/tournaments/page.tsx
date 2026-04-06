@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import { deleteTournament } from "@/features/tournaments";
-import { fetchJsonWithRetry } from "@/lib/client-request";
+import { fetchAdminJson } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, Tournament } from "@/types/domain";
 
@@ -34,7 +34,7 @@ export default function AdminTournamentsPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function loadTournaments() {
-    const payload = await fetchJsonWithRetry<{ tournaments: Tournament[] }>(
+    const payload = await fetchAdminJson<{ tournaments: Tournament[] }>(
       "/api/admin/tournaments"
     );
     setTournaments(payload.tournaments);

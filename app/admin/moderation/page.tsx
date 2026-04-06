@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
-import { fetchJsonWithRetry } from "@/lib/client-request";
+import { fetchAdminJson } from "@/lib/client-request";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
@@ -27,8 +27,8 @@ export default function AdminModerationPage() {
 
   async function loadModerationData() {
     const [pendingPayload, playersPayload] = await Promise.all([
-      fetchJsonWithRetry<{ players: Player[] }>("/api/admin/nicknames/pending"),
-      fetchJsonWithRetry<{ players: Player[] }>("/api/admin/nicknames/players"),
+      fetchAdminJson<{ players: Player[] }>("/api/admin/nicknames/pending"),
+      fetchAdminJson<{ players: Player[] }>("/api/admin/nicknames/players"),
     ]);
 
     setPendingPlayers(pendingPayload.players);
@@ -93,7 +93,7 @@ export default function AdminModerationPage() {
       setMessage(null);
       setError(null);
 
-      await fetchJsonWithRetry<{ player: Player }>(`/api/admin/nicknames/${playerId}`, {
+      await fetchAdminJson<{ player: Player }>(`/api/admin/nicknames/${playerId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -120,7 +120,7 @@ export default function AdminModerationPage() {
       setMessage(null);
       setError(null);
 
-      await fetchJsonWithRetry<{ player: Player }>(`/api/admin/nicknames/${playerId}`, {
+      await fetchAdminJson<{ player: Player }>(`/api/admin/nicknames/${playerId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -157,7 +157,7 @@ export default function AdminModerationPage() {
       setMessage(null);
       setError(null);
 
-      await fetchJsonWithRetry<{ player: Player }>(`/api/admin/nicknames/${playerId}`, {
+      await fetchAdminJson<{ player: Player }>(`/api/admin/nicknames/${playerId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
-import { fetchJsonWithRetry } from "@/lib/client-request";
+import { fetchAdminJson } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, TournamentKind } from "@/types/domain";
 
@@ -73,7 +73,7 @@ export default function AdminTournamentCreatePage() {
       setMessage(null);
       setError(null);
 
-      await fetchJsonWithRetry<{ tournament: unknown }>("/api/admin/tournaments", {
+      await fetchAdminJson<{ tournament: unknown }>("/api/admin/tournaments", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
