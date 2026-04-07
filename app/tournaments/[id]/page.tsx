@@ -433,7 +433,7 @@ const waitlistParticipants = participants.filter(
           ← Назад
         </button>
 
-        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-700/45 to-black p-5">
+        <div className={`rounded-2xl border border-white/10 bg-gradient-to-br ${tournament.kind === "paid" ? "from-amber-700/35" : tournament.kind === "cash" ? "from-cyan-700/30" : "from-emerald-700/45"} to-black p-5`}>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-white/60">Турнир</p>
             {showTournamentKindTag ? (
