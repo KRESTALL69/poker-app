@@ -865,6 +865,16 @@ export async function addAdminTournamentParticipant(
 }
 
 export async function removeAdminTournamentParticipant(registrationId: string) {
+  const { data: regData, error: fetchError } = await supabase
+    .from("registrations")
+    .select("status, tournament_id")
+    .eq("id", registrationId)
+    .single();
+
+  if (fetchError) {
+    throw new Error(fetchError.message);
+  }
+
   const { error } = await supabase
     .from("registrations")
     .delete()
@@ -872,6 +882,32 @@ export async function removeAdminTournamentParticipant(registrationId: string) {
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (regData.status === "registered") {
+    const { data: waitlistData, error: waitlistError } = await supabase
+      .from("registrations")
+      .select("*")
+      .eq("tournament_id", regData.tournament_id)
+      .eq("status", "waitlist")
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (waitlistError) {
+      throw new Error(waitlistError.message);
+    }
+
+    const nextWaitlistPlayer = waitlistData?.[0];
+    if (nextWaitlistPlayer) {
+      const { error: promoteError } = await supabase
+        .from("registrations")
+        .update({ status: "registered" })
+        .eq("id", nextWaitlistPlayer.id);
+
+      if (promoteError) {
+        throw new Error(promoteError.message);
+      }
+    }
   }
 }
 
