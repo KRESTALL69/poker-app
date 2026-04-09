@@ -105,6 +105,36 @@ describe('registerPlayerForTournament', () => {
 
     expect(result.status).toBe('waitlist');
   });
+
+  it('assigns "registered" when spots are available', async () => {
+    mockFrom
+      // 1. check existing registration → none
+      .mockImplementationOnce(() => makeChain({ data: [], error: null }))
+      // 2. get player permissions
+      .mockImplementationOnce(() =>
+        makeChain({
+          data: { can_access_free: true, can_access_paid: false, can_access_cash: false },
+          error: null,
+        })
+      )
+      // 3. getTournamentById → max_players: 2
+      .mockImplementationOnce(() => makeChain({ data: FULL_TOURNAMENT, error: null }))
+      // 4. getTournamentRegistrationCounts → 1 registered (< max_players → spot available)
+      .mockImplementationOnce(() =>
+        makeChain({
+          data: [{ tournament_id: 'tournament-1', status: 'registered' }],
+          error: null,
+        })
+      )
+      // 5. insert new registration (status will be "registered")
+      .mockImplementationOnce(() =>
+        makeChain({ data: reg({ id: 'reg-new', status: 'registered' }), error: null })
+      );
+
+    const result = await registerPlayerForTournament('player-1', 'tournament-1');
+
+    expect(result.status).toBe('registered');
+  });
 });
 
 describe('cancelPlayerRegistration', () => {
