@@ -30,6 +30,7 @@ export type TelegramWebApp = {
   setHeaderColor?: (color: string) => void;
   onEvent?: (eventType: string, eventHandler: () => void) => void;
   offEvent?: (eventType: string, eventHandler: () => void) => void;
+  openTelegramLink?: (url: string) => void;
 };
 
 declare global {

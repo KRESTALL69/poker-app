@@ -892,28 +892,25 @@ export default function HomePage() {
                   <p className="mt-6 text-2xl font-semibold">FAQ</p>
                 </Link>
 
-                {process.env.NEXT_PUBLIC_BOT_USERNAME ? (
-                  <a
-                    href={`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}?start=support`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 text-white transition active:scale-[0.99]"
+                <button
+                    type="button"
+                    onClick={() => {
+                      const url = "https://t.me/dont_worry_club_bot?start=support";
+                      const webApp = getTelegramWebApp();
+                      if (webApp?.openTelegramLink) {
+                        webApp.openTelegramLink(url);
+                      } else {
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      }
+                    }}
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.05] p-5 text-left text-white transition active:scale-[0.99]"
                   >
                     <div className="flex items-center gap-2 text-white/65">
                       <SupportIcon />
                       <span className="text-sm">На связи</span>
                     </div>
                     <p className="mt-6 text-2xl font-semibold">Поддержка</p>
-                  </a>
-                ) : (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 text-white">
-                    <div className="flex items-center gap-2 text-white/65">
-                      <SupportIcon />
-                      <span className="text-sm">На связи</span>
-                    </div>
-                    <p className="mt-6 text-2xl font-semibold">Поддержка</p>
-                  </div>
-                )}
+                  </button>
               </div>
             </section>
 
