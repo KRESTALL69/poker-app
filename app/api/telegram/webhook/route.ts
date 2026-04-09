@@ -7,6 +7,8 @@ type TelegramWebhookUpdate = {
     text?: string;
     chat?: {
       id: number;
+      type?: string;
+      title?: string;
     };
     from?: {
       id: number;
@@ -97,6 +99,15 @@ export async function POST(request: Request) {
 
     if (!chatId || !messageId) {
       return NextResponse.json({ ok: true });
+    }
+
+    // TEMP: log chat info to find SUPPORT_ADMIN_CHAT_ID
+    const chatType = message?.chat?.type;
+    const chatTitle = message?.chat?.title;
+    if (chatType === "group" || chatType === "supergroup") {
+      console.log(`[webhook] GROUP chat_id=${chatId} type=${chatType} title="${chatTitle}"`);
+    } else {
+      console.log(`[webhook] chat_id=${chatId} type=${chatType ?? "unknown"}`);
     }
 
     // Handle messages from admin chat (replies to forwarded support messages)
