@@ -127,17 +127,17 @@ export default function AdminTournamentsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-4 py-6 text-white">
+    <main className="min-h-screen bg-black px-4 py-8 text-white">
       <div className="mx-auto max-w-3xl">
         <Link
           href="/admin"
-          className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
+          className="mb-6 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
         >
           ← Назад
         </Link>
 
-        <h1 className="text-2xl font-bold">Модерация турниров</h1>
-        <p className="mt-2 text-sm text-white/70">
+        <h1 className="text-2xl font-bold tracking-tight">Модерация турниров</h1>
+        <p className="mt-1 text-sm text-white/50">
           Управление открытыми турнирами
         </p>
 
@@ -154,7 +154,7 @@ export default function AdminTournamentsPage() {
         ) : null}
 
         {tournaments.length === 0 ? (
-          <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+          <div className="mt-6 rounded-2xl border border-white/[0.07] bg-white/4 p-5 text-sm text-white/50">
             Пока нет открытых турниров
           </div>
         ) : (
@@ -162,45 +162,45 @@ export default function AdminTournamentsPage() {
             {tournaments.map((tournament) => (
               <div
                 key={tournament.id}
-                className="rounded-xl border border-white/10 bg-white/5 p-4"
+                className="rounded-2xl border border-white/[0.07] bg-white/4 p-5"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-lg font-semibold">{tournament.title}</p>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+                  <p className="text-base font-semibold tracking-tight">{tournament.title}</p>
+                  <span className="rounded-full border border-white/8 bg-white/6 px-2.5 py-0.5 text-[11px] font-medium text-white/50">
                     {getTournamentKindLabel(tournament.kind)}
                   </span>
                 </div>
 
-                <p className="mt-2 text-sm text-white/60">
+                <p className="mt-2.5 text-[13px] text-white/45">
                   {formatDateTimeWithoutSeconds(tournament.start_at)}
                 </p>
 
-                <p className="mt-1 text-sm text-white/60">
+                <p className="mt-1 text-[13px] text-white/45">
                   Место: {tournament.location ?? "Не указано"}
                 </p>
 
-                <p className="mt-1 text-sm text-white/60">
+                <p className="mt-1 text-[13px] text-white/45">
                   Лимит игроков: {tournament.max_players}
                 </p>
 
-                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="mt-4 border-t border-white/6 pt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Link
                     href={`/tournaments/${tournament.id}`}
-                    className="rounded-lg border border-white/10 px-3 py-2 text-center text-sm text-white/80"
+                    className="rounded-xl border border-white/8 px-3 py-2.5 text-center text-[13px] font-medium text-white/60 active:bg-white/5 transition-colors"
                   >
                     Открыть турнир
                   </Link>
 
                   <Link
                     href={`/admin/tournaments/${tournament.id}/edit`}
-                    className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-center text-sm font-semibold text-yellow-300"
+                    className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-3 py-2.5 text-center text-[13px] font-medium text-amber-300/80 active:bg-amber-500/15 transition-colors"
                   >
                     Редактировать
                   </Link>
 
                   <Link
                     href={`/admin/results/${tournament.id}`}
-                    className="rounded-lg bg-yellow-500 px-3 py-2 text-center text-sm font-semibold text-black"
+                    className="rounded-xl bg-yellow-500 px-3 py-2.5 text-center text-[13px] font-semibold text-black active:bg-yellow-400 transition-colors"
                   >
                     {tournament.google_sheet_tab_name
                       ? "Внести данные"
@@ -213,7 +213,7 @@ export default function AdminTournamentsPage() {
                       handleDeleteTournament(tournament.id, tournament.title)
                     }
                     disabled={actionLoading}
-                    className="rounded-lg bg-red-600 px-3 py-2 text-center text-sm font-semibold text-white disabled:opacity-60"
+                    className="rounded-xl bg-red-600/90 px-3 py-2.5 text-center text-[13px] font-semibold text-white disabled:opacity-60 active:bg-red-500 transition-colors"
                   >
                     Удалить турнир
                   </button>
