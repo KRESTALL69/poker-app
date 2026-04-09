@@ -228,7 +228,7 @@ export default function AdminTournamentEditPage() {
         <div className="mx-auto max-w-3xl">
           <Link
             href="/admin"
-            className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
+            className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15"
           >
             ← Назад
           </Link>
@@ -249,7 +249,7 @@ export default function AdminTournamentEditPage() {
       <div className="mx-auto max-w-3xl">
         <Link
           href="/admin"
-          className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80"
+          className="mb-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15"
         >
           ← Назад
         </Link>
@@ -332,7 +332,7 @@ export default function AdminTournamentEditPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="mt-4 w-full rounded-lg bg-yellow-500 py-2 font-semibold text-black disabled:opacity-60"
+            className="mt-4 w-full rounded-lg bg-yellow-500 py-2.5 font-semibold text-black transition-colors hover:bg-yellow-400 active:bg-yellow-600 focus-visible:ring-2 focus-visible:ring-yellow-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-yellow-500"
           >
             {saving ? "Сохраняем..." : "Сохранить изменения"}
           </button>
@@ -344,9 +344,9 @@ export default function AdminTournamentEditPage() {
             <button
               type="button"
               onClick={() => setShowAddParticipantForm((prev) => !prev)}
-              className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85"
+              className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Добавить участника
+              + Добавить
             </button>
           </div>
 
@@ -366,7 +366,7 @@ export default function AdminTournamentEditPage() {
                   type="button"
                   onClick={handleAddParticipant}
                   disabled={participantSaving}
-                  className="rounded-lg bg-yellow-500 px-3 py-2 text-sm font-semibold text-black disabled:opacity-60"
+                  className="rounded-lg bg-yellow-500 px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-yellow-400 active:bg-yellow-600 focus-visible:ring-2 focus-visible:ring-yellow-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-yellow-500"
                 >
                   {participantSaving ? "Добавляем..." : "Создать"}
                 </button>
@@ -377,7 +377,7 @@ export default function AdminTournamentEditPage() {
                     setNewParticipantNick("");
                   }}
                   disabled={participantSaving}
-                  className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 disabled:opacity-60"
+                  className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Отмена
                 </button>
@@ -426,7 +426,7 @@ export default function AdminTournamentEditPage() {
                       type="button"
                       onClick={() => handleDeleteParticipant(participant.registration_id)}
                       disabled={deletingRegistrationId === participant.registration_id}
-                      className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-300 disabled:opacity-60"
+                      className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-200 active:bg-red-500/30 focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {deletingRegistrationId === participant.registration_id
                         ? "Удаляем..."
