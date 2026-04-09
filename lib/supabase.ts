@@ -17,13 +17,13 @@ async function fetchWithRetry(
 ): Promise<Response> {
   let lastError: unknown;
 
-  for (let attempt = 0; attempt <= 2; attempt += 1) {
+  for (let attempt = 0; attempt <= 1; attempt += 1) {
     try {
       return await fetch(input, init);
     } catch (error) {
       lastError = error;
 
-      if (!(error instanceof TypeError) || attempt === 2) {
+      if (!(error instanceof TypeError) || attempt === 1) {
         break;
       }
 
