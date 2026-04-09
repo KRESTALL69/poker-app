@@ -11,7 +11,7 @@ GSD initialized for task tracking only — codebase map in .planning/codebase/.
 
 ## Last activity
 
-2026-04-07 - Completed quick task 260407-wvr: Унифицировать цветовую логику карточки турнира на детальной странице и главной
+2026-04-07 - Completed quick task 260407-x2a: Vitest setup with Telegram WebApp mock, extracted pure helpers, 14 passing tests
 
 ## Blockers/Concerns
 
@@ -26,3 +26,4 @@ GSD initialized for task tracking only — codebase map in .planning/codebase/.
 | 260407-vlm | Настроить безопасный read-only доступ к таблице tournaments через RLS | 2026-04-07 | 8339a27 | [260407-vlm-read-only-tournaments-rls](./quick/260407-vlm-read-only-tournaments-rls/) |
 | 260407-vw0 | Исправить логику waitlist: автопродвижение при удалении игрока через админку | 2026-04-07 | 6974a1d | [260407-vw0-waitlist](./quick/260407-vw0-waitlist/) |
 | 260407-wvr | Унифицировать цветовую логику карточки турнира на детальной странице и главной | 2026-04-07 | 6aff6e8 | [260407-wvr-unified-tournament-card-colors](./quick/260407-wvr-unified-tournament-card-colors/) |
+| 260407-x2a | Vitest setup: Telegram WebApp mock, extracted pure helpers, 14 passing tests | 2026-04-07 | 560ef03 | [260407-x2a-vitest-mock-telegram-webapp-api-waitlist](./quick/260407-x2a-vitest-mock-telegram-webapp-api-waitlist/) |
