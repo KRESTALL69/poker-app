@@ -11,7 +11,7 @@ GSD initialized for task tracking only — codebase map in .planning/codebase/.
 
 ## Last activity
 
-2026-04-09 - Completed quick task 260409-xbe: Modernize admin tournaments page — cleaner cards, button hierarchy, modern mobile UI
+2026-04-10 - Completed quick task 260410-0yo: Реализовать раздел Поддержка через Telegram-бота
 
 ## Blockers/Concerns
 
@@ -29,3 +29,4 @@ GSD initialized for task tracking only — codebase map in .planning/codebase/.
 | 260407-x2a | Vitest setup: Telegram WebApp mock, extracted pure helpers, 14 passing tests | 2026-04-07 | 560ef03 | [260407-x2a-vitest-mock-telegram-webapp-api-waitlist](./quick/260407-x2a-vitest-mock-telegram-webapp-api-waitlist/) |
 | 260409-wx9 | Button UI hierarchy on admin tournament edit page — yellow primary, subtle secondary, red destructive, interactive states | 2026-04-09 | 6116fd4 | [260409-wx9-ui](./quick/260409-wx9-ui/) |
 | 260409-xbe | Modernize admin tournaments page — cleaner cards, button hierarchy, modern mobile UI | 2026-04-09 | 208ed37 | [260409-xbe-modern-mobile-ui](./quick/260409-xbe-modern-mobile-ui/) |
+| 260410-0yo | Реализовать раздел Поддержка через Telegram-бота | 2026-04-10 | 3549f40 | [260410-0yo-telegram](./quick/260410-0yo-telegram/) |
