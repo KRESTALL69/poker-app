@@ -73,6 +73,25 @@ export async function updatePlayerAdminDisplayName(
   return mapPlayerRowToDomain(data as PlayerRow);
 }
 
+export async function deleteManualPlayer(playerId: string): Promise<void> {
+  const { data: player, error: fetchError } = await supabase
+    .from("players")
+    .select("telegram_id")
+    .eq("id", playerId)
+    .single();
+
+  if (fetchError || !player) throw new Error("Игрок не найден");
+  if (player.telegram_id !== null) throw new Error("Нельзя удалять игроков с Telegram");
+
+  await supabase.from("tournament_live_entries").delete().eq("player_id", playerId);
+  await supabase.from("player_achievements").delete().eq("player_id", playerId);
+  await supabase.from("results").delete().eq("player_id", playerId);
+  await supabase.from("registrations").delete().eq("player_id", playerId);
+
+  const { error } = await supabase.from("players").delete().eq("id", playerId);
+  if (error) throw new Error(`Ошибка удаления: ${error.message}`);
+}
+
 export async function updatePlayerTournamentAccess(
   playerId: string,
   input: {
