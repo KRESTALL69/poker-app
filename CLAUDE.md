@@ -1,5 +1,12 @@
 # Project Context
 
+## TL;DR
+
+- Telegram Mini App (Next.js + Supabase)
+- ключевая логика: турниры + waitlist (FIFO)
+- support через Telegram bot (forward + reply)
+- стиль: минимальные изменения, без рефакторинга
+
 ## Что это
 
 `Don't worry club` — это Telegram Mini App для покерных турниров.

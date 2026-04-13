@@ -359,7 +359,7 @@ export default function AdminModerationPage() {
                 return (
                   <div
                     key={targetPlayer.id}
-                    className="grid grid-cols-[40px_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-white/10 px-4 py-3 last:border-b-0"
+                    className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 px-4 py-3 last:border-b-0"
                   >
                     {avatarUrl ? (
                       <img
@@ -410,33 +410,35 @@ export default function AdminModerationPage() {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        isEditing
-                          ? handleSaveAdminName(targetPlayer.id)
-                          : handleStartEdit(targetPlayer)
-                      }
-                      disabled={processingKey === saveKey}
-                      className="rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                    >
-                      {processingKey === saveKey
-                        ? "..."
-                        : isEditing
-                          ? "Сохранить"
-                          : "Редактировать"}
-                    </button>
-
-                    {!targetPlayer.telegram_id ? (
+                    <div className="flex flex-col gap-1">
                       <button
                         type="button"
-                        onClick={() => handleDeleteManualPlayer(targetPlayer.id)}
-                        disabled={processingKey === `delete-${targetPlayer.id}`}
-                        className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-60"
+                        onClick={() =>
+                          isEditing
+                            ? handleSaveAdminName(targetPlayer.id)
+                            : handleStartEdit(targetPlayer)
+                        }
+                        disabled={processingKey === saveKey}
+                        className="rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
                       >
-                        {processingKey === `delete-${targetPlayer.id}` ? "..." : "Удалить"}
+                        {processingKey === saveKey
+                          ? "..."
+                          : isEditing
+                            ? "Сохранить"
+                            : "Редактировать"}
                       </button>
-                    ) : null}
+
+                      {!targetPlayer.telegram_id ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteManualPlayer(targetPlayer.id)}
+                          disabled={processingKey === `delete-${targetPlayer.id}`}
+                          className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-60"
+                        >
+                          {processingKey === `delete-${targetPlayer.id}` ? "..." : "Удалить"}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 );
               })
