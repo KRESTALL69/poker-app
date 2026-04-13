@@ -151,6 +151,22 @@ export default function AdminModerationPage() {
     setError(null);
   }
 
+  async function handleDeleteManualPlayer(playerId: string) {
+    if (!confirm("Удалить этого игрока? Это действие необратимо.")) return;
+    try {
+      setProcessingKey(`delete-${playerId}`);
+      setMessage(null);
+      setError(null);
+      await fetchAdminJson(`/api/admin/players/${playerId}`, { method: "DELETE" });
+      setPlayers((prev) => prev.filter((p) => p.id !== playerId));
+      setMessage("Игрок удалён");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка удаления");
+    } finally {
+      setProcessingKey(null);
+    }
+  }
+
   async function handleSaveAdminName(playerId: string) {
     try {
       setProcessingKey(`save-${playerId}`);
@@ -343,7 +359,7 @@ export default function AdminModerationPage() {
                 return (
                   <div
                     key={targetPlayer.id}
-                    className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 px-4 py-3 last:border-b-0"
+                    className="grid grid-cols-[40px_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-white/10 px-4 py-3 last:border-b-0"
                   >
                     {avatarUrl ? (
                       <img
@@ -410,6 +426,17 @@ export default function AdminModerationPage() {
                           ? "Сохранить"
                           : "Редактировать"}
                     </button>
+
+                    {!targetPlayer.telegram_id ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteManualPlayer(targetPlayer.id)}
+                        disabled={processingKey === `delete-${targetPlayer.id}`}
+                        className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-60"
+                      >
+                        {processingKey === `delete-${targetPlayer.id}` ? "..." : "Удалить"}
+                      </button>
+                    ) : null}
                   </div>
                 );
               })
