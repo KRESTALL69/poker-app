@@ -225,6 +225,16 @@ export default function AdminTournamentEditPage() {
     [participants]
   );
 
+  const registeredCount = useMemo(
+    () => participants.filter((p) => p.status === "registered" || p.status === "attended").length,
+    [participants]
+  );
+
+  const waitlistCount = useMemo(
+    () => participants.filter((p) => p.status === "waitlist").length,
+    [participants]
+  );
+
   const filteredPlayers = useMemo(() => {
     const query = playerSearch.trim().toLowerCase();
     const unregistered = allPlayers.filter((p) => !registeredPlayerIds.has(p.id));
@@ -403,7 +413,13 @@ export default function AdminTournamentEditPage() {
 
         <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-white">Участники</h2>
+            <h2 className="text-lg font-semibold text-white">
+              Участники
+              <span className="ml-2 text-sm font-normal text-white/50">
+                {registeredCount}/{maxPlayers}
+                {waitlistCount > 0 ? ` · Ожидание: ${waitlistCount}` : ""}
+              </span>
+            </h2>
             <button
               type="button"
               onClick={() => setShowAddParticipantForm((prev) => !prev)}

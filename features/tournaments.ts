@@ -50,6 +50,7 @@ export type AdminTournamentParticipant = {
   registration_id: string;
   player_id: string;
   admin_nick: string;
+  status: "registered" | "attended" | "waitlist";
   custom_avatar_url?: string;
   telegram_avatar_url?: string;
 };
@@ -795,6 +796,7 @@ export async function getAdminTournamentParticipants(
     .select(
       `
       id,
+      status,
       player_id,
       players (
         admin_display_name,
@@ -819,6 +821,7 @@ export async function getAdminTournamentParticipants(
       registration_id: row.id as string,
       player_id: row.player_id as string,
       admin_nick: getPreferredPlayerDisplayName(player ?? {}),
+      status: row.status as "registered" | "attended" | "waitlist",
       telegram_avatar_url: player?.telegram_avatar_url ?? undefined,
       custom_avatar_url: player?.custom_avatar_url ?? undefined,
     };
