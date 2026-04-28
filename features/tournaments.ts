@@ -864,6 +864,59 @@ export async function addAdminTournamentParticipant(
   }
 }
 
+export async function addExistingPlayerToTournament(
+  tournamentId: string,
+  playerId: string
+): Promise<void> {
+  const { data: existing, error: existingError } = await supabase
+    .from("registrations")
+    .select("*")
+    .eq("player_id", playerId)
+    .eq("tournament_id", tournamentId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+
+  const existingReg = existing?.[0];
+
+  if (existingReg?.status === "registered" || existingReg?.status === "waitlist") {
+    throw new Error("Игрок уже зарегистрирован в этом турнире");
+  }
+
+  if (existingReg?.status === "attended") {
+    throw new Error("Игрок уже участвовал в этом турнире");
+  }
+
+  const tournament = await getTournamentById(tournamentId);
+  const counts = await getTournamentRegistrationCounts();
+  const registeredCount = counts[tournamentId] ?? 0;
+
+  const nextStatus: RegistrationStatus =
+    registeredCount < tournament.max_players ? "registered" : "waitlist";
+
+  if (existingReg?.status === "cancelled") {
+    const { error } = await supabase
+      .from("registrations")
+      .update({ status: nextStatus })
+      .eq("id", existingReg.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  } else {
+    const { error } = await supabase
+      .from("registrations")
+      .insert({ player_id: playerId, tournament_id: tournamentId, status: nextStatus });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+}
+
 export async function removeAdminTournamentParticipant(registrationId: string) {
   const { data: regData, error: fetchError } = await supabase
     .from("registrations")
