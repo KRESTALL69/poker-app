@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import {
   addAdminTournamentParticipant,
+  addExistingPlayerToTournament,
   getAdminTournamentParticipants,
   getTournamentById,
   removeAdminTournamentParticipant,
   updateTournament,
   type AdminTournamentParticipant,
 } from "@/features/tournaments";
+import { fetchAdminJson } from "@/lib/client-request";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player, TournamentKind } from "@/types/domain";
@@ -53,6 +55,12 @@ export default function AdminTournamentEditPage() {
   const [newParticipantNick, setNewParticipantNick] = useState("");
   const [participantSaving, setParticipantSaving] = useState(false);
   const [deletingRegistrationId, setDeletingRegistrationId] = useState<string | null>(null);
+
+  const [addMode, setAddMode] = useState<"new" | "existing">("new");
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
+  const [playersLoading, setPlayersLoading] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [addingExistingPlayerId, setAddingExistingPlayerId] = useState<string | null>(null);
 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +220,61 @@ export default function AdminTournamentEditPage() {
     }
   }
 
+  const registeredPlayerIds = useMemo(
+    () => new Set(participants.map((p) => p.player_id)),
+    [participants]
+  );
+
+  const filteredPlayers = useMemo(() => {
+    const query = playerSearch.trim().toLowerCase();
+    const unregistered = allPlayers.filter((p) => !registeredPlayerIds.has(p.id));
+    const matched = query
+      ? unregistered.filter((p) =>
+          (p.display_name ?? "").toLowerCase().includes(query) ||
+          (p.admin_display_name ?? "").toLowerCase().includes(query) ||
+          (p.username ?? "").toLowerCase().includes(query)
+        )
+      : unregistered.slice(0, 50);
+    return matched.sort((a, b) =>
+      (a.admin_display_name ?? a.display_name ?? "").localeCompare(
+        b.admin_display_name ?? b.display_name ?? "",
+        "ru"
+      )
+    );
+  }, [allPlayers, playerSearch, registeredPlayerIds]);
+
+  async function handleSwitchToExisting() {
+    setAddMode("existing");
+    if (allPlayers.length === 0) {
+      try {
+        setPlayersLoading(true);
+        const data = await fetchAdminJson<{ players: Player[] }>("/api/admin/nicknames/players");
+        setAllPlayers(data.players);
+      } catch {
+        setError("Не удалось загрузить список игроков");
+      } finally {
+        setPlayersLoading(false);
+      }
+    }
+  }
+
+  async function handleAddExistingPlayer(playerId: string) {
+    if (!tournamentId) return;
+    setAddingExistingPlayerId(playerId);
+    setMessage(null);
+    setError(null);
+    try {
+      await addExistingPlayerToTournament(tournamentId, playerId);
+      await loadParticipants(tournamentId);
+      setMessage("Участник добавлен");
+      setPlayerSearch("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка добавления участника");
+    } finally {
+      setAddingExistingPlayerId(null);
+    }
+  }
+
   if (!accessChecked || loading) {
     return (
       <main className="min-h-screen bg-black px-4 py-6 text-white">
@@ -352,36 +415,128 @@ export default function AdminTournamentEditPage() {
 
           {showAddParticipantForm ? (
             <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
-              <label className="block text-sm text-white/80">Ник</label>
-              <input
-                type="text"
-                value={newParticipantNick}
-                onChange={(e) => setNewParticipantNick(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
-                placeholder="Введите ник"
-              />
-
-              <div className="mt-3 flex gap-2">
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={handleAddParticipant}
-                  disabled={participantSaving}
-                  className="rounded-lg bg-yellow-500 px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-yellow-400 active:bg-yellow-600 focus-visible:ring-2 focus-visible:ring-yellow-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-yellow-500"
+                  onClick={() => setAddMode("new")}
+                  className={`rounded-lg border px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${addMode === "new" ? "border-white/20 bg-white/10 text-white" : "border-white/15 text-white/70 hover:bg-white/10 hover:text-white active:bg-white/15"}`}
                 >
-                  {participantSaving ? "Добавляем..." : "Создать"}
+                  Создать нового
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddParticipantForm(false);
-                    setNewParticipantNick("");
-                  }}
-                  disabled={participantSaving}
-                  className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleSwitchToExisting}
+                  className={`rounded-lg border px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${addMode === "existing" ? "border-white/20 bg-white/10 text-white" : "border-white/15 text-white/70 hover:bg-white/10 hover:text-white active:bg-white/15"}`}
                 >
-                  Отмена
+                  Добавить существующего
                 </button>
               </div>
+
+              {addMode === "new" ? (
+                <>
+                  <label className="mt-3 block text-sm text-white/80">Ник</label>
+                  <input
+                    type="text"
+                    value={newParticipantNick}
+                    onChange={(e) => setNewParticipantNick(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                    placeholder="Введите ник"
+                  />
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddParticipant}
+                      disabled={participantSaving}
+                      className="rounded-lg bg-yellow-500 px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-yellow-400 active:bg-yellow-600 focus-visible:ring-2 focus-visible:ring-yellow-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-yellow-500"
+                    >
+                      {participantSaving ? "Добавляем..." : "Создать"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddParticipantForm(false);
+                        setNewParticipantNick("");
+                        setAddMode("new");
+                      }}
+                      disabled={participantSaving}
+                      className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={playerSearch}
+                    onChange={(e) => setPlayerSearch(e.target.value)}
+                    className="mt-3 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 outline-none"
+                    placeholder="Поиск по нику или админскому нику"
+                  />
+                  {playersLoading ? (
+                    <p className="mt-3 text-sm text-white/60">Загружаем игроков...</p>
+                  ) : (
+                    <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-white/10 divide-y divide-white/10 bg-black/20">
+                      {filteredPlayers.length === 0 ? (
+                        <div className="px-3 py-4 text-sm text-white/60">Ничего не найдено</div>
+                      ) : (
+                        filteredPlayers.map((p) => {
+                          const avatarUrl = getPlayerAvatarUrl(p);
+                          const avatarFallback = getPlayerAvatarFallback(p);
+                          return (
+                            <div
+                              key={p.id}
+                              className="flex items-center justify-between gap-3 px-3 py-2"
+                            >
+                              <div className="flex min-w-0 items-center gap-2">
+                                {avatarUrl ? (
+                                  <img
+                                    src={avatarUrl}
+                                    alt={p.admin_display_name ?? p.display_name}
+                                    className="h-8 w-8 flex-shrink-0 rounded-full border border-white/10 object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-xs font-semibold text-white/80">
+                                    {avatarFallback}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-white">
+                                    {p.admin_display_name ?? p.display_name}
+                                  </p>
+                                  {p.username ? (
+                                    <p className="truncate text-xs text-white/50">@{p.username}</p>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleAddExistingPlayer(p.id)}
+                                disabled={addingExistingPlayerId === p.id}
+                                className="flex-shrink-0 rounded-lg bg-yellow-500 px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-yellow-400 active:bg-yellow-600 focus-visible:ring-2 focus-visible:ring-yellow-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-yellow-500"
+                              >
+                                {addingExistingPlayerId === p.id ? "Добавляем..." : "Добавить"}
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddParticipantForm(false);
+                      setPlayerSearch("");
+                      setAddMode("new");
+                    }}
+                    className="mt-3 rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white active:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  >
+                    Отмена
+                  </button>
+                </>
+              )}
             </div>
           ) : null}
 
