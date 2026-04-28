@@ -291,6 +291,12 @@ export default function AdminTournamentNotificationsPage() {
           Выберите категорию, аудиторию и турнир, затем отправьте уведомление.
         </p>
 
+        {sending ? (
+          <div className="mt-4 rounded-xl border border-white/20 bg-white/5 p-4 text-sm text-white/80">
+            Происходит отправка уведомлений...
+          </div>
+        ) : null}
+
         {result ? (
           <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-200">
             <p className="font-semibold">Рассылка завершена</p>
