@@ -11,7 +11,7 @@ GSD initialized for task tracking only — codebase map in .planning/codebase/.
 
 ## Last activity
 
-2026-04-13 - Completed quick task 260413-ul5: Добавить удаление manual игроков в модерации ников
+2026-04-28 - Completed quick task 260428-uo5: Два режима добавления участника в редактировании турнира
 
 ## Blockers/Concerns
 
@@ -31,3 +31,4 @@ GSD initialized for task tracking only — codebase map in .planning/codebase/.
 | 260409-xbe | Modernize admin tournaments page — cleaner cards, button hierarchy, modern mobile UI | 2026-04-09 | 208ed37 | [260409-xbe-modern-mobile-ui](./quick/260409-xbe-modern-mobile-ui/) |
 | 260410-0yo | Реализовать раздел Поддержка через Telegram-бота | 2026-04-10 | 3549f40 | [260410-0yo-telegram](./quick/260410-0yo-telegram/) |
 | 260413-ul5 | Добавить удаление manual игроков в модерации ников | 2026-04-13 | 3c05ed8 | [260413-ul5-manual](./quick/260413-ul5-manual/) |
+| 260428-uo5 | Два режима добавления участника в редактировании турнира (создать нового / добавить существующего) | 2026-04-28 | 8f066e0 | [260428-uo5-2](./quick/260428-uo5-2/) |
