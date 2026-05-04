@@ -82,14 +82,17 @@ function buildReadmeSheetValues() {
 
 function buildFreeSheetValues(
   exportData: Awaited<ReturnType<typeof getTournamentSheetExportData>>,
-  rows?: FreeSheetRowInput[]
+  rows?: FreeSheetRowInput[],
+  entryPrice = 0,
+  addonPrice = 0,
+  bountyPrice = 0
 ) {
   const rowsMap = new Map((rows ?? []).map((row) => [row.player_id, row]));
 
   return [
     ["Tournament ID", exportData.tournament.id],
-    ["", "", "Название", exportData.tournament.title],
-    ["", "", "Дата", formatTournamentDate(exportData.tournament.start_at)],
+    ["", "", "Название", exportData.tournament.title, entryPrice, addonPrice, bountyPrice],
+    ["", "", "Дата", formatTournamentDate(exportData.tournament.start_at), "Entry price", "Addon price", "Bounty price"],
     ["", "", "Локация", exportData.tournament.location ?? ""],
     ["", "", "Статус", getFreeTournamentStatusLabel(exportData.tournament.status)],
     [],
@@ -125,12 +128,15 @@ function buildFreeSheetValues(
 }
 
 function buildLiveSheetValues(
-  exportData: Awaited<ReturnType<typeof getTournamentSheetExportData>>
+  exportData: Awaited<ReturnType<typeof getTournamentSheetExportData>>,
+  entryPrice = 0,
+  addonPrice = 0,
+  bountyPrice = 0
 ) {
   return [
     ["Tournament ID", exportData.tournament.id],
-    ["", "", "Название", exportData.tournament.title],
-    ["", "", "Дата", exportData.tournament.start_at],
+    ["", "", "Название", exportData.tournament.title, entryPrice, addonPrice, bountyPrice],
+    ["", "", "Дата", exportData.tournament.start_at, "Entry price", "Addon price", "Bounty price"],
     ["", "", "Локация", exportData.tournament.location ?? ""],
     ["", "", "Статус", exportData.tournament.status],
     [],
@@ -181,15 +187,15 @@ export async function syncTournamentSheet(
   const sheet = await ensureSpreadsheetTab(tabName);
   if (sheet.created) {
     try {
-      await appendReportRow(exportData.tournament.title, tabName, entryPrice, addonPrice, bountyPrice);
+      await appendReportRow(exportData.tournament.title, tabName);
     } catch (error) {
       console.error("Failed to append row to Лист1", error);
     }
   }
   const values =
     exportData.tournament.kind === "free"
-      ? buildFreeSheetValues(exportData, rows)
-      : buildLiveSheetValues(exportData);
+      ? buildFreeSheetValues(exportData, rows, entryPrice, addonPrice, bountyPrice)
+      : buildLiveSheetValues(exportData, entryPrice, addonPrice, bountyPrice);
 
   await replaceSpreadsheetTabValues(tabName, values);
   await applyTournamentSheetFormatting(tabName, exportData.rows.length);

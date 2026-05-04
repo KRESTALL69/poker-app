@@ -54,12 +54,15 @@ function buildReadmeSheetValues() {
 }
 
 function buildLiveSheetValues(
-  exportData: Awaited<ReturnType<typeof getTournamentLiveSheetData>>
+  exportData: Awaited<ReturnType<typeof getTournamentLiveSheetData>>,
+  entryPrice = 0,
+  addonPrice = 0,
+  bountyPrice = 0
 ) {
   return [
     ["Tournament ID", exportData.tournament.id],
-    ["", "", "Название", exportData.tournament.title],
-    ["", "", "Дата", formatTournamentDate(exportData.tournament.start_at)],
+    ["", "", "Название", exportData.tournament.title, entryPrice, addonPrice, bountyPrice],
+    ["", "", "Дата", formatTournamentDate(exportData.tournament.start_at), "Entry price", "Addon price", "Bounty price"],
     ["", "", "Локация", exportData.tournament.location ?? ""],
     ["", "", "Статус", getTournamentStatusLabel(exportData.tournament.status)],
     [],
@@ -122,12 +125,12 @@ export async function syncTournamentLiveSheet(
   const sheet = await ensureSpreadsheetTab(tabName);
   if (sheet.created) {
     try {
-      await appendReportRow(tournament.title, tabName, entryPrice, addonPrice, bountyPrice);
+      await appendReportRow(tournament.title, tabName);
     } catch (error) {
       console.error("Failed to append row to Лист1", error);
     }
   }
-  await replaceSpreadsheetTabValues(tabName, buildLiveSheetValues(exportData));
+  await replaceSpreadsheetTabValues(tabName, buildLiveSheetValues(exportData, entryPrice, addonPrice, bountyPrice));
   await applyTournamentSheetFormatting(tabName, exportData.rows.length);
   await setTournamentGoogleSheetTabName(tournamentId, tabName);
 

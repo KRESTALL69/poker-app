@@ -17,6 +17,9 @@ export async function POST(
         knockouts: number;
         place: number;
       }>;
+      entryPrice?: number;
+      addonPrice?: number;
+      bountyPrice?: number;
     };
 
     const rows = body.rows ?? [];
@@ -41,7 +44,10 @@ export async function POST(
         addons: row.addons ?? 0,
         knockouts: row.knockouts,
         place: row.place,
-      }))
+      })),
+      body.entryPrice ?? 0,
+      body.addonPrice ?? 0,
+      body.bountyPrice ?? 0
     );
 
     return NextResponse.json({

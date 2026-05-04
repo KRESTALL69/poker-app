@@ -411,6 +411,9 @@ export default function AdminTournamentResultsPage() {
               knockouts: Number(row.knockouts || 0),
               place: Number(row.place),
             })),
+            entryPrice: Number(entryPrice || 0),
+            addonPrice: Number(addonPrice || 0),
+            bountyPrice: Number(bountyPrice || 0),
           }),
         }
       );
