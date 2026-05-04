@@ -49,6 +49,10 @@ export async function POST(
     const values = await readSpreadsheetTabValues(tournament.google_sheet_tab_name);
     const dataRows = values.slice(7);
 
+    const entryPrice = parseNumberCell(values[1]?.[4]);
+    const addonPrice = parseNumberCell(values[1]?.[5]);
+    const bountyPrice = parseNumberCell(values[1]?.[6]);
+
     if (tournament.kind === "free") {
       const sheetRows = dataRows
         .map((row: string[]) => ({
@@ -88,6 +92,9 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         rows,
+        entryPrice,
+        addonPrice,
+        bountyPrice,
       });
     }
 
@@ -112,6 +119,9 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       rows,
+      entryPrice,
+      addonPrice,
+      bountyPrice,
     });
   } catch (error) {
     return NextResponse.json(

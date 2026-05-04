@@ -114,7 +114,12 @@ export default function AdminTournamentResultsPage() {
 
           if (nextTournament.google_sheet_tab_name?.trim()) {
             try {
-              const payload = await fetchAdminJson<{ rows: PulledFreeRow[] }>(
+              const payload = await fetchAdminJson<{
+                rows: PulledFreeRow[];
+                entryPrice?: number;
+                addonPrice?: number;
+                bountyPrice?: number;
+              }>(
                 `/api/admin/tournaments/${tournamentId}/pull-sheet`,
                 {
                   method: "POST",
@@ -131,6 +136,9 @@ export default function AdminTournamentResultsPage() {
                 knockouts: String(row.knockouts),
                 place: row.place == null ? "" : String(row.place),
               }));
+              if (payload.entryPrice !== undefined) setEntryPrice(String(payload.entryPrice));
+              if (payload.addonPrice !== undefined) setAddonPrice(String(payload.addonPrice));
+              if (payload.bountyPrice !== undefined) setBountyPrice(String(payload.bountyPrice));
             } catch {
               nextRows = [];
             }
@@ -157,13 +165,21 @@ export default function AdminTournamentResultsPage() {
 
           if (nextTournament.google_sheet_tab_name?.trim()) {
             try {
-              const payload = await fetchAdminJson<{ rows: TournamentLiveEntry[] }>(
+              const payload = await fetchAdminJson<{
+                rows: TournamentLiveEntry[];
+                entryPrice?: number;
+                addonPrice?: number;
+                bountyPrice?: number;
+              }>(
                 `/api/admin/tournaments/${tournamentId}/pull-sheet`,
                 {
                   method: "POST",
                 }
               );
               entries = payload.rows;
+              if (payload.entryPrice !== undefined) setEntryPrice(String(payload.entryPrice));
+              if (payload.addonPrice !== undefined) setAddonPrice(String(payload.addonPrice));
+              if (payload.bountyPrice !== undefined) setBountyPrice(String(payload.bountyPrice));
             } catch {
               // fallback to DB rows from getTournamentLiveEntries
             }
@@ -344,7 +360,12 @@ export default function AdminTournamentResultsPage() {
     try {
       setPulling(true);
 
-      const payload = await fetchAdminJson<{ rows: PulledFreeRow[] }>(
+      const payload = await fetchAdminJson<{
+        rows: PulledFreeRow[];
+        entryPrice?: number;
+        addonPrice?: number;
+        bountyPrice?: number;
+      }>(
         `/api/admin/tournaments/${tournamentId}/pull-sheet`,
         {
           method: "POST",
@@ -363,6 +384,9 @@ export default function AdminTournamentResultsPage() {
       }));
       setFreeRows(nextRows);
       setInitialFreeSnapshot(JSON.stringify(nextRows));
+      if (payload.entryPrice !== undefined) setEntryPrice(String(payload.entryPrice));
+      if (payload.addonPrice !== undefined) setAddonPrice(String(payload.addonPrice));
+      if (payload.bountyPrice !== undefined) setBountyPrice(String(payload.bountyPrice));
       setMessage("Данные подтянуты из Google Sheets");
     } catch (err) {
       const nextMessage =
@@ -507,7 +531,12 @@ export default function AdminTournamentResultsPage() {
     try {
       setPulling(true);
 
-      const payload = await fetchAdminJson<{ rows: TournamentLiveEntry[] }>(
+      const payload = await fetchAdminJson<{
+        rows: TournamentLiveEntry[];
+        entryPrice?: number;
+        addonPrice?: number;
+        bountyPrice?: number;
+      }>(
         `/api/admin/tournaments/${tournamentId}/pull-sheet`,
         {
           method: "POST",
@@ -517,6 +546,9 @@ export default function AdminTournamentResultsPage() {
       const nextRows = mapLiveEntriesToFormRows(payload.rows);
       setLiveRows(nextRows);
       setInitialLiveSnapshot(JSON.stringify(nextRows));
+      if (payload.entryPrice !== undefined) setEntryPrice(String(payload.entryPrice));
+      if (payload.addonPrice !== undefined) setAddonPrice(String(payload.addonPrice));
+      if (payload.bountyPrice !== undefined) setBountyPrice(String(payload.bountyPrice));
       setMessage("Данные подтянуты из Google Sheets");
     } catch (err) {
       const nextMessage =
