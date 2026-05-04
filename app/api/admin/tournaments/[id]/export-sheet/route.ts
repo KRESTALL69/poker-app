@@ -161,7 +161,10 @@ function buildLiveSheetValues(
 
 export async function syncTournamentSheet(
   tournamentId: string,
-  rows?: FreeSheetRowInput[]
+  rows?: FreeSheetRowInput[],
+  entryPrice = 0,
+  addonPrice = 0,
+  bountyPrice = 0
 ) {
   const exportData = await getTournamentSheetExportData(tournamentId);
   const tabName =
@@ -178,7 +181,7 @@ export async function syncTournamentSheet(
   const sheet = await ensureSpreadsheetTab(tabName);
   if (sheet.created) {
     try {
-      await appendReportRow(exportData.tournament.title, tabName);
+      await appendReportRow(exportData.tournament.title, tabName, entryPrice, addonPrice, bountyPrice);
     } catch (error) {
       console.error("Failed to append row to Лист1", error);
     }
@@ -207,10 +210,19 @@ export async function POST(
     const body = (await request.json().catch(() => null)) as
       | {
           rows?: FreeSheetRowInput[];
+          entryPrice?: number;
+          addonPrice?: number;
+          bountyPrice?: number;
         }
       | null;
 
-    const result = await syncTournamentSheet(id, body?.rows);
+    const result = await syncTournamentSheet(
+      id,
+      body?.rows,
+      body?.entryPrice ?? 0,
+      body?.addonPrice ?? 0,
+      body?.bountyPrice ?? 0
+    );
 
     return NextResponse.json({
       ok: true,

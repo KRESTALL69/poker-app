@@ -86,6 +86,9 @@ export default function AdminTournamentResultsPage() {
   const [liveRows, setLiveRows] = useState<LiveFormRow[]>([]);
   const [initialFreeSnapshot, setInitialFreeSnapshot] = useState("");
   const [initialLiveSnapshot, setInitialLiveSnapshot] = useState("");
+  const [entryPrice, setEntryPrice] = useState("0");
+  const [addonPrice, setAddonPrice] = useState("0");
+  const [bountyPrice, setBountyPrice] = useState("0");
 
   useEffect(() => {
     async function loadPage() {
@@ -309,6 +312,9 @@ export default function AdminTournamentResultsPage() {
               knockouts: Number(row.knockouts || 0),
               place: row.place ? Number(row.place) : null,
             })),
+            entryPrice: Number(entryPrice || 0),
+            addonPrice: Number(addonPrice || 0),
+            bountyPrice: Number(bountyPrice || 0),
           }),
         }
       );
@@ -466,6 +472,9 @@ export default function AdminTournamentResultsPage() {
               knockouts: Number(row.knockouts || 0),
               place: row.place ? Number(row.place) : null,
             })),
+            entryPrice: Number(entryPrice || 0),
+            addonPrice: Number(addonPrice || 0),
+            bountyPrice: Number(bountyPrice || 0),
           }),
         }
       );
@@ -640,7 +649,46 @@ export default function AdminTournamentResultsPage() {
         ) : null}
 
         {(isFreeTournament ? freeRows.length > 0 : liveRows.length > 0) ? (
-          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div>
+              <p className="mb-1 text-[11px] font-medium text-white/50">Entry price</p>
+              <input
+                type="number"
+                min="0"
+                value={entryPrice}
+                onFocus={() => setEntryPrice(entryPrice === "0" ? "" : entryPrice)}
+                onBlur={() => setEntryPrice(entryPrice.trim() === "" ? "0" : entryPrice)}
+                onChange={(e) => setEntryPrice(e.target.value)}
+                className="h-10 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] font-medium text-white/50">Addon price</p>
+              <input
+                type="number"
+                min="0"
+                value={addonPrice}
+                onFocus={() => setAddonPrice(addonPrice === "0" ? "" : addonPrice)}
+                onBlur={() => setAddonPrice(addonPrice.trim() === "" ? "0" : addonPrice)}
+                onChange={(e) => setAddonPrice(e.target.value)}
+                className="h-10 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] font-medium text-white/50">Bounty price</p>
+              <input
+                type="number"
+                min="0"
+                value={bountyPrice}
+                onFocus={() => setBountyPrice(bountyPrice === "0" ? "" : bountyPrice)}
+                onBlur={() => setBountyPrice(bountyPrice.trim() === "" ? "0" : bountyPrice)}
+                onChange={(e) => setBountyPrice(e.target.value)}
+                className="h-10 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+              />
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <button
               type="button"
               onClick={isFreeTournament ? handleSyncFreeRows : handleSyncLiveRows}
@@ -676,6 +724,7 @@ export default function AdminTournamentResultsPage() {
               {completing ? "Завершаем..." : "Завершить турнир"}
             </button>
           </div>
+          </>
         ) : null}
 
         <div className="mt-6 space-y-3">

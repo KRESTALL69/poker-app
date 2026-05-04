@@ -7,6 +7,7 @@ import {
   updateTournamentLiveEntries,
 } from "@/features/tournaments";
 import {
+  appendReportRow,
   applyTournamentSheetFormatting,
   buildSpreadsheetTabUrl,
   ensureReadmeTab,
@@ -98,7 +99,10 @@ export async function syncTournamentLiveSheet(
     addons: number;
     knockouts: number;
     place: number | null;
-  }>
+  }>,
+  entryPrice = 0,
+  addonPrice = 0,
+  bountyPrice = 0
 ) {
   await ensureTournamentLiveEntries(tournamentId);
 
@@ -116,6 +120,13 @@ export async function syncTournamentLiveSheet(
   await replaceSpreadsheetTabValues("README", buildReadmeSheetValues());
 
   const sheet = await ensureSpreadsheetTab(tabName);
+  if (sheet.created) {
+    try {
+      await appendReportRow(tournament.title, tabName, entryPrice, addonPrice, bountyPrice);
+    } catch (error) {
+      console.error("Failed to append row to Лист1", error);
+    }
+  }
   await replaceSpreadsheetTabValues(tabName, buildLiveSheetValues(exportData));
   await applyTournamentSheetFormatting(tabName, exportData.rows.length);
   await setTournamentGoogleSheetTabName(tournamentId, tabName);
@@ -143,10 +154,19 @@ export async function POST(
             knockouts: number;
             place: number | null;
           }>;
+          entryPrice?: number;
+          addonPrice?: number;
+          bountyPrice?: number;
         }
       | null;
 
-    const result = await syncTournamentLiveSheet(id, body?.rows);
+    const result = await syncTournamentLiveSheet(
+      id,
+      body?.rows,
+      body?.entryPrice ?? 0,
+      body?.addonPrice ?? 0,
+      body?.bountyPrice ?? 0
+    );
 
     return NextResponse.json({
       ok: true,

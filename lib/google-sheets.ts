@@ -95,17 +95,23 @@ export async function ensureReadmeTab() {
   return ensureSpreadsheetTab("README");
 }
 
-export async function appendReportRow(title: string, tabName: string) {
+export async function appendReportRow(
+  title: string,
+  tabName: string,
+  entryPrice: number,
+  addonPrice: number,
+  bountyPrice: number
+) {
   const sheets = getGoogleSheetsClient();
   const spreadsheetId = getSpreadsheetId();
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: "Лист1!A:B",
+    range: "Лист1!A:I",
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: {
-      values: [[title, tabName]],
+      values: [[title, tabName, "", "", "", "", entryPrice, addonPrice, bountyPrice]],
     },
   });
 }
