@@ -11,7 +11,7 @@ GSD initialized for task tracking only — codebase map in .planning/codebase/.
 
 ## Last activity
 
-2026-04-28 - Completed quick task 260428-uo5: Два режима добавления участника в редактировании турнира
+2026-05-04 - Completed quick task 260504-u4u: Автоматизировать заполнение Лист1 в Google Sheets при создании листа турнира
 
 ## Blockers/Concerns
 
@@ -32,3 +32,4 @@ GSD initialized for task tracking only — codebase map in .planning/codebase/.
 | 260410-0yo | Реализовать раздел Поддержка через Telegram-бота | 2026-04-10 | 3549f40 | [260410-0yo-telegram](./quick/260410-0yo-telegram/) |
 | 260413-ul5 | Добавить удаление manual игроков в модерации ников | 2026-04-13 | 3c05ed8 | [260413-ul5-manual](./quick/260413-ul5-manual/) |
 | 260428-uo5 | Два режима добавления участника в редактировании турнира (создать нового / добавить существующего) | 2026-04-28 | 8f066e0 | [260428-uo5-2](./quick/260428-uo5-2/) |
+| 260504-u4u | Автоматизировать заполнение Лист1 в Google Sheets при создании листа турнира | 2026-05-04 | 7e3e75c | [260504-u4u-1-google-sheets](./quick/260504-u4u-1-google-sheets/) |
