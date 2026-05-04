@@ -58,6 +58,7 @@ export async function ensureSpreadsheetTab(tabName: string) {
     return {
       sheetId: existingSheet.properties.sheetId,
       tabName,
+      created: false,
     };
   }
 
@@ -86,11 +87,27 @@ export async function ensureSpreadsheetTab(tabName: string) {
   return {
     sheetId,
     tabName,
+    created: true,
   };
 }
 
 export async function ensureReadmeTab() {
   return ensureSpreadsheetTab("README");
+}
+
+export async function appendReportRow(title: string, tabName: string) {
+  const sheets = getGoogleSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: "Лист1!A:B",
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: [[title, tabName]],
+    },
+  });
 }
 
 export async function replaceSpreadsheetTabValues(
