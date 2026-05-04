@@ -5,6 +5,7 @@ import {
 } from "@/features/tournaments";
 import {
   applyTournamentSheetFormatting,
+  appendReportRow,
   buildSpreadsheetTabUrl,
   ensureReadmeTab,
   ensureSpreadsheetTab,
@@ -175,6 +176,13 @@ export async function syncTournamentSheet(
   await replaceSpreadsheetTabValues("README", buildReadmeSheetValues());
 
   const sheet = await ensureSpreadsheetTab(tabName);
+  if (sheet.created) {
+    try {
+      await appendReportRow(exportData.tournament.title, tabName);
+    } catch (error) {
+      console.error("Failed to append row to Лист1", error);
+    }
+  }
   const values =
     exportData.tournament.kind === "free"
       ? buildFreeSheetValues(exportData, rows)
