@@ -101,17 +101,24 @@ export async function appendReportRow(title: string, tabName: string) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: "Лист1!A:I",
+    range: "Лист1!A:M",
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: {
       values: [[
         title,
         tabName,
-        "", "", "", "",
+        '=ЕСЛИ(INDIRECT("B"&ROW())="";"";ЕСЛИОШИБКА(СЧЁТЕСЛИ(ДВССЫЛ("\'"&INDIRECT("B"&ROW())&"\'!F8:F200");ИСТИНА);""))',
+        '=ЕСЛИ(INDIRECT("B"&ROW())="";"";ЕСЛИОШИБКА(СУММЕСЛИ(ДВССЫЛ("\'"&INDIRECT("B"&ROW())&"\'!F8:F200");ИСТИНА;ДВССЫЛ("\'"&INDIRECT("B"&ROW())&"\'!G8:G200"));""))',
+        '=ЕСЛИ(INDIRECT("B"&ROW())="";"";ЕСЛИОШИБКА(СУММЕСЛИ(ДВССЫЛ("\'"&INDIRECT("B"&ROW())&"\'!F8:F200");ИСТИНА;ДВССЫЛ("\'"&INDIRECT("B"&ROW())&"\'!H8:H200"));""))',
+        '=ЕСЛИ(INDIRECT("B"&ROW())="";"";ЕСЛИОШИБКА(СУММЕСЛИ(ДВССЫЛ("\'"&INDIRECT("B"&ROW())&"\'!F8:F200");ИСТИНА;ДВССЫЛ("\'"&INDIRECT("B"&ROW())&"\'!I8:I200"));""))',
         "=INDIRECT(\"'\"&INDIRECT(\"B\"&ROW())&\"'!E2\")",
         "=INDIRECT(\"'\"&INDIRECT(\"B\"&ROW())&\"'!F2\")",
         "=INDIRECT(\"'\"&INDIRECT(\"B\"&ROW())&\"'!G2\")",
+        '=ЕСЛИ(INDIRECT("C"&ROW())="";"";(INDIRECT("C"&ROW())+INDIRECT("D"&ROW()))*INDIRECT("G"&ROW())+INDIRECT("E"&ROW())*INDIRECT("H"&ROW())+INDIRECT("F"&ROW())*INDIRECT("I"&ROW()))',
+        '=ЕСЛИ(INDIRECT("J"&ROW())="";"";INDIRECT("J"&ROW())*0,25)',
+        "",
+        '=ЕСЛИ(INDIRECT("K"&ROW())="";"";INDIRECT("K"&ROW())-INDIRECT("L"&ROW()))',
       ]],
     },
   });
