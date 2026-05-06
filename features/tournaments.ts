@@ -495,7 +495,7 @@ export async function getTournamentSheetExportData(tournamentId: string) {
 
       return {
         player_id: row.player_id,
-        display_name: player?.display_name ?? "Игрок",
+        display_name: getPreferredPlayerDisplayName(player ?? {}),
         username: player?.username ?? null,
         registration_status: row.status,
       };
