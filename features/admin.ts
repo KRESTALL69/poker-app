@@ -76,17 +76,43 @@ export async function updatePlayerAdminDisplayName(
 export async function deleteManualPlayer(playerId: string): Promise<void> {
   const { data: player, error: fetchError } = await supabase
     .from("players")
-    .select("telegram_id")
+    .select("id")
     .eq("id", playerId)
     .single();
 
   if (fetchError || !player) throw new Error("Игрок не найден");
-  if (player.telegram_id !== null) throw new Error("Нельзя удалять игроков с Telegram");
 
-  await supabase.from("tournament_live_entries").delete().eq("player_id", playerId);
-  await supabase.from("player_achievements").delete().eq("player_id", playerId);
-  await supabase.from("results").delete().eq("player_id", playerId);
-  await supabase.from("registrations").delete().eq("player_id", playerId);
+  const { error: liveEntriesError } = await supabase
+    .from("tournament_live_entries")
+    .delete()
+    .eq("player_id", playerId);
+  if (liveEntriesError) {
+    throw new Error(`Ошибка удаления live-записей: ${liveEntriesError.message}`);
+  }
+
+  const { error: achievementsError } = await supabase
+    .from("player_achievements")
+    .delete()
+    .eq("player_id", playerId);
+  if (achievementsError) {
+    throw new Error(`Ошибка удаления достижений: ${achievementsError.message}`);
+  }
+
+  const { error: resultsError } = await supabase
+    .from("results")
+    .delete()
+    .eq("player_id", playerId);
+  if (resultsError) {
+    throw new Error(`Ошибка удаления results: ${resultsError.message}`);
+  }
+
+  const { error: registrationsError } = await supabase
+    .from("registrations")
+    .delete()
+    .eq("player_id", playerId);
+  if (registrationsError) {
+    throw new Error(`Ошибка удаления registrations: ${registrationsError.message}`);
+  }
 
   const { error } = await supabase.from("players").delete().eq("id", playerId);
   if (error) throw new Error(`Ошибка удаления: ${error.message}`);

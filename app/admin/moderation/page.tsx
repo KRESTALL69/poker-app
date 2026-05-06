@@ -151,14 +151,19 @@ export default function AdminModerationPage() {
     setError(null);
   }
 
-  async function handleDeleteManualPlayer(playerId: string) {
-    if (!confirm("Удалить этого игрока? Это действие необратимо.")) return;
+  async function handleDeleteManualPlayer(targetPlayer: Player) {
+    const nickname = getVisibleNickname(targetPlayer);
+    const confirmMessage = targetPlayer.telegram_id
+      ? `Удалить Telegram-игрока '${nickname}' и ВСЕ связанные данные? Это действие нельзя отменить.`
+      : `Удалить manual-игрока '${nickname}' и все связанные данные?`;
+
+    if (!confirm(confirmMessage)) return;
     try {
-      setProcessingKey(`delete-${playerId}`);
+      setProcessingKey(`delete-${targetPlayer.id}`);
       setMessage(null);
       setError(null);
-      await fetchAdminJson(`/api/admin/players/${playerId}`, { method: "DELETE" });
-      setPlayers((prev) => prev.filter((p) => p.id !== playerId));
+      await fetchAdminJson(`/api/admin/players/${targetPlayer.id}`, { method: "DELETE" });
+      setPlayers((prev) => prev.filter((p) => p.id !== targetPlayer.id));
       setMessage("Игрок удалён");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка удаления");
@@ -428,16 +433,14 @@ export default function AdminModerationPage() {
                             : "Редактировать"}
                       </button>
 
-                      {!targetPlayer.telegram_id ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteManualPlayer(targetPlayer.id)}
-                          disabled={processingKey === `delete-${targetPlayer.id}`}
-                          className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-60"
-                        >
-                          {processingKey === `delete-${targetPlayer.id}` ? "..." : "Удалить"}
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteManualPlayer(targetPlayer)}
+                        disabled={processingKey === `delete-${targetPlayer.id}`}
+                        className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-60"
+                      >
+                        {processingKey === `delete-${targetPlayer.id}` ? "..." : "Удалить"}
+                      </button>
                     </div>
                   </div>
                 );
