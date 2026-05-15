@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -8,7 +8,7 @@ type Step = "email" | "code";
 
 function TelegramIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
       <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.19 13.912l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.958.647z" />
     </svg>
   );
@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [telegramError, setTelegramError] = useState<string | null>(null);
+  const codeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -39,6 +40,13 @@ export default function LoginPage() {
       setTelegramError("Не удалось войти через Telegram. Попробуйте снова.");
     }
   }, []);
+
+  useEffect(() => {
+    if (step === "code") {
+      const t = setTimeout(() => codeInputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
 
   useEffect(() => {
     const container = document.createElement("div");
@@ -155,29 +163,34 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="fixed inset-0 bg-black px-4 py-6 text-white">
-      <div className="mx-auto flex h-full max-w-md flex-col justify-center">
-        <div className="mb-8">
-          <p className="text-xs uppercase tracking-[0.18em] text-white/40">
+    <main
+      className="fixed inset-0 bg-black px-5 text-white"
+      style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom, 24px))" }}
+    >
+      <div className="mx-auto flex h-full max-w-md flex-col justify-center gap-6">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-white/35">
             Игровое пространство DWC
           </p>
-          <h1 className="mt-3 text-4xl font-bold tracking-tight">Вход</h1>
-          <p className="mt-2 text-sm text-white/60">
+          <h1 className="mt-3 text-[2.5rem] font-bold leading-none tracking-tight">
+            Вход
+          </h1>
+          <p className="mt-2 text-sm text-white/50">
             Don&apos;t Worry Club
           </p>
         </div>
 
         {telegramError ? (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             {telegramError}
           </div>
         ) : null}
 
-        <div className="rounded-2xl bg-white/[0.05] p-5">
+        <div className="rounded-[20px] border border-white/8 bg-white/4 p-6">
           {step === "email" ? (
-            <form onSubmit={handleRequestCode}>
-              <p className="text-sm text-white/75">
-                Введите email — мы отправим код для входа
+            <form onSubmit={handleRequestCode} className="flex flex-col gap-4">
+              <p className="text-sm leading-relaxed text-white/60">
+                Введите email — пришлём код для входа
               </p>
 
               <input
@@ -190,62 +203,67 @@ export default function LoginPage() {
                 placeholder="your@email.com"
                 autoComplete="email"
                 inputMode="email"
+                autoCapitalize="none"
                 disabled={loading}
-                className="mt-4 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-white/30 disabled:opacity-50"
+                className="w-full rounded-[14px] border border-white/10 bg-black/40 px-4 py-3.5 text-base text-white placeholder-white/25 outline-none transition-colors focus:border-white/25 disabled:opacity-50"
               />
 
               {error ? (
-                <p className="mt-3 text-sm text-red-300">{error}</p>
+                <p className="text-sm text-red-400">{error}</p>
               ) : null}
 
               <button
                 type="submit"
                 disabled={loading || !email.trim()}
-                className="mt-4 w-full rounded-xl bg-yellow-500 py-3 font-semibold text-black disabled:opacity-40"
+                className="w-full rounded-[14px] bg-yellow-500 py-3.5 text-base font-semibold text-black shadow-[0_6px_20px_rgba(234,179,8,0.18)] transition-opacity disabled:opacity-40"
               >
                 {loading ? "Отправляем..." : "Получить код"}
               </button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyCode}>
-              <p className="text-sm text-white/75">
-                Код отправлен на{" "}
-                <span className="text-white">{email}</span>
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("email");
-                  setCode("");
-                  setError(null);
-                }}
-                className="mt-1 text-xs text-white/40 underline"
-              >
-                Изменить email
-              </button>
+            <form onSubmit={handleVerifyCode} className="flex flex-col gap-4">
+              <div>
+                <p className="text-sm text-white/60">
+                  Письмо отправлено на{" "}
+                  <span className="font-medium text-white/90">{email}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("email");
+                    setCode("");
+                    setError(null);
+                  }}
+                  className="mt-1 text-xs text-yellow-500/60 transition-colors hover:text-yellow-400/80"
+                >
+                  Изменить email
+                </button>
+              </div>
 
               <input
+                ref={codeInputRef}
                 type="text"
                 value={code}
                 onChange={(e) => {
                   setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
                   setError(null);
                 }}
-                placeholder="Код из письма"
+                placeholder="000000"
                 inputMode="numeric"
                 autoComplete="one-time-code"
+                autoCapitalize="none"
                 disabled={loading}
-                className="mt-4 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-center text-2xl tracking-[0.5em] text-white placeholder-white/20 outline-none focus:border-white/30 disabled:opacity-50"
+                className="w-full rounded-[14px] border border-white/10 bg-black/40 px-4 py-3.5 text-center text-[1.75rem] font-light tracking-[0.5em] text-white placeholder:tracking-[0.15em] placeholder:text-white/20 outline-none transition-colors focus:border-yellow-500/30 disabled:opacity-50"
               />
 
               {error ? (
-                <p className="mt-3 text-sm text-red-300">{error}</p>
+                <p className="text-sm text-red-400">{error}</p>
               ) : null}
 
               <button
                 type="submit"
                 disabled={loading || code.length < 6}
-                className="mt-4 w-full rounded-xl bg-yellow-500 py-3 font-semibold text-black disabled:opacity-40"
+                className="w-full rounded-[14px] bg-yellow-500 py-3.5 text-base font-semibold text-black shadow-[0_6px_20px_rgba(234,179,8,0.18)] transition-opacity disabled:opacity-40"
               >
                 {loading ? "Проверяем..." : "Войти"}
               </button>
@@ -254,7 +272,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleResend}
                 disabled={loading || resendCooldown > 0}
-                className="mt-3 w-full text-sm text-white/40 disabled:opacity-40"
+                className="text-sm text-white/30 transition-colors disabled:opacity-60"
               >
                 {resendCooldown > 0
                   ? `Отправить повторно (${resendCooldown}с)`
@@ -264,16 +282,16 @@ export default function LoginPage() {
           )}
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
-          <div className="flex-1 border-t border-white/10" />
-          <span className="text-xs text-white/40">или через</span>
-          <div className="flex-1 border-t border-white/10" />
+        <div className="flex items-center gap-3">
+          <div className="flex-1 border-t border-white/8" />
+          <span className="text-[11px] text-white/30">или через</span>
+          <div className="flex-1 border-t border-white/8" />
         </div>
 
         <button
           type="button"
           onClick={handleTelegramLogin}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-semibold text-white"
+          className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/3 py-3.25 text-sm text-white/50 transition-colors active:bg-white/6"
         >
           <TelegramIcon />
           Войти через Telegram
