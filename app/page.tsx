@@ -905,6 +905,17 @@ export default function HomePage() {
             >
               Войти через email
             </Link>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex-1 border-t border-white/10" />
+              <span className="text-xs text-white/40">или</span>
+              <div className="flex-1 border-t border-white/10" />
+            </div>
+            <a
+              href="/api/auth/telegram"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-semibold text-white"
+            >
+              Войти через Telegram
+            </a>
           </div>
         </div>
       </main>
@@ -1004,6 +1015,17 @@ export default function HomePage() {
             >
               Войти через email
             </Link>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex-1 border-t border-white/10" />
+              <span className="text-xs text-white/40">или</span>
+              <div className="flex-1 border-t border-white/10" />
+            </div>
+            <a
+              href="/api/auth/telegram"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-semibold text-white"
+            >
+              Войти через Telegram
+            </a>
           </div>
         ) : null}
 
