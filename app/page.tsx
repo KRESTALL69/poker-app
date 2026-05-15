@@ -555,12 +555,12 @@ export default function HomePage() {
                 showPromotionToast: false,
               });
 
-              try {
-                const dismissed = window.sessionStorage.getItem("dwc.email.link.dismissed");
-                if (!ensuredPlayer.email && !dismissed) {
-                  setShowEmailLinkModal(true);
-                }
-              } catch {}
+              // try {
+              //   const dismissed = window.sessionStorage.getItem("dwc.email.link.dismissed");
+              //   if (!ensuredPlayer.email && !dismissed) {
+              //     setShowEmailLinkModal(true);
+              //   }
+              // } catch {}
             }
           }
         } else {
