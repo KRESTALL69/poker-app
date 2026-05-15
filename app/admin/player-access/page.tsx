@@ -66,12 +66,14 @@ export default function AdminPlayerAccessPage() {
         typeof targetPlayer.telegram_id === "number"
           ? String(targetPlayer.telegram_id)
           : "";
+      const email = (targetPlayer.email ?? "").toLowerCase();
 
       return (
         username.includes(query) ||
         displayName.includes(query) ||
         adminDisplayName.includes(query) ||
-        telegramId.includes(query)
+        telegramId.includes(query) ||
+        email.includes(query)
       );
     })
     .filter((targetPlayer) => {
@@ -245,7 +247,7 @@ export default function AdminPlayerAccessPage() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Поиск по нику или Telegram ID"
+          placeholder="Поиск по нику, Telegram ID или email"
           className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
         />
 

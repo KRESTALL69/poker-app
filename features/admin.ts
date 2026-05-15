@@ -6,6 +6,7 @@ function mapPlayerRowToDomain(row: PlayerRow): Player {
   return {
     id: row.id,
     telegram_id: row.telegram_id,
+    email: row.email ?? undefined,
     username: row.username,
     display_name: row.display_name,
     admin_display_name: row.admin_display_name ?? undefined,
