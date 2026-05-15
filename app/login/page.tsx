@@ -14,9 +14,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [telegramError, setTelegramError] = useState<string | null>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
-  const telegramWidgetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -27,56 +25,11 @@ export default function LoginPage() {
   }, [router]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const err = params.get("error");
-    if (err) {
-      console.warn("[TG] Telegram login error from callback:", err);
-      setTelegramError("Не удалось войти через Telegram. Попробуйте снова.");
-    }
-  }, []);
-
-  useEffect(() => {
     if (step === "code") {
       const t = setTimeout(() => codeInputRef.current?.focus(), 50);
       return () => clearTimeout(t);
     }
   }, [step]);
-
-  // Official Telegram Login Widget with data-auth-url (redirect flow, not popup callback)
-  useEffect(() => {
-    const container = telegramWidgetRef.current;
-    if (!container) return;
-
-    console.log("[TG] Mounting Telegram Login Widget...");
-
-    const authUrl = `${window.location.origin}/api/auth/telegram/callback`;
-    console.log("[TG] auth-url:", authUrl);
-
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.async = true;
-    script.setAttribute("data-telegram-login", "dont_worry_club_bot");
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-auth-url", authUrl);
-    script.setAttribute("data-request-access", "write");
-    script.setAttribute("data-userpic", "false");
-
-    script.onload = () => {
-      console.log("[TG] Widget script loaded");
-    };
-    script.onerror = () => {
-      console.error("[TG] Widget script failed to load");
-    };
-
-    container.appendChild(script);
-    console.log("[TG] Widget script appended to DOM");
-
-    return () => {
-      if (container.contains(script)) {
-        container.removeChild(script);
-      }
-    };
-  }, []);
 
   function startResendCooldown() {
     setResendCooldown(60);
@@ -177,12 +130,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {telegramError ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            {telegramError}
-          </div>
-        ) : null}
-
         <div className="rounded-[20px] border border-white/8 bg-white/4 p-6">
           {step === "email" ? (
             <form onSubmit={handleRequestCode} className="flex flex-col gap-4">
@@ -277,17 +224,6 @@ export default function LoginPage() {
               </button>
             </form>
           )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex-1 border-t border-white/8" />
-          <span className="text-[11px] text-white/30">или через</span>
-          <div className="flex-1 border-t border-white/8" />
-        </div>
-
-        {/* Official Telegram Login Widget — renders Telegram's iframe button */}
-        <div className="flex justify-center">
-          <div ref={telegramWidgetRef} />
         </div>
       </div>
     </main>
