@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { PromotionToast } from "@/components/promotion-toast";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { ensurePlayerFromTelegramUser, ensurePlayerFromEmail } from "@/features/auth";
 import {
   cancelPlayerRegistration,
   getVisibleCompletedTournamentsForPlayer,
@@ -208,12 +208,18 @@ export default function TournamentsPage() {
     async function init() {
       try {
         const telegramUser = getTelegramUser();
+        let currentPlayer: Player;
 
-        if (!telegramUser) {
-          throw new Error("Telegram user not found");
+        if (telegramUser) {
+          currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        } else {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.user?.email) {
+            throw new Error("Необходимо войти в систему");
+          }
+          currentPlayer = await ensurePlayerFromEmail(session.user.email);
         }
 
-        const currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
         setPlayer(currentPlayer);
         setPlayerId(currentPlayer.id);
 

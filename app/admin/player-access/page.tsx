@@ -314,7 +314,11 @@ export default function AdminPlayerAccessPage() {
                         </p>
                       ) : null}
                       <p className="mt-1 text-xs text-white/55">
-                        Telegram ID: {targetPlayer.telegram_id ?? "—"}
+                        {targetPlayer.telegram_id != null
+                          ? `Telegram ID: ${targetPlayer.telegram_id}`
+                          : targetPlayer.email
+                            ? `Email: ${targetPlayer.email}`
+                            : "Нет данных"}
                       </p>
                     </div>
 

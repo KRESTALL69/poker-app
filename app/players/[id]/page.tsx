@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ensurePlayerFromTelegramUser,
+  ensurePlayerFromEmail,
   getPlayerById,
   submitNicknameForModeration,
 } from "@/features/auth";
@@ -17,6 +18,7 @@ import {
 } from "@/features/tournaments";
 import { getPlayerAchievements } from "@/features/achievements";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
+import { supabase } from "@/lib/supabase";
 import { getTelegramUser, getTelegramWebApp } from "@/lib/telegram";
 import type {
   Player,
@@ -197,6 +199,12 @@ export default function PlayerProfilePage() {
         if (telegramUser) {
           ensuredViewer = await ensurePlayerFromTelegramUser(telegramUser);
           setViewerId(ensuredViewer.id);
+        } else {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.email) {
+            ensuredViewer = await ensurePlayerFromEmail(session.user.email);
+            setViewerId(ensuredViewer.id);
+          }
         }
 
         const [
@@ -483,6 +491,9 @@ export default function PlayerProfilePage() {
                 </div>
               ) : null}
             </div>
+            {isOwnProfile && player.email ? (
+              <p className="mt-1 truncate text-sm text-white/45">{player.email}</p>
+            ) : null}
           </div>
         </div>
 

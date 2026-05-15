@@ -403,7 +403,11 @@ export default function AdminModerationPage() {
                             </p>
                           ) : (
                             <p className="mt-1 truncate text-xs text-white/45">
-                              Telegram ID: {targetPlayer.telegram_id ?? "—"}
+                              {targetPlayer.telegram_id != null
+                                ? `Telegram ID: ${targetPlayer.telegram_id}`
+                                : targetPlayer.email
+                                  ? `Email: ${targetPlayer.email}`
+                                  : "Нет данных"}
                             </p>
                           )}
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">

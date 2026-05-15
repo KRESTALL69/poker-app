@@ -848,6 +848,38 @@ export default function HomePage() {
     );
   }
 
+  if (!player) {
+    return (
+      <main className="fixed inset-0 bg-black px-4 py-6 text-white">
+        <div className="mx-auto flex h-full max-w-md flex-col justify-center">
+          <div className="mb-8">
+            <p className="text-xs uppercase tracking-[0.18em] text-white/40">
+              Игровое пространство DWC
+            </p>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight">
+              Don&apos;t Worry Club
+            </h1>
+          </div>
+          <div className="rounded-2xl bg-white/5 p-5">
+            {playerError ? (
+              <p className="mb-3 text-sm text-red-300">{playerError}</p>
+            ) : (
+              <p className="mb-3 text-sm text-white/70">
+                Войдите, чтобы продолжить
+              </p>
+            )}
+            <Link
+              href="/login"
+              className="block w-full rounded-xl bg-yellow-500 py-3 text-center font-semibold text-black"
+            >
+              Войти через email
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (showProfileSetup) {
     return (
       <main className="fixed inset-0 z-50 bg-black px-4 py-6 text-white">

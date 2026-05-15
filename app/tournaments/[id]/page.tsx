@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { ensurePlayerFromTelegramUser, ensurePlayerFromEmail } from "@/features/auth";
 import {
   getVisibleTournamentByIdForPlayer,
   getTournamentParticipants,
@@ -14,6 +14,7 @@ import {
   cancelPlayerRegistration,
 } from "@/features/tournaments";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
+import { supabase } from "@/lib/supabase";
 import { getTelegramUser } from "@/lib/telegram";
 import type {
   Player,
@@ -276,12 +277,18 @@ const waitlistParticipants = participants.filter(
         }
 
         const telegramUser = getTelegramUser();
+        let currentPlayer: Player;
 
-        if (!telegramUser) {
-          throw new Error("Telegram user not found");
+        if (telegramUser) {
+          currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        } else {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.user?.email) {
+            throw new Error("Необходимо войти в систему");
+          }
+          currentPlayer = await ensurePlayerFromEmail(session.user.email);
         }
 
-        const currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
         setPlayer(currentPlayer);
 
         await refreshPageData(currentPlayer, tournamentId);
