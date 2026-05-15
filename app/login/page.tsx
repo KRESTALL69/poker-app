@@ -40,6 +40,39 @@ export default function LoginPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const container = document.createElement("div");
+    container.style.display = "none";
+    const script = document.createElement("script");
+    script.src = "https://telegram.org/js/telegram-widget.js?22";
+    script.setAttribute("data-telegram-login", "DontWorryClubBot");
+    script.setAttribute("data-size", "large");
+    script.setAttribute("data-request-access", "write");
+    container.appendChild(script);
+    document.body.appendChild(container);
+    return () => { document.body.removeChild(container); };
+  }, []);
+
+  function handleTelegramLogin() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tg = (window as any).Telegram?.Login;
+    if (tg) {
+      tg.auth(
+        { bot_id: 8707145223, request_access: "write" },
+        (data: Record<string, unknown> | false) => {
+          if (!data) return;
+          const params = new URLSearchParams();
+          for (const [key, value] of Object.entries(data)) {
+            if (value !== undefined && value !== null) params.set(key, String(value));
+          }
+          window.location.href = `/api/auth/telegram/callback?${params.toString()}`;
+        }
+      );
+    } else {
+      window.location.href = "/api/auth/telegram";
+    }
+  }
+
   function startResendCooldown() {
     setResendCooldown(60);
     const interval = setInterval(() => {
@@ -237,13 +270,14 @@ export default function LoginPage() {
           <div className="flex-1 border-t border-white/10" />
         </div>
 
-        <a
-          href="/api/auth/telegram"
+        <button
+          type="button"
+          onClick={handleTelegramLogin}
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-semibold text-white"
         >
           <TelegramIcon />
           Войти через Telegram
-        </a>
+        </button>
       </div>
     </main>
   );
