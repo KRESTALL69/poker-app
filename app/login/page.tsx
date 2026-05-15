@@ -6,14 +6,6 @@ import { supabase } from "@/lib/supabase";
 
 type Step = "email" | "code";
 
-function TelegramIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.19 13.912l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.958.647z" />
-    </svg>
-  );
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("email");
@@ -24,6 +16,7 @@ export default function LoginPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [telegramError, setTelegramError] = useState<string | null>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
+  const telegramWidgetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -37,6 +30,7 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const err = params.get("error");
     if (err) {
+      console.warn("[TG] Telegram login error from callback:", err);
       setTelegramError("Не удалось войти через Telegram. Попробуйте снова.");
     }
   }, []);
@@ -48,38 +42,41 @@ export default function LoginPage() {
     }
   }, [step]);
 
+  // Official Telegram Login Widget with data-auth-url (redirect flow, not popup callback)
   useEffect(() => {
-    const container = document.createElement("div");
-    container.style.display = "none";
+    const container = telegramWidgetRef.current;
+    if (!container) return;
+
+    console.log("[TG] Mounting Telegram Login Widget...");
+
+    const authUrl = `${window.location.origin}/api/auth/telegram/callback`;
+    console.log("[TG] auth-url:", authUrl);
+
     const script = document.createElement("script");
     script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.setAttribute("data-telegram-login", "DontWorryClubBot");
+    script.async = true;
+    script.setAttribute("data-telegram-login", "dont_worry_club_bot");
     script.setAttribute("data-size", "large");
+    script.setAttribute("data-auth-url", authUrl);
     script.setAttribute("data-request-access", "write");
-    container.appendChild(script);
-    document.body.appendChild(container);
-    return () => { document.body.removeChild(container); };
-  }, []);
+    script.setAttribute("data-userpic", "false");
 
-  function handleTelegramLogin() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tg = (window as any).Telegram?.Login;
-    if (tg) {
-      tg.auth(
-        { bot_id: 8707145223, request_access: "write" },
-        (data: Record<string, unknown> | false) => {
-          if (!data) return;
-          const params = new URLSearchParams();
-          for (const [key, value] of Object.entries(data)) {
-            if (value !== undefined && value !== null) params.set(key, String(value));
-          }
-          window.location.href = `/api/auth/telegram/callback?${params.toString()}`;
-        }
-      );
-    } else {
-      window.location.href = "/api/auth/telegram";
-    }
-  }
+    script.onload = () => {
+      console.log("[TG] Widget script loaded");
+    };
+    script.onerror = () => {
+      console.error("[TG] Widget script failed to load");
+    };
+
+    container.appendChild(script);
+    console.log("[TG] Widget script appended to DOM");
+
+    return () => {
+      if (container.contains(script)) {
+        container.removeChild(script);
+      }
+    };
+  }, []);
 
   function startResendCooldown() {
     setResendCooldown(60);
@@ -288,14 +285,10 @@ export default function LoginPage() {
           <div className="flex-1 border-t border-white/8" />
         </div>
 
-        <button
-          type="button"
-          onClick={handleTelegramLogin}
-          className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/3 py-3.25 text-sm text-white/50 transition-colors active:bg-white/6"
-        >
-          <TelegramIcon />
-          Войти через Telegram
-        </button>
+        {/* Official Telegram Login Widget — renders Telegram's iframe button */}
+        <div className="flex justify-center">
+          <div ref={telegramWidgetRef} />
+        </div>
       </div>
     </main>
   );
