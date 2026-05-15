@@ -6,6 +6,14 @@ import { supabase } from "@/lib/supabase";
 
 type Step = "email" | "code";
 
+function TelegramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.19 13.912l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.958.647z" />
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("email");
@@ -14,6 +22,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [telegramError, setTelegramError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -22,6 +31,14 @@ export default function LoginPage() {
       }
     });
   }, [router]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (err) {
+      setTelegramError("Не удалось войти через Telegram. Попробуйте снова.");
+    }
+  }, []);
 
   function startResendCooldown() {
     setResendCooldown(60);
@@ -117,6 +134,12 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {telegramError ? (
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+            {telegramError}
+          </div>
+        ) : null}
+
         <div className="rounded-2xl bg-white/[0.05] p-5">
           {step === "email" ? (
             <form onSubmit={handleRequestCode}>
@@ -207,6 +230,20 @@ export default function LoginPage() {
             </form>
           )}
         </div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <div className="flex-1 border-t border-white/10" />
+          <span className="text-xs text-white/40">или через</span>
+          <div className="flex-1 border-t border-white/10" />
+        </div>
+
+        <a
+          href="/api/auth/telegram"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-semibold text-white"
+        >
+          <TelegramIcon />
+          Войти через Telegram
+        </a>
       </div>
     </main>
   );

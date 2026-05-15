@@ -595,6 +595,37 @@ export default function HomePage() {
                 });
               }
             }
+          } else {
+            const meRes = await fetch("/api/auth/me").catch(() => null);
+
+            if (meRes?.ok) {
+              const data = (await meRes.json()) as { player: Player };
+              const cookiePlayer = data.player;
+              setPlayer(cookiePlayer);
+
+              if (
+                !cookiePlayer.accepted_terms_at ||
+                cookiePlayer.accepted_terms_version !== TERMS_VERSION
+              ) {
+                setScrolledToBottom(false);
+                setShowProfileSetup(false);
+                setShowTerms(true);
+              } else {
+                setShowTerms(false);
+
+                if (!cookiePlayer.profile_completed_at) {
+                  setNickname(cookiePlayer.display_name);
+                  setProfileError(null);
+                  setShowProfileSetup(true);
+                } else {
+                  setShowProfileSetup(false);
+
+                  await refreshHomeData(cookiePlayer, {
+                    showPromotionToast: false,
+                  });
+                }
+              }
+            }
           }
         }
       } catch (error) {
