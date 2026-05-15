@@ -491,6 +491,11 @@ export default function HomePage() {
     });
     setEmailLinkLoading(false);
     if (error) {
+      console.error("[emailLink] signInWithOtp failed:", {
+        message: error.message,
+        status: error.status,
+        code: (error as unknown as Record<string, unknown>).code ?? null,
+      });
       setEmailLinkError("Не удалось отправить код. Попробуйте снова.");
       return;
     }
