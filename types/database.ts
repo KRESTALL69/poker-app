@@ -1,6 +1,7 @@
 export type PlayerRow = {
   id: string;
   telegram_id: number | null;
+  email: string | null;
   username: string | null;
   display_name: string;
   admin_display_name: string | null;

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ensurePlayerFromTelegramUser,
+  ensurePlayerFromEmail,
+  linkEmailToPlayer,
   acceptTerms,
   completeProfile,
   TERMS_VERSION,
@@ -216,6 +218,14 @@ export default function HomePage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
+  const [showEmailLinkModal, setShowEmailLinkModal] = useState(false);
+  const [emailLinkStep, setEmailLinkStep] = useState<"email" | "code">("email");
+  const [emailLinkEmail, setEmailLinkEmail] = useState("");
+  const [emailLinkCode, setEmailLinkCode] = useState("");
+  const [emailLinkLoading, setEmailLinkLoading] = useState(false);
+  const [emailLinkError, setEmailLinkError] = useState<string | null>(null);
+  const [emailLinkResendCooldown, setEmailLinkResendCooldown] = useState(0);
+
   const registrationsRef = useRef<Record<string, string>>({});
   const termsLines = useMemo(() => {
     return TERMS_TEXT.split("\n").map((line) => line.trim());
@@ -419,6 +429,85 @@ export default function HomePage() {
     }
   }
 
+  function handleEmailLinkDismiss() {
+    try {
+      window.sessionStorage.setItem("dwc.email.link.dismissed", "1");
+    } catch {}
+    setShowEmailLinkModal(false);
+  }
+
+  function startEmailLinkResendCooldown() {
+    setEmailLinkResendCooldown(60);
+    const interval = setInterval(() => {
+      setEmailLinkResendCooldown((v) => {
+        if (v <= 1) { clearInterval(interval); return 0; }
+        return v - 1;
+      });
+    }, 1000);
+  }
+
+  async function handleEmailLinkRequestCode(e: React.FormEvent) {
+    e.preventDefault();
+    const normalized = emailLinkEmail.trim().toLowerCase();
+    if (!normalized) return;
+    setEmailLinkLoading(true);
+    setEmailLinkError(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalized,
+      options: { shouldCreateUser: true },
+    });
+    setEmailLinkLoading(false);
+    if (error) {
+      setEmailLinkError("Не удалось отправить код. Попробуйте снова.");
+      return;
+    }
+    setEmailLinkStep("code");
+    startEmailLinkResendCooldown();
+  }
+
+  async function handleEmailLinkVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!player) return;
+    const normalized = emailLinkEmail.trim().toLowerCase();
+    setEmailLinkLoading(true);
+    setEmailLinkError(null);
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: normalized,
+      token: emailLinkCode.trim(),
+      type: "email",
+    });
+    if (verifyError) {
+      setEmailLinkLoading(false);
+      setEmailLinkError("Неверный или истёкший код.");
+      return;
+    }
+    try {
+      const updatedPlayer = await linkEmailToPlayer(player.id, normalized);
+      setPlayer(updatedPlayer);
+      setShowEmailLinkModal(false);
+    } catch (err) {
+      setEmailLinkError(err instanceof Error ? err.message : "Ошибка привязки email.");
+    } finally {
+      setEmailLinkLoading(false);
+    }
+  }
+
+  async function handleEmailLinkResend() {
+    if (emailLinkResendCooldown > 0) return;
+    setEmailLinkLoading(true);
+    setEmailLinkError(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: emailLinkEmail.trim().toLowerCase(),
+      options: { shouldCreateUser: true },
+    });
+    setEmailLinkLoading(false);
+    if (error) {
+      setEmailLinkError("Не удалось отправить код повторно.");
+      return;
+    }
+    startEmailLinkResendCooldown();
+  }
+
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
@@ -465,6 +554,46 @@ export default function HomePage() {
               await refreshHomeData(ensuredPlayer, {
                 showPromotionToast: false,
               });
+
+              try {
+                const dismissed = window.sessionStorage.getItem("dwc.email.link.dismissed");
+                if (!ensuredPlayer.email && !dismissed) {
+                  setShowEmailLinkModal(true);
+                }
+              } catch {}
+            }
+          }
+        } else {
+          const { data: { session } } = await supabase.auth.getSession();
+
+          if (session?.user?.email) {
+            setPlayerLoading(true);
+            setPlayerError(null);
+
+            const webPlayer = await ensurePlayerFromEmail(session.user.email);
+            setPlayer(webPlayer);
+
+            if (
+              !webPlayer.accepted_terms_at ||
+              webPlayer.accepted_terms_version !== TERMS_VERSION
+            ) {
+              setScrolledToBottom(false);
+              setShowProfileSetup(false);
+              setShowTerms(true);
+            } else {
+              setShowTerms(false);
+
+              if (!webPlayer.profile_completed_at) {
+                setNickname(webPlayer.display_name);
+                setProfileError(null);
+                setShowProfileSetup(true);
+              } else {
+                setShowProfileSetup(false);
+
+                await refreshHomeData(webPlayer, {
+                  showPromotionToast: false,
+                });
+              }
             }
           }
         }
@@ -801,10 +930,17 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        {checkedTelegram && !isInsideTelegram ? (
-          <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
-            Приложение открыто вне Telegram. Полная проверка работает внутри Mini
-            App.
+        {checkedTelegram && !isInsideTelegram && !player && !playerLoading ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-white/70">
+              Войдите, чтобы продолжить
+            </p>
+            <Link
+              href="/login"
+              className="mt-3 block w-full rounded-xl bg-yellow-500 py-3 text-center font-semibold text-black"
+            >
+              Войти через email
+            </Link>
           </div>
         ) : null}
 
@@ -820,7 +956,7 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        {checkedTelegram && isInsideTelegram && !playerLoading && !playerError ? (
+        {checkedTelegram && !!player && !playerLoading && !playerError ? (
           <>
             <section className="mt-6 space-y-4">
               {nearestTournament
@@ -933,6 +1069,92 @@ export default function HomePage() {
       </div>
 
       {promotionToast ? <PromotionToast message={promotionToast} /> : null}
+
+      {showEmailLinkModal ? (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/60"
+            onClick={handleEmailLinkDismiss}
+          />
+          <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-[#111] px-5 pb-10 pt-5">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="font-semibold">Добавьте email</p>
+              <button
+                type="button"
+                onClick={handleEmailLinkDismiss}
+                className="text-sm text-white/40"
+              >
+                Позже
+              </button>
+            </div>
+
+            {emailLinkStep === "email" ? (
+              <form onSubmit={handleEmailLinkRequestCode}>
+                <p className="mb-4 text-sm text-white/60">
+                  Чтобы входить в приложение без Telegram и не потерять доступ к профилю
+                </p>
+                <input
+                  type="email"
+                  value={emailLinkEmail}
+                  onChange={(e) => { setEmailLinkEmail(e.target.value); setEmailLinkError(null); }}
+                  placeholder="your@email.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  disabled={emailLinkLoading}
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-white/30 disabled:opacity-50"
+                />
+                {emailLinkError ? (
+                  <p className="mt-2 text-sm text-red-300">{emailLinkError}</p>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={emailLinkLoading || !emailLinkEmail.trim()}
+                  className="mt-3 w-full rounded-xl bg-yellow-500 py-3 font-semibold text-black disabled:opacity-40"
+                >
+                  {emailLinkLoading ? "Отправляем..." : "Получить код"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleEmailLinkVerifyCode}>
+                <p className="mb-4 text-sm text-white/60">
+                  Код отправлен на{" "}
+                  <span className="text-white">{emailLinkEmail}</span>
+                </p>
+                <input
+                  type="text"
+                  value={emailLinkCode}
+                  onChange={(e) => { setEmailLinkCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setEmailLinkError(null); }}
+                  placeholder="Код из письма"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  disabled={emailLinkLoading}
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-center text-2xl tracking-[0.5em] text-white placeholder-white/20 outline-none focus:border-white/30 disabled:opacity-50"
+                />
+                {emailLinkError ? (
+                  <p className="mt-2 text-sm text-red-300">{emailLinkError}</p>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={emailLinkLoading || emailLinkCode.length < 6}
+                  className="mt-3 w-full rounded-xl bg-yellow-500 py-3 font-semibold text-black disabled:opacity-40"
+                >
+                  {emailLinkLoading ? "Проверяем..." : "Подтвердить"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEmailLinkResend}
+                  disabled={emailLinkLoading || emailLinkResendCooldown > 0}
+                  className="mt-3 w-full text-sm text-white/40 disabled:opacity-40"
+                >
+                  {emailLinkResendCooldown > 0
+                    ? `Отправить повторно (${emailLinkResendCooldown}с)`
+                    : "Отправить код повторно"}
+                </button>
+              </form>
+            )}
+          </div>
+        </>
+      ) : null}
     </main>
   );
 }
