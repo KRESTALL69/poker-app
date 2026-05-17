@@ -25,6 +25,13 @@ type TelegramWebhookUpdate = {
       };
     };
   };
+  callback_query?: {
+    id: string;
+    from: {
+      id: number;
+    };
+    data?: string;
+  };
 };
 
 // NOTE: In-memory Maps reset on serverless cold start — acceptable for MVP.
@@ -51,6 +58,14 @@ async function sendMessage(
     const errorText = await response.text();
     throw new Error(`Telegram sendMessage failed: ${errorText}`);
   }
+}
+
+async function answerCallbackQuery(token: string, callbackQueryId: string): Promise<void> {
+  await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQueryId }),
+  });
 }
 
 async function forwardMessage(
@@ -92,6 +107,18 @@ export async function POST(request: Request) {
     }
 
     const update = (await request.json()) as TelegramWebhookUpdate;
+
+    // Handle inline button presses
+    if (update.callback_query) {
+      const cb = update.callback_query;
+      await answerCallbackQuery(token, cb.id);
+      if (cb.data === "support") {
+        supportSessions.set(cb.from.id, "awaiting_message");
+        await sendMessage(token, cb.from.id, "Напишите ваш вопрос, мы скоро ответим.");
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     const message = update.message;
     const chatId = message?.chat?.id;
     const text = message?.text?.trim();
@@ -139,46 +166,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // Handle /support command
+    if (text === "/support") {
+      supportSessions.set(chatId, "awaiting_message");
+      await sendMessage(token, chatId, "Напишите ваш вопрос, мы скоро ответим.");
+      return NextResponse.json({ ok: true });
+    }
+
     // Handle /start command
     if (text?.startsWith("/start")) {
       const param = text.slice("/start".length).trim();
 
       if (param === "support") {
-        // Deep link support: /start support
+        // Deep link from Mini App: t.me/bot?start=support
         supportSessions.set(chatId, "awaiting_message");
+        await sendMessage(token, chatId, "Напишите ваш вопрос, мы скоро ответим.");
+      } else {
+        // Default /start — show main menu with two buttons
+        supportSessions.delete(chatId);
         await sendMessage(
           token,
           chatId,
-          "Опишите вашу проблему или вопрос, и мы ответим как можно скорее."
-        );
-      } else {
-        // Default /start — show "Открыть приложение" button
-        supportSessions.delete(chatId);
-        const response = await fetch(
-          `https://api.telegram.org/bot${token}/sendMessage`,
+          "Добро пожаловать в Don't Worry Club!",
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: "Открыть приложение можно по кнопке ниже.",
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: "Открыть приложение",
-                      web_app: { url: WEB_APP_URL },
-                    },
-                  ],
-                ],
-              },
-            }),
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "Открыть приложение", web_app: { url: WEB_APP_URL } }],
+                [{ text: "Поддержка", callback_data: "support" }],
+              ],
+            },
           }
         );
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Telegram sendMessage failed: ${errorText}`);
-        }
       }
 
       return NextResponse.json({ ok: true });
