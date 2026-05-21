@@ -9,7 +9,7 @@
 - новый GitHub репозиторий
 - новый Vercel project
 - новый Supabase project
-- новый Telegram bot
+- новый Telegram bot1
 - все env-переменные уже обновлены
 
 Приложение уже рабочее: деплой есть, база подключена, схема перенесена, Telegram Mini App открывается корректно.
