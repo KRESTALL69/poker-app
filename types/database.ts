@@ -77,3 +77,9 @@ export type PlayerAchievementRow = {
   completed_at: string | null;
   updated_at: string;
 };
+
+export type AppSettingRow = {
+  key: string;
+  value: boolean | string | number | null;
+  updated_at: string;
+};

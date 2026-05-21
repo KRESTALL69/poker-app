@@ -593,12 +593,18 @@ export default function HomePage() {
                 showPromotionToast: false,
               });
 
-              // try {
-              //   const dismissed = window.sessionStorage.getItem("dwc.email.link.dismissed");
-              //   if (!ensuredPlayer.email && !dismissed) {
-              //     setShowEmailLinkModal(true);
-              //   }
-              // } catch {}
+              try {
+                const dismissed = window.sessionStorage.getItem("dwc.email.link.dismissed");
+                if (!ensuredPlayer.email && !dismissed) {
+                  const settingRes = await fetch("/api/settings/email_link_notification_enabled").catch(() => null);
+                  if (settingRes?.ok) {
+                    const { value } = (await settingRes.json()) as { value: boolean };
+                    if (value === true) {
+                      setShowEmailLinkModal(true);
+                    }
+                  }
+                }
+              } catch {}
             }
           }
         } else {
