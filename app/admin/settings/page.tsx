@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { fetchAdminJson } from "@/lib/client-request";
 import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
 
@@ -44,19 +45,14 @@ export default function AdminSettingsPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch("/api/admin/settings", {
+      await fetchAdminJson("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "email_link_notification_enabled", value: next }),
       });
-      if (res.ok) {
-        setEmailLinkEnabled(next);
-      } else {
-        const data = (await res.json()) as { error?: string };
-        setSaveError(data.error ?? "Не удалось сохранить настройку");
-      }
-    } catch {
-      setSaveError("Ошибка соединения");
+      setEmailLinkEnabled(next);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Не удалось сохранить настройку");
     } finally {
       setSaving(false);
     }
