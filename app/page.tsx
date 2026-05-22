@@ -485,9 +485,24 @@ export default function HomePage() {
     if (!normalized) return;
     setEmailLinkLoading(true);
     setEmailLinkError(null);
+
+    // Validate + ensure the auth user exists server-side so Supabase sends an
+    // OTP code email instead of "Confirm Your Signup" for first-time addresses.
+    const prepareRes = await fetch("/api/auth/email-link/prepare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normalized }),
+    });
+    if (!prepareRes.ok) {
+      const data = (await prepareRes.json().catch(() => ({}))) as { error?: string };
+      setEmailLinkLoading(false);
+      setEmailLinkError(data.error ?? "Не удалось отправить код. Попробуйте снова.");
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email: normalized,
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: false },
     });
     setEmailLinkLoading(false);
     if (error) {
@@ -536,7 +551,7 @@ export default function HomePage() {
     setEmailLinkError(null);
     const { error } = await supabase.auth.signInWithOtp({
       email: emailLinkEmail.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: false },
     });
     setEmailLinkLoading(false);
     if (error) {
