@@ -587,10 +587,21 @@ export default function HomePage() {
           const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
           setPlayer(ensuredPlayer);
 
+          console.log("[emailLink] player loaded:", {
+            id: ensuredPlayer.id,
+            role: ensuredPlayer.role,
+            email: ensuredPlayer.email ?? null,
+            accepted_terms_at: ensuredPlayer.accepted_terms_at ?? null,
+            accepted_terms_version: ensuredPlayer.accepted_terms_version ?? null,
+            TERMS_VERSION,
+            profile_completed_at: ensuredPlayer.profile_completed_at ?? null,
+          });
+
           if (
             !ensuredPlayer.accepted_terms_at ||
             ensuredPlayer.accepted_terms_version !== TERMS_VERSION
           ) {
+            console.log("[emailLink] blocked: terms not accepted or version mismatch");
             setScrolledToBottom(false);
             setShowProfileSetup(false);
             setShowTerms(true);
@@ -598,22 +609,35 @@ export default function HomePage() {
             setShowTerms(false);
 
             if (!ensuredPlayer.profile_completed_at) {
+              console.log("[emailLink] blocked: profile not completed");
               setNickname(ensuredPlayer.display_name);
               setProfileError(null);
               setShowProfileSetup(true);
             } else {
               setShowProfileSetup(false);
 
-              await refreshHomeData(ensuredPlayer, {
-                showPromotionToast: false,
-              });
+              try {
+                await refreshHomeData(ensuredPlayer, {
+                  showPromotionToast: false,
+                });
+              } catch (refreshErr) {
+                console.error("[emailLink] refreshHomeData failed:", refreshErr);
+              }
 
               try {
                 const dismissed = window.sessionStorage.getItem("dwc.email.link.dismissed");
-                if (!ensuredPlayer.email && !dismissed) {
+                const hasEmail = Boolean(ensuredPlayer.email);
+                console.log("[emailLink] modal check:", {
+                  hasEmail,
+                  dismissed,
+                  willFetchSetting: !hasEmail && !dismissed,
+                });
+                if (!hasEmail && !dismissed) {
                   const settingRes = await fetch("/api/settings/email_link_notification_enabled").catch(() => null);
+                  console.log("[emailLink] setting fetch:", settingRes?.status ?? "failed");
                   if (settingRes?.ok) {
                     const { value } = (await settingRes.json()) as { value: boolean };
+                    console.log("[emailLink] setting value:", value);
                     if (value === true) {
                       setShowEmailLinkModal(true);
                     }
