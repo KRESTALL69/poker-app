@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ensurePlayerFromTelegramUser,
   ensurePlayerFromEmail,
@@ -186,6 +187,7 @@ function UserIcon() {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [user, setUser] = useState<TelegramWebAppUser | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
   const [checkedTelegram, setCheckedTelegram] = useState(false);
@@ -227,6 +229,7 @@ export default function HomePage() {
   const [emailLinkResendCooldown, setEmailLinkResendCooldown] = useState(0);
 
   const registrationsRef = useRef<Record<string, string>>({});
+  const emailLinkCodeInputRef = useRef<HTMLInputElement>(null);
   const termsLines = useMemo(() => {
     return TERMS_TEXT.split("\n").map((line) => line.trim());
   }, []);
@@ -479,6 +482,13 @@ export default function HomePage() {
     }, 1000);
   }
 
+  useEffect(() => {
+    if (emailLinkStep === "code" && showEmailLinkModal) {
+      const t = setTimeout(() => emailLinkCodeInputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [emailLinkStep, showEmailLinkModal]);
+
   async function handleEmailLinkRequestCode(e: React.FormEvent) {
     e.preventDefault();
     const normalized = emailLinkEmail.trim().toLowerCase();
@@ -708,6 +718,8 @@ export default function HomePage() {
                   });
                 }
               }
+            } else if (!isTelegramMiniAppContext()) {
+              router.replace("/login");
             }
           }
         }
@@ -1291,14 +1303,16 @@ export default function HomePage() {
                   <span className="text-white">{emailLinkEmail}</span>
                 </p>
                 <input
+                  ref={emailLinkCodeInputRef}
                   type="text"
                   value={emailLinkCode}
                   onChange={(e) => { setEmailLinkCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setEmailLinkError(null); }}
-                  placeholder="Код из письма"
+                  placeholder="000000"
                   inputMode="numeric"
                   autoComplete="one-time-code"
+                  autoCapitalize="none"
                   disabled={emailLinkLoading}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-center text-2xl tracking-[0.5em] text-white placeholder-white/20 outline-none focus:border-white/30 disabled:opacity-50"
+                  className="w-full rounded-[14px] border border-white/10 bg-black/40 px-4 py-3.5 text-center text-[1.75rem] font-light tracking-[0.5em] text-white placeholder:tracking-[0.15em] placeholder:text-white/20 outline-none transition-colors focus:border-yellow-500/30 disabled:opacity-50"
                 />
                 {emailLinkError ? (
                   <p className="mt-2 text-sm text-red-300">{emailLinkError}</p>
