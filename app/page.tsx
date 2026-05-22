@@ -491,7 +491,7 @@ export default function HomePage() {
     const prepareRes = await fetch("/api/auth/email-link/prepare", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: normalized }),
+      body: JSON.stringify({ email: normalized, initData: getTelegramWebApp()?.initData ?? "" }),
     });
     if (!prepareRes.ok) {
       const data = (await prepareRes.json().catch(() => ({}))) as { error?: string };
