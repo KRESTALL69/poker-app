@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { loadAdminPlayer } from "@/lib/admin-auth";
 import {
   addAdminTournamentParticipant,
   addExistingPlayerToTournament,
@@ -15,7 +15,6 @@ import {
 } from "@/features/tournaments";
 import { fetchAdminJson } from "@/lib/client-request";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
-import { getTelegramUser } from "@/lib/telegram";
 import type { Player, TournamentKind } from "@/types/domain";
 
 function toDateTimeLocalValue(value: string): string {
@@ -77,16 +76,10 @@ export default function AdminTournamentEditPage() {
           throw new Error("Tournament id not found");
         }
 
-        const telegramUser = getTelegramUser();
-
-        if (!telegramUser) {
-          throw new Error("Telegram user not found");
-        }
-
-        const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        const ensuredPlayer = await loadAdminPlayer();
         setPlayer(ensuredPlayer);
 
-        if (ensuredPlayer.role !== "admin") {
+        if (ensuredPlayer?.role !== "admin") {
           return;
         }
 

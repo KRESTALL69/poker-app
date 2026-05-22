@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { loadAdminPlayer } from "@/lib/admin-auth";
 import { fetchAdminJson } from "@/lib/client-request";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
-import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
 
 function getVisibleNickname(player: Player) {
@@ -38,16 +37,10 @@ export default function AdminModerationPage() {
   useEffect(() => {
     async function loadPage() {
       try {
-        const telegramUser = getTelegramUser();
-
-        if (!telegramUser) {
-          return;
-        }
-
-        const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        const ensuredPlayer = await loadAdminPlayer();
         setPlayer(ensuredPlayer);
 
-        if (ensuredPlayer.role === "admin") {
+        if (ensuredPlayer?.role === "admin") {
           await loadModerationData();
         }
       } catch (err) {

@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { loadAdminPlayer } from "@/lib/admin-auth";
 import { fetchAdminJson } from "@/lib/client-request";
-import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
 
 type AccessType = "free" | "paid" | "cash";
@@ -113,16 +112,10 @@ export default function AdminPlayerAccessPage() {
   useEffect(() => {
     async function loadPage() {
       try {
-        const telegramUser = getTelegramUser();
-
-        if (!telegramUser) {
-          return;
-        }
-
-        const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        const ensuredPlayer = await loadAdminPlayer();
         setPlayer(ensuredPlayer);
 
-        if (ensuredPlayer.role === "admin") {
+        if (ensuredPlayer?.role === "admin") {
           await loadPlayers();
         }
       } catch (err) {

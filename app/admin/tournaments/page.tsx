@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { loadAdminPlayer } from "@/lib/admin-auth";
 import { deleteTournament } from "@/features/tournaments";
 import { fetchAdminJson } from "@/lib/client-request";
-import { getTelegramUser } from "@/lib/telegram";
 import type { Player, Tournament } from "@/types/domain";
 
 function formatDateTimeWithoutSeconds(date: string) {
@@ -43,16 +42,10 @@ export default function AdminTournamentsPage() {
   useEffect(() => {
     async function loadPage() {
       try {
-        const telegramUser = getTelegramUser();
-
-        if (!telegramUser) {
-          return;
-        }
-
-        const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        const ensuredPlayer = await loadAdminPlayer();
         setPlayer(ensuredPlayer);
 
-        if (ensuredPlayer.role === "admin") {
+        if (ensuredPlayer?.role === "admin") {
           await loadTournaments();
         }
       } catch (err) {

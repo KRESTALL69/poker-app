@@ -83,54 +83,93 @@ async function verifyTelegramInitData(
 }
 
 export async function middleware(request: NextRequest) {
-  const initData = request.headers.get("x-telegram-init-data");
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-
-  if (!initData) {
-    console.log("[admin-auth] 401: no x-telegram-init-data header");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!botToken) {
-    console.log("[admin-auth] 401: TELEGRAM_BOT_TOKEN not configured");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const telegramId = await verifyTelegramInitData(initData, botToken);
-
-  if (!telegramId) {
-    console.log("[admin-auth] 401: initData verification failed (hash mismatch or expired)", {
-      initDataLength: initData.length,
-      hasHash: new URLSearchParams(initData).has("hash"),
-      hasUser: new URLSearchParams(initData).has("user"),
-    });
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  // --- Telegram Mini App path ---
+  const initData = request.headers.get("x-telegram-init-data");
+  if (initData) {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      console.log("[admin-auth] 401: TELEGRAM_BOT_TOKEN not configured");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { data: player } = await supabase
-    .from("players")
-    .select("role")
-    .eq("telegram_id", telegramId)
-    .maybeSingle();
+    const telegramId = await verifyTelegramInitData(initData, botToken);
 
-  if (!player) {
-    console.log("[admin-auth] 401: player not found for telegram_id", telegramId);
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!telegramId) {
+      console.log("[admin-auth] 401: initData verification failed (hash mismatch or expired)", {
+        initDataLength: initData.length,
+        hasHash: new URLSearchParams(initData).has("hash"),
+        hasUser: new URLSearchParams(initData).has("user"),
+      });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: player } = await supabase
+      .from("players")
+      .select("role")
+      .eq("telegram_id", telegramId)
+      .maybeSingle();
+
+    if (!player) {
+      console.log("[admin-auth] 401: player not found for telegram_id", telegramId);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (player.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    return NextResponse.next();
   }
 
-  if (player.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // --- Web email session path ---
+  const supabaseToken = request.headers.get("x-supabase-token");
+  if (supabaseToken) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      console.log("[admin-auth] 500: SUPABASE_SERVICE_ROLE_KEY not configured");
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data: { user }, error: userError } = await adminClient.auth.getUser(supabaseToken);
+
+    if (userError || !user?.email) {
+      console.log("[admin-auth] 401: invalid Supabase token");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: player } = await supabase
+      .from("players")
+      .select("role")
+      .eq("email", user.email)
+      .maybeSingle();
+
+    if (!player) {
+      console.log("[admin-auth] 401: player not found for email", user.email);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (player.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    return NextResponse.next();
   }
 
-  return NextResponse.next();
+  console.log("[admin-auth] 401: no auth header (x-telegram-init-data or x-supabase-token)");
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
 export const config = {

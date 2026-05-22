@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { loadAdminPlayer } from "@/lib/admin-auth";
 import { fetchAdminJson } from "@/lib/client-request";
-import { getTelegramUser } from "@/lib/telegram";
 import type { Player } from "@/types/domain";
 
 export default function AdminSettingsPage() {
@@ -17,13 +16,10 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     async function init() {
       try {
-        const telegramUser = getTelegramUser();
-        if (!telegramUser) return;
-
-        const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        const ensuredPlayer = await loadAdminPlayer();
         setPlayer(ensuredPlayer);
 
-        if (ensuredPlayer.role === "admin") {
+        if (ensuredPlayer?.role === "admin") {
           const res = await fetch("/api/settings/email_link_notification_enabled");
           if (res.ok) {
             const data = (await res.json()) as { value: boolean };

@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
+import { loadAdminPlayer } from "@/lib/admin-auth";
 import { fetchAdminJson } from "@/lib/client-request";
-import { getTelegramUser } from "@/lib/telegram";
 import type { Player, TournamentKind } from "@/types/domain";
 
 export default function AdminTournamentCreatePage() {
@@ -24,13 +23,7 @@ export default function AdminTournamentCreatePage() {
   useEffect(() => {
     async function loadPage() {
       try {
-        const telegramUser = getTelegramUser();
-
-        if (!telegramUser) {
-          return;
-        }
-
-        const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+        const ensuredPlayer = await loadAdminPlayer();
         setPlayer(ensuredPlayer);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Ошибка загрузки страницы");
