@@ -81,6 +81,7 @@ export default function AdminActivityPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerRow | null>(null);
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     async function init() {
@@ -162,6 +163,17 @@ export default function AdminActivityPage() {
     );
   }
 
+  const filteredPlayers = searchQuery.trim()
+    ? players.filter((p) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          p.display_name.toLowerCase().includes(q) ||
+          (p.username?.toLowerCase().includes(q) ?? false) ||
+          (p.email?.toLowerCase().includes(q) ?? false)
+        );
+      })
+    : players;
+
   return (
     <main className="min-h-screen bg-black px-4 py-6 text-white">
       <div className="mx-auto max-w-4xl">
@@ -209,6 +221,13 @@ export default function AdminActivityPage() {
             ) : (
               <section className="mt-8">
                 <h2 className="mb-3 text-base font-semibold">Игроки</h2>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск по имени, email, Telegram..."
+                  className="mb-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-white/20"
+                />
                 <div className="overflow-x-auto rounded-xl border border-white/10">
                   <table className="w-full text-sm">
                     <thead>
@@ -216,14 +235,14 @@ export default function AdminActivityPage() {
                         <th className="px-4 py-3 font-medium">Игрок</th>
                         <th className="px-4 py-3 font-medium">Email / Telegram</th>
                         <th className="px-4 py-3 font-medium">Последний вход</th>
-                        <th className="px-4 py-3 font-medium">Последнее действие</th>
+
                         <th className="px-4 py-3 font-medium text-right">
                           Событий за 7 дней
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {players.map((row) => (
+                      {filteredPlayers.map((row) => (
                         <tr
                           key={row.player_id}
                           onClick={() => loadPlayerEvents(row)}
@@ -242,11 +261,7 @@ export default function AdminActivityPage() {
                           <td className="px-4 py-3 text-white/55">
                             {row.last_seen ? formatDateTime(row.last_seen) : "—"}
                           </td>
-                          <td className="px-4 py-3 text-white/55">
-                            {row.last_event_type
-                              ? formatEventType(row.last_event_type)
-                              : "—"}
-                          </td>
+
                           <td className="px-4 py-3 text-right text-white/70">
                             {row.event_count_7d}
                           </td>

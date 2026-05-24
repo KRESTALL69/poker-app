@@ -21,6 +21,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ events: data ?? [] });
   }
 
+  // Exclude admins: fetch only player-role IDs for metrics and list
+  const { data: nonAdminData } = await supabaseAdmin
+    .from("players")
+    .select("id")
+    .eq("role", "player");
+  const nonAdminIds = (nonAdminData ?? []).map((p: { id: string }) => p.id);
+
   // Return metrics + player summary
   const now = new Date();
   const todayStart = new Date(now);
@@ -37,28 +44,33 @@ export async function GET(request: NextRequest) {
     supabaseAdmin
       .from("activity_events")
       .select("player_id", { count: "exact", head: false })
+      .in("player_id", nonAdminIds)
       .gte("created_at", todayStart.toISOString()),
 
     supabaseAdmin
       .from("activity_events")
       .select("player_id", { count: "exact", head: false })
+      .in("player_id", nonAdminIds)
       .gte("created_at", sevenDaysAgo.toISOString()),
 
     supabaseAdmin
       .from("activity_events")
       .select("id", { count: "exact", head: false })
+      .in("player_id", nonAdminIds)
       .eq("event_type", "app_opened")
       .gte("created_at", sevenDaysAgo.toISOString()),
 
     supabaseAdmin
       .from("activity_events")
       .select("id", { count: "exact", head: false })
+      .in("player_id", nonAdminIds)
       .eq("event_type", "registration_created")
       .gte("created_at", sevenDaysAgo.toISOString()),
 
     supabaseAdmin
       .from("activity_events")
       .select("player_id, created_at, event_type")
+      .in("player_id", nonAdminIds)
       .gte("created_at", sevenDaysAgo.toISOString())
       .order("created_at", { ascending: false }),
   ]);
