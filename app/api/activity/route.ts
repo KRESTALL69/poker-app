@@ -2,10 +2,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifySession, COOKIE_NAME } from "@/lib/telegram-web-session";
 import { logActivityEvent } from "@/lib/activity";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 async function resolvePlayerId(request: NextRequest): Promise<string | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   // --- Telegram Mini App ---
   const initData = request.headers.get("x-telegram-init-data");
@@ -16,8 +16,7 @@ async function resolvePlayerId(request: NextRequest): Promise<string | null> {
     const telegramId = await verifyTelegramInitData(initData, botToken);
     if (!telegramId) return null;
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
       .from("players")
       .select("id")
       .eq("telegram_id", telegramId)
@@ -37,8 +36,7 @@ async function resolvePlayerId(request: NextRequest): Promise<string | null> {
     const { data: { user } } = await adminClient.auth.getUser(supabaseToken);
     if (!user?.email) return null;
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
       .from("players")
       .select("id")
       .eq("email", user.email)
