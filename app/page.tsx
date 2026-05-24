@@ -26,6 +26,7 @@ import {
 } from "@/lib/telegram";
 import { TERMS_TEXT } from "@/config/terms";
 import type { Player, Tournament } from "@/types/domain";
+import { logEvent } from "@/lib/activity-client";
 
 function getTournamentKindLabel(kind: Tournament["kind"]) {
   if (kind === "paid") {
@@ -230,6 +231,7 @@ export default function HomePage() {
 
   const registrationsRef = useRef<Record<string, string>>({});
   const emailLinkCodeInputRef = useRef<HTMLInputElement>(null);
+  const loggedOpenRef = useRef(false);
   const termsLines = useMemo(() => {
     return TERMS_TEXT.split("\n").map((line) => line.trim());
   }, []);
@@ -547,6 +549,7 @@ export default function HomePage() {
     try {
       const updatedPlayer = await linkEmailToPlayer(player.id, normalized);
       setPlayer(updatedPlayer);
+      logEvent("email_link_completed");
       setShowEmailLinkModal(false);
     } catch (err) {
       setEmailLinkError(err instanceof Error ? err.message : "Ошибка привязки email.");
@@ -634,6 +637,12 @@ export default function HomePage() {
                 console.error("[emailLink] refreshHomeData failed:", refreshErr);
               }
 
+              if (!loggedOpenRef.current) {
+                loggedOpenRef.current = true;
+                logEvent("app_opened");
+                logEvent("page_view_home");
+              }
+
               try {
                 const dismissed = window.sessionStorage.getItem("dwc.email.link.dismissed");
                 const hasEmail = Boolean(ensuredPlayer.email);
@@ -650,6 +659,7 @@ export default function HomePage() {
                     console.log("[emailLink] setting value:", value);
                     if (value === true) {
                       setShowEmailLinkModal(true);
+                      logEvent("email_link_started");
                     }
                   }
                 }
@@ -686,6 +696,12 @@ export default function HomePage() {
                 await refreshHomeData(webPlayer, {
                   showPromotionToast: false,
                 });
+
+                if (!loggedOpenRef.current) {
+                  loggedOpenRef.current = true;
+                  logEvent("app_opened");
+                  logEvent("page_view_home");
+                }
               }
             }
           } else {
@@ -716,6 +732,12 @@ export default function HomePage() {
                   await refreshHomeData(cookiePlayer, {
                     showPromotionToast: false,
                   });
+
+                  if (!loggedOpenRef.current) {
+                    loggedOpenRef.current = true;
+                    logEvent("app_opened");
+                    logEvent("page_view_home");
+                  }
                 }
               }
             } else if (!isTelegramMiniAppContext()) {
@@ -1213,6 +1235,7 @@ export default function HomePage() {
                 <button
                     type="button"
                     onClick={() => {
+                      logEvent("support_opened");
                       const url = "https://t.me/dont_worry_club_bot?start=support";
                       const webApp = getTelegramWebApp();
                       if (webApp?.openTelegramLink) {

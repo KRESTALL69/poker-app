@@ -20,6 +20,7 @@ import { getPlayerAchievements } from "@/features/achievements";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
 import { supabase } from "@/lib/supabase";
 import { getTelegramUser, getTelegramWebApp } from "@/lib/telegram";
+import { logEvent } from "@/lib/activity-client";
 import type {
   Player,
   RegistrationStatus,
@@ -232,6 +233,7 @@ export default function PlayerProfilePage() {
         }
 
         setPlayer(playerData);
+        logEvent("profile_opened");
         setNickname(playerData.pending_display_name ?? playerData.display_name);
         setRating(playerRating);
         setPlayedCount(tournamentsCount);

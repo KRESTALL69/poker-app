@@ -14,6 +14,7 @@ import {
 } from "@/features/tournaments";
 import { supabase } from "@/lib/supabase";
 import { getTelegramUser } from "@/lib/telegram";
+import { logEvent } from "@/lib/activity-client";
 import type {
   Player,
   RegistrationStatus,
@@ -224,6 +225,7 @@ export default function TournamentsPage() {
         setPlayerId(currentPlayer.id);
 
         await refreshPageData(currentPlayer, { showPromotionToast: false });
+        logEvent("page_view_tournaments");
       } catch (err) {
         const nextError =
           err instanceof Error ? err.message : "Ошибка загрузки турниров";

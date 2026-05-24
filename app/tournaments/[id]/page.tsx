@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ensurePlayerFromTelegramUser, ensurePlayerFromEmail } from "@/features/auth";
 import {
   getVisibleTournamentByIdForPlayer,
@@ -16,6 +16,7 @@ import {
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
 import { supabase } from "@/lib/supabase";
 import { getTelegramUser } from "@/lib/telegram";
+import { logEvent } from "@/lib/activity-client";
 import type {
   Player,
   RegistrationStatus,
@@ -221,6 +222,7 @@ export default function TournamentDetailsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const loggedOpenRef = useRef(false);
   const tournamentDateParts = tournament
     ? formatTournamentDateParts(tournament.start_at)
     : null;
@@ -292,6 +294,11 @@ const waitlistParticipants = participants.filter(
         setPlayer(currentPlayer);
 
         await refreshPageData(currentPlayer, tournamentId);
+
+        if (!loggedOpenRef.current) {
+          loggedOpenRef.current = true;
+          logEvent("tournament_opened", { metadata: { tournament_id: tournamentId } });
+        }
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Unknown tournament details error";
@@ -315,8 +322,10 @@ const waitlistParticipants = participants.filter(
 
       if (result.status === "registered") {
         setMessage("Вы записаны на турнир");
+        logEvent("registration_created", { metadata: { tournament_id: tournamentId } });
       } else if (result.status === "waitlist") {
         setMessage("Вы добавлены в список ожидания");
+        logEvent("waitlist_joined", { metadata: { tournament_id: tournamentId } });
       }
 
       await refreshPageData(player, tournamentId);
@@ -335,6 +344,7 @@ const waitlistParticipants = participants.filter(
       setMessage(null);
 
       await cancelPlayerRegistration(player.id, tournamentId);
+      logEvent("registration_cancelled", { metadata: { tournament_id: tournamentId } });
 
       if (registrationStatus === "registered") {
         setMessage("Запись на турнир отменена");

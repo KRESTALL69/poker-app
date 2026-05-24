@@ -149,6 +149,19 @@ export default function AdminPage() {
               Глобальные настройки и feature-флаги приложения
             </p>
           </Link>
+
+          <Link
+            href="/admin/activity"
+            className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-yellow-500/40 hover:bg-white/8"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
+              AC
+            </div>
+            <h2 className="mt-4 text-lg font-semibold">Активность</h2>
+            <p className="mt-2 text-sm text-white/70">
+              Аналитика действий игроков в приложении
+            </p>
+          </Link>
         </section>
       </div>
     </main>
