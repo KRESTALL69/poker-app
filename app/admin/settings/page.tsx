@@ -10,6 +10,7 @@ export default function AdminSettingsPage() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [accessChecked, setAccessChecked] = useState(false);
   const [emailLinkEnabled, setEmailLinkEnabled] = useState(false);
+  const [includeAdminActivity, setIncludeAdminActivity] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -20,10 +21,17 @@ export default function AdminSettingsPage() {
         setPlayer(ensuredPlayer);
 
         if (ensuredPlayer?.role === "admin") {
-          const res = await fetch("/api/settings/email_link_notification_enabled");
-          if (res.ok) {
-            const data = (await res.json()) as { value: boolean };
+          const [emailRes, adminActivityRes] = await Promise.all([
+            fetch("/api/settings/email_link_notification_enabled"),
+            fetch("/api/settings/include_admin_activity"),
+          ]);
+          if (emailRes.ok) {
+            const data = (await emailRes.json()) as { value: boolean };
             setEmailLinkEnabled(Boolean(data.value));
+          }
+          if (adminActivityRes.ok) {
+            const data = (await adminActivityRes.json()) as { value: boolean };
+            setIncludeAdminActivity(Boolean(data.value));
           }
         }
       } catch (error) {
@@ -35,6 +43,24 @@ export default function AdminSettingsPage() {
 
     init();
   }, []);
+
+  async function handleToggleAdminActivity() {
+    const next = !includeAdminActivity;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await fetchAdminJson("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "include_admin_activity", value: next }),
+      });
+      setIncludeAdminActivity(next);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Не удалось сохранить настройку");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleToggle() {
     const next = !emailLinkEnabled;
@@ -132,6 +158,38 @@ export default function AdminSettingsPage() {
             {saveError ? (
               <p className="mt-2 text-sm text-red-300">{saveError}</p>
             ) : null}
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="font-medium">Логирование админов</p>
+                <p className="mt-1 text-sm text-white/60">
+                  Показывать и записывать активность администраторов в разделе аналитики
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleAdminActivity}
+                disabled={saving}
+                aria-pressed={includeAdminActivity}
+                className={[
+                  "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50",
+                  includeAdminActivity ? "bg-yellow-500" : "bg-white/20",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "pointer-events-none inline-block h-6 w-6 -translate-y-px rounded-full bg-white shadow ring-0 transition-transform duration-200",
+                    includeAdminActivity ? "translate-x-5" : "translate-x-0",
+                  ].join(" ")}
+                />
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-white/40">
+              {includeAdminActivity ? "Включено" : "Выключено"}
+              {saving ? " — сохраняем..." : ""}
+            </p>
           </div>
         </section>
       </div>

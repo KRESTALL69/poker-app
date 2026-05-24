@@ -21,61 +21,71 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ events: data ?? [] });
   }
 
-  // Exclude admins: fetch only player-role IDs for metrics and list
+  // Fetch setting: show admin users in player list?
+  const { data: settingData } = await supabaseAdmin
+    .from("app_settings")
+    .select("value")
+    .eq("key", "include_admin_activity")
+    .maybeSingle();
+  const includeAdminActivity = settingData?.value === true;
+
+  // Non-admin player IDs — always used for KPI metrics
   const { data: nonAdminData } = await supabaseAdmin
     .from("players")
     .select("id")
     .eq("role", "player");
   const nonAdminIds = (nonAdminData ?? []).map((p: { id: string }) => p.id);
 
-  // Return metrics + player summary
   const now = new Date();
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const [
-    activeTodayRes,
-    active7dRes,
-    appOpened7dRes,
-    registrations7dRes,
-    playerSummaryRes,
-  ] = await Promise.all([
-    supabaseAdmin
-      .from("activity_events")
-      .select("player_id", { count: "exact", head: false })
-      .in("player_id", nonAdminIds)
-      .gte("created_at", todayStart.toISOString()),
+  // KPI metrics always exclude admins
+  const [activeTodayRes, active7dRes, appOpened7dRes, registrations7dRes] =
+    await Promise.all([
+      supabaseAdmin
+        .from("activity_events")
+        .select("player_id", { count: "exact", head: false })
+        .in("player_id", nonAdminIds)
+        .gte("created_at", todayStart.toISOString()),
 
-    supabaseAdmin
-      .from("activity_events")
-      .select("player_id", { count: "exact", head: false })
-      .in("player_id", nonAdminIds)
-      .gte("created_at", sevenDaysAgo.toISOString()),
+      supabaseAdmin
+        .from("activity_events")
+        .select("player_id", { count: "exact", head: false })
+        .in("player_id", nonAdminIds)
+        .gte("created_at", sevenDaysAgo.toISOString()),
 
-    supabaseAdmin
-      .from("activity_events")
-      .select("id", { count: "exact", head: false })
-      .in("player_id", nonAdminIds)
-      .eq("event_type", "app_opened")
-      .gte("created_at", sevenDaysAgo.toISOString()),
+      supabaseAdmin
+        .from("activity_events")
+        .select("id", { count: "exact", head: false })
+        .in("player_id", nonAdminIds)
+        .eq("event_type", "app_opened")
+        .gte("created_at", sevenDaysAgo.toISOString()),
 
-    supabaseAdmin
-      .from("activity_events")
-      .select("id", { count: "exact", head: false })
-      .in("player_id", nonAdminIds)
-      .eq("event_type", "registration_created")
-      .gte("created_at", sevenDaysAgo.toISOString()),
+      supabaseAdmin
+        .from("activity_events")
+        .select("id", { count: "exact", head: false })
+        .in("player_id", nonAdminIds)
+        .eq("event_type", "registration_created")
+        .gte("created_at", sevenDaysAgo.toISOString()),
+    ]);
 
-    supabaseAdmin
-      .from("activity_events")
-      .select("player_id, created_at, event_type")
-      .in("player_id", nonAdminIds)
-      .gte("created_at", sevenDaysAgo.toISOString())
-      .order("created_at", { ascending: false }),
-  ]);
+  // Player list summary: scope depends on setting
+  const playerSummaryRes = includeAdminActivity
+    ? await supabaseAdmin
+        .from("activity_events")
+        .select("player_id, created_at, event_type")
+        .gte("created_at", sevenDaysAgo.toISOString())
+        .order("created_at", { ascending: false })
+    : await supabaseAdmin
+        .from("activity_events")
+        .select("player_id, created_at, event_type")
+        .in("player_id", nonAdminIds)
+        .gte("created_at", sevenDaysAgo.toISOString())
+        .order("created_at", { ascending: false });
 
-  // Unique players for today and 7d
+  // Unique player counts for KPI
   const activeTodayIds = new Set(
     (activeTodayRes.data ?? []).map((r: { player_id: string }) => r.player_id)
   );
@@ -83,7 +93,7 @@ export async function GET(request: NextRequest) {
     (active7dRes.data ?? []).map((r: { player_id: string }) => r.player_id)
   );
 
-  // Build per-player summary from last 7d events
+  // Build per-player summary
   const playerMap: Record<
     string,
     { last_seen: string; last_event_type: string; event_count_7d: number }
@@ -104,7 +114,7 @@ export async function GET(request: NextRequest) {
     playerMap[row.player_id].event_count_7d += 1;
   }
 
-  // Fetch player details for those who have events
+  // Fetch player details
   const playerIds = Object.keys(playerMap);
   let playerDetails: Array<{
     id: string;
@@ -115,10 +125,16 @@ export async function GET(request: NextRequest) {
   }> = [];
 
   if (playerIds.length > 0) {
-    const { data } = await supabaseAdmin
-      .from("players")
-      .select("id, display_name, admin_display_name, email, username")
-      .in("id", playerIds);
+    const { data } = includeAdminActivity
+      ? await supabaseAdmin
+          .from("players")
+          .select("id, display_name, admin_display_name, email, username")
+          .in("id", playerIds)
+      : await supabaseAdmin
+          .from("players")
+          .select("id, display_name, admin_display_name, email, username")
+          .in("id", playerIds)
+          .eq("role", "player");
     playerDetails = (data ?? []) as typeof playerDetails;
   }
 

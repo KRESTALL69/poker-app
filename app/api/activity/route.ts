@@ -124,6 +124,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
 
+    // Skip logging if player is admin and include_admin_activity is off
+    const { data: playerData } = await supabaseAdmin
+      .from("players")
+      .select("role")
+      .eq("id", playerId)
+      .maybeSingle();
+
+    if (playerData?.role === "admin") {
+      const { data: settingData } = await supabaseAdmin
+        .from("app_settings")
+        .select("value")
+        .eq("key", "include_admin_activity")
+        .maybeSingle();
+      if (settingData?.value !== true) {
+        return NextResponse.json({ ok: true });
+      }
+    }
+
     const body = (await request.json()) as {
       event_type?: unknown;
       event_label?: unknown;
