@@ -106,6 +106,15 @@ export default function AdminActivityPage() {
     void init();
   }, []);
 
+  useEffect(() => {
+    if (!selectedPlayer) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [selectedPlayer]);
+
   async function loadPlayerEvents(row: PlayerRow) {
     setSelectedPlayer(row);
     setEventsLoading(true);
@@ -273,7 +282,7 @@ export default function AdminActivityPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
               {eventsLoading && (
                 <p className="text-sm text-white/50">Загружаем события...</p>
               )}
