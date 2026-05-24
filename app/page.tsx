@@ -639,8 +639,8 @@ export default function HomePage() {
 
               if (!loggedOpenRef.current) {
                 loggedOpenRef.current = true;
-                logEvent("app_opened");
-                logEvent("page_view_home");
+                logEvent("app_opened", { once: true });
+                logEvent("page_view_home", { once: true });
               }
 
               try {

@@ -51,10 +51,18 @@ async function getActivityContext(): Promise<{
 
 export function logEvent(
   eventType: string,
-  options?: { label?: string; metadata?: Record<string, unknown> }
+  options?: { label?: string; metadata?: Record<string, unknown>; once?: boolean }
 ): void {
   void (async () => {
     try {
+      if (options?.once) {
+        const dedupKey = `dwc.activity.${eventType}.logged`;
+        try {
+          if (sessionStorage.getItem(dedupKey)) return;
+          sessionStorage.setItem(dedupKey, "1");
+        } catch {}
+      }
+
       const { headers, platform, session_id } = await getActivityContext();
       await fetch("/api/activity", {
         method: "POST",

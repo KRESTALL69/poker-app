@@ -58,6 +58,7 @@ function formatDateTime(iso: string): string {
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
   });
 }
 
@@ -248,67 +249,76 @@ export default function AdminActivityPage() {
               </section>
             )}
 
-            {selectedPlayer && (
-              <section className="mt-8">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-base font-semibold">
-                    События: {selectedPlayer.display_name}
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlayer(null)}
-                    className="text-xs text-white/40 hover:text-white/70"
-                  >
-                    Закрыть
-                  </button>
-                </div>
-
-                {eventsLoading && (
-                  <p className="text-sm text-white/50">Загружаем события...</p>
-                )}
-
-                {!eventsLoading && events.length === 0 && (
-                  <p className="text-sm text-white/50">Нет событий</p>
-                )}
-
-                {!eventsLoading && events.length > 0 && (
-                  <div className="space-y-1 rounded-xl border border-white/10 bg-white/5 p-4">
-                    {events.map((ev) => {
-                      const label = ev.event_label
-                        ? `${formatEventType(ev.event_type)}: ${ev.event_label}`
-                        : formatEventType(ev.event_type);
-
-                      const platformLabel =
-                        ev.platform === "telegram"
-                          ? "TG"
-                          : ev.platform === "web"
-                            ? "Web"
-                            : null;
-
-                      return (
-                        <div
-                          key={ev.id}
-                          className="flex items-start gap-3 py-1.5 text-sm"
-                        >
-                          <span className="shrink-0 text-xs text-white/35">
-                            {formatDateTime(ev.created_at)}
-                          </span>
-                          <span className="text-white/80">{label}</span>
-                          {platformLabel && (
-                            <span className="ml-auto shrink-0 rounded bg-white/8 px-1.5 py-0.5 text-[10px] text-white/40">
-                              {platformLabel}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            )}
           </>
         )}
       </div>
+
+      {selectedPlayer && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/60"
+            onClick={() => setSelectedPlayer(null)}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-50 flex max-h-[80vh] flex-col rounded-t-2xl bg-[#111] sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
+              <h2 className="text-base font-semibold">
+                События: {selectedPlayer.display_name}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSelectedPlayer(null)}
+                className="text-xs text-white/40 hover:text-white/70"
+              >
+                Закрыть
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {eventsLoading && (
+                <p className="text-sm text-white/50">Загружаем события...</p>
+              )}
+
+              {!eventsLoading && events.length === 0 && (
+                <p className="text-sm text-white/50">Нет событий</p>
+              )}
+
+              {!eventsLoading && events.length > 0 && (
+                <div className="space-y-1">
+                  {events.map((ev) => {
+                    const label = ev.event_label
+                      ? `${formatEventType(ev.event_type)}: ${ev.event_label}`
+                      : formatEventType(ev.event_type);
+
+                    const platformLabel =
+                      ev.platform === "telegram"
+                        ? "TG"
+                        : ev.platform === "web"
+                          ? "Web"
+                          : null;
+
+                    return (
+                      <div
+                        key={ev.id}
+                        className="flex items-start gap-3 py-1.5 text-sm"
+                      >
+                        <span className="shrink-0 text-xs text-white/35">
+                          {formatDateTime(ev.created_at)}
+                        </span>
+                        <span className="text-white/80">{label}</span>
+                        {platformLabel && (
+                          <span className="ml-auto shrink-0 rounded bg-white/8 px-1.5 py-0.5 text-[10px] text-white/40">
+                            {platformLabel}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }
