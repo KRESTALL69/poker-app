@@ -67,6 +67,27 @@ function restoreZeroValue(value: string) {
   return value.trim() === "" ? "0" : value;
 }
 
+function findDuplicatePlace(rows: Array<{ arrived: boolean; place: string }>): number | null {
+  const counts = new Map<number, number>();
+  for (const row of rows) {
+    if (!row.arrived || !row.place.trim()) continue;
+    const place = Number(row.place);
+    if (isNaN(place) || place <= 0) continue;
+    counts.set(place, (counts.get(place) ?? 0) + 1);
+  }
+  for (const [place, count] of counts) {
+    if (count > 1) return place;
+  }
+  return null;
+}
+
+function sanitizeDbError(raw: string, fallback: string): string {
+  if (raw.includes("results_tournament_id_place_key")) {
+    return "У нескольких игроков указано одинаковое место";
+  }
+  return raw || fallback;
+}
+
 export default function AdminTournamentResultsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -302,6 +323,12 @@ export default function AdminTournamentResultsPage() {
       }
     }
 
+    const dupPlace = findDuplicatePlace(freeRows);
+    if (dupPlace !== null) {
+      setError(`Место ${dupPlace} указано несколько раз`);
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -334,9 +361,8 @@ export default function AdminTournamentResultsPage() {
       setInitialFreeSnapshot(JSON.stringify(freeRows));
       setMessage("Данные турнира сохранены");
     } catch (err) {
-      const nextMessage =
-        err instanceof Error ? err.message : "Ошибка синхронизации с таблицей";
-      setError(nextMessage);
+      const raw = err instanceof Error ? err.message : "Ошибка синхронизации с таблицей";
+      setError(sanitizeDbError(raw, "Ошибка синхронизации с таблицей"));
     } finally {
       setSaving(false);
     }
@@ -409,6 +435,12 @@ export default function AdminTournamentResultsPage() {
       return;
     }
 
+    const dupFreePlace = findDuplicatePlace(freeRows);
+    if (dupFreePlace !== null) {
+      setError(`Место ${dupFreePlace} указано несколько раз`);
+      return;
+    }
+
     try {
       setCompleting(true);
 
@@ -441,9 +473,8 @@ export default function AdminTournamentResultsPage() {
       setInitialFreeSnapshot(JSON.stringify(freeRows));
       setMessage("Турнир завершен, данные сохранены и обновлены в GS");
     } catch (err) {
-      const nextMessage =
-        err instanceof Error ? err.message : "Ошибка завершения турнира";
-      setError(nextMessage);
+      const raw = err instanceof Error ? err.message : "Ошибка завершения турнира";
+      setError(sanitizeDbError(raw, "Ошибка завершения турнира"));
     } finally {
       setCompleting(false);
     }
@@ -471,6 +502,12 @@ export default function AdminTournamentResultsPage() {
         setError(`Укажите корректное место для игрока ${row.display_name}`);
         return;
       }
+    }
+
+    const dupLiveSyncPlace = findDuplicatePlace(liveRows);
+    if (dupLiveSyncPlace !== null) {
+      setError(`Место ${dupLiveSyncPlace} указано несколько раз`);
+      return;
     }
 
     try {
@@ -505,9 +542,8 @@ export default function AdminTournamentResultsPage() {
       setInitialLiveSnapshot(JSON.stringify(liveRows));
       setMessage("Данные турнира сохранены");
     } catch (err) {
-      const nextMessage =
-        err instanceof Error ? err.message : "Ошибка синхронизации с таблицей";
-      setError(nextMessage);
+      const raw = err instanceof Error ? err.message : "Ошибка синхронизации с таблицей";
+      setError(sanitizeDbError(raw, "Ошибка синхронизации с таблицей"));
     } finally {
       setSaving(false);
     }
@@ -571,6 +607,12 @@ export default function AdminTournamentResultsPage() {
       return;
     }
 
+    const dupLivePlace = findDuplicatePlace(liveRows);
+    if (dupLivePlace !== null) {
+      setError(`Место ${dupLivePlace} указано несколько раз`);
+      return;
+    }
+
     try {
       setCompleting(true);
 
@@ -589,9 +631,8 @@ export default function AdminTournamentResultsPage() {
         "Турнир завершен, данные перенесены в results и обновлены в GS"
       );
     } catch (err) {
-      const nextMessage =
-        err instanceof Error ? err.message : "Ошибка завершения турнира";
-      setError(nextMessage);
+      const raw = err instanceof Error ? err.message : "Ошибка завершения турнира";
+      setError(sanitizeDbError(raw, "Ошибка завершения турнира"));
     } finally {
       setCompleting(false);
     }

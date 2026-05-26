@@ -1,9 +1,109 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { loadAdminPlayer } from "@/lib/admin-auth";
 import type { Player } from "@/types/domain";
+
+function IconPlusCircle() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="16" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+    </svg>
+  );
+}
+
+function IconTrophy() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  );
+}
+
+function IconUsers() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function IconShieldCheck() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <polyline points="9 12 11 14 15 10" />
+    </svg>
+  );
+}
+
+function IconActivity() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </svg>
+  );
+}
+
+function IconBell() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
+function IconSettings() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+type NavItem = {
+  href: string;
+  label: string;
+  Icon: ComponentType;
+};
+
+const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
+  {
+    title: "Турниры",
+    items: [
+      { href: "/admin/tournaments/create", label: "Создание турнира", Icon: IconPlusCircle },
+      { href: "/admin/tournaments", label: "Модерация турниров", Icon: IconTrophy },
+    ],
+  },
+  {
+    title: "Игроки",
+    items: [
+      { href: "/admin/player-access", label: "Доступы игроков", Icon: IconUsers },
+      { href: "/admin/moderation", label: "Модерация ников", Icon: IconShieldCheck },
+      { href: "/admin/activity", label: "Активность", Icon: IconActivity },
+    ],
+  },
+  {
+    title: "Система",
+    items: [
+      { href: "/admin/tournament-notifications", label: "Рассылка", Icon: IconBell },
+      { href: "/admin/settings", label: "Настройки", Icon: IconSettings },
+    ],
+  },
+];
 
 export default function AdminPage() {
   const [player, setPlayer] = useState<Player | null>(null);
@@ -67,102 +167,32 @@ export default function AdminPage() {
         </Link>
 
         <h1 className="text-2xl font-bold">Админ-панель</h1>
-        <p className="mt-2 text-sm text-white/70">
-          Управление турнирами и модерацией клуба
-        </p>
 
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
-          <Link
-            href="/admin/moderation"
-            className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-yellow-500/40 hover:bg-white/8"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
-              MN
+        <div className="mt-6 space-y-6">
+          {SECTIONS.map((section) => (
+            <div key={section.title}>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/40">
+                {section.title}
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {section.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 transition active:scale-95 hover:border-yellow-500/40 hover:bg-white/8"
+                  >
+                    <span className="text-yellow-400">
+                      <item.Icon />
+                    </span>
+                    <span className="text-sm font-semibold leading-snug">
+                      {item.label}
+                    </span>
+                  </Link>
+                ))}
+              </div>
             </div>
-            <h2 className="mt-4 text-lg font-semibold">Модерация ников</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Проверка и одобрение новых ников игроков
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/tournaments/create"
-            className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-yellow-500/40 hover:bg-white/8"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
-              CT
-            </div>
-            <h2 className="mt-4 text-lg font-semibold">Создание турнира</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Создание нового турнира с базовыми настройками
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/player-access"
-            className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-yellow-500/40 hover:bg-white/8"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
-              DP
-            </div>
-            <h2 className="mt-4 text-lg font-semibold">Доступы игроков</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Выдача доступа к турнирам и кэш-играм
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/tournament-notifications"
-            className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-yellow-500/40 hover:bg-white/8"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
-              RU
-            </div>
-            <h2 className="mt-4 text-lg font-semibold">Рассылка уведомлений</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Отправка сообщений игрокам по выбранному турниру
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/tournaments"
-            className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-yellow-500/40 hover:bg-white/8"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
-              MT
-            </div>
-            <h2 className="mt-4 text-lg font-semibold">Модерация турниров</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Открытие, редактирование, результаты и удаление турниров
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/settings"
-            className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-yellow-500/40 hover:bg-white/8"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
-              ST
-            </div>
-            <h2 className="mt-4 text-lg font-semibold">Настройки</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Глобальные настройки и feature-флаги приложения
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/activity"
-            className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-yellow-500/40 hover:bg-white/8"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500 font-bold text-black">
-              AC
-            </div>
-            <h2 className="mt-4 text-lg font-semibold">Активность</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Аналитика действий игроков в приложении
-            </p>
-          </Link>
-        </section>
+          ))}
+        </div>
       </div>
     </main>
   );
