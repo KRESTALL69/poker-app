@@ -99,11 +99,20 @@ export async function appendReportRow(title: string, tabName: string) {
   const sheets = getGoogleSheetsClient();
   const spreadsheetId = getSpreadsheetId();
 
-  await sheets.spreadsheets.values.append({
+  // values.append detects the "table anchor" from existing data, which causes
+  // the row to be written starting at whatever column the existing data begins
+  // (e.g. column J instead of A). Using values.get + values.update with an
+  // explicit A{row} range guarantees we always start writing at column A.
+  const existing = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: "Лист1!A:M",
+  });
+  const nextRow = (existing.data.values ?? []).length + 1;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `Лист1!A${nextRow}`,
     valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
     requestBody: {
       values: [[
         title,
