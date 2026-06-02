@@ -228,6 +228,7 @@ export default function HomePage() {
   const [emailLinkLoading, setEmailLinkLoading] = useState(false);
   const [emailLinkError, setEmailLinkError] = useState<string | null>(null);
   const [emailLinkResendCooldown, setEmailLinkResendCooldown] = useState(0);
+  const [emailLinkSuccess, setEmailLinkSuccess] = useState(false);
 
   const registrationsRef = useRef<Record<string, string>>({});
   const emailLinkCodeInputRef = useRef<HTMLInputElement>(null);
@@ -472,6 +473,7 @@ export default function HomePage() {
       window.sessionStorage.setItem("dwc.email.link.dismissed", "1");
     } catch {}
     setShowEmailLinkModal(false);
+    setEmailLinkSuccess(false);
   }
 
   function startEmailLinkResendCooldown() {
@@ -550,7 +552,11 @@ export default function HomePage() {
       const updatedPlayer = await linkEmailToPlayer(player.id, normalized);
       setPlayer(updatedPlayer);
       logEvent("email_link_completed");
-      setShowEmailLinkModal(false);
+      setEmailLinkSuccess(true);
+      setTimeout(() => {
+        setShowEmailLinkModal(false);
+        setEmailLinkSuccess(false);
+      }, 2500);
     } catch (err) {
       setEmailLinkError(err instanceof Error ? err.message : "Ошибка привязки email.");
     } finally {
@@ -1293,7 +1299,13 @@ export default function HomePage() {
               </button>
             </div>
 
-            {emailLinkStep === "email" ? (
+            {emailLinkSuccess ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <div className="mb-3 text-4xl">✅</div>
+                <p className="text-lg font-semibold text-white">Email успешно привязан</p>
+                <p className="mt-1.5 text-sm text-white/50">Теперь вы можете войти через email</p>
+              </div>
+            ) : emailLinkStep === "email" ? (
               <form onSubmit={handleEmailLinkRequestCode}>
                 <p className="mb-4 text-sm text-white/60">
                   Чтобы входить в приложение без Telegram и не потерять доступ к профилю
@@ -1345,7 +1357,15 @@ export default function HomePage() {
                   disabled={emailLinkLoading || emailLinkCode.length < 6}
                   className="mt-3 w-full rounded-xl bg-yellow-500 py-3 font-semibold text-black disabled:opacity-40"
                 >
-                  {emailLinkLoading ? "Проверяем..." : "Подтвердить"}
+                  {emailLinkLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Проверяем код...
+                    </span>
+                  ) : "Подтвердить"}
                 </button>
                 <button
                   type="button"
