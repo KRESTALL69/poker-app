@@ -837,7 +837,7 @@ export default function AdminTournamentResultsPage() {
                         <p className="mt-1 text-sm text-white/45">@{row.username}</p>
                       ) : null}
                     </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex flex-col items-center gap-1 shrink-0">
                       <p className="text-[11px] font-medium text-white/60">Выигрыш</p>
                       <input
                         type="number"
