@@ -232,7 +232,7 @@ export async function applyTournamentSheetFormatting(
               startRowIndex: 6,
               endRowIndex: 7,
               startColumnIndex: 0,
-              endColumnIndex: 10,
+              endColumnIndex: 11,
             },
             cell: {
               userEnteredFormat: {
@@ -263,7 +263,7 @@ export async function applyTournamentSheetFormatting(
               sheetId,
               startRowIndex: 7,
               startColumnIndex: 0,
-              endColumnIndex: 10,
+              endColumnIndex: 11,
             },
             cell: {
               userEnteredFormat: {
@@ -285,7 +285,7 @@ export async function applyTournamentSheetFormatting(
               sheetId,
               startRowIndex: 6,
               startColumnIndex: 0,
-              endColumnIndex: 10,
+              endColumnIndex: 11,
             },
             top: {
               style: "SOLID",
@@ -391,7 +391,7 @@ export async function applyTournamentSheetFormatting(
               sheetId,
               dimension: "COLUMNS",
               startIndex: 5,
-              endIndex: 10,
+              endIndex: 11,
             },
             properties: {
               pixelSize: 110,
@@ -517,4 +517,136 @@ export async function writeTournamentLiveSheet(
 
 export function buildSpreadsheetTabUrl(sheetId: number) {
   return `https://docs.google.com/spreadsheets/d/${getSpreadsheetId()}/edit#gid=${sheetId}`;
+}
+
+const PLAYER_RESULTS_TAB = "результаты игроков";
+
+type PlayerResultsRow = {
+  player_id: string;
+  display_name: string;
+  username: string | null;
+  tournaments: number;
+  reentries: number;
+  addons: number;
+  knockouts: number;
+  spent: number;
+  winnings: number;
+};
+
+export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
+  const sheets = getGoogleSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const { sheetId } = await ensureSpreadsheetTab(PLAYER_RESULTS_TAB);
+
+  const headers = [
+    "Игрок",
+    "Телеграм ник",
+    "Турниров",
+    "Ребаи",
+    "Аддоны",
+    "Баунти",
+    "Внесено",
+    "Выиграно",
+    "Чистый результат",
+    "ROI клуба (%)",
+  ];
+
+  const dataRows = rows.map((row) => {
+    const net = row.spent - row.winnings;
+    const roi = row.spent > 0
+      ? Math.round((net / row.spent) * 10000) / 100
+      : 0;
+    return [
+      row.display_name,
+      row.username ? `@${row.username}` : "",
+      row.tournaments,
+      row.reentries,
+      row.addons,
+      row.knockouts,
+      row.spent,
+      row.winnings,
+      net,
+      roi,
+    ];
+  });
+
+  await replaceSpreadsheetTabValues(PLAYER_RESULTS_TAB, [headers, ...dataRows]);
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: {
+              sheetId,
+              gridProperties: { frozenRowCount: 1 },
+            },
+            fields: "gridProperties.frozenRowCount",
+          },
+        },
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 0,
+              endRowIndex: 1,
+              startColumnIndex: 0,
+              endColumnIndex: 10,
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 0.92, green: 0.95, blue: 0.99 },
+                textFormat: {
+                  bold: true,
+                  foregroundColor: { red: 0.1, green: 0.1, blue: 0.1 },
+                },
+                horizontalAlignment: "CENTER",
+              },
+            },
+            fields: "userEnteredFormat(backgroundColor,textFormat.bold,textFormat.foregroundColor,horizontalAlignment)",
+          },
+        },
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 1,
+              startColumnIndex: 0,
+              endColumnIndex: 10,
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 1, green: 1, blue: 1 },
+                verticalAlignment: "MIDDLE",
+              },
+            },
+            fields: "userEnteredFormat(backgroundColor,verticalAlignment)",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: 1 },
+            properties: { pixelSize: 180 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 1, endIndex: 2 },
+            properties: { pixelSize: 150 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 10 },
+            properties: { pixelSize: 110 },
+            fields: "pixelSize",
+          },
+        },
+      ],
+    },
+  });
 }

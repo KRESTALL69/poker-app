@@ -49,8 +49,11 @@ export type ResultRow = {
   season_id: string | null;
   place: number;
   reentries: number;
+  addons: number;
   knockouts: number;
   rating_points: number;
+  winnings: number;
+  spent: number;
   created_at: string;
 };
 
@@ -64,6 +67,7 @@ export type TournamentLiveEntryRow = {
   addons: number;
   knockouts: number;
   place: number | null;
+  winnings: number;
   sheet_row_number: number | null;
   created_at: string;
   updated_at: string;

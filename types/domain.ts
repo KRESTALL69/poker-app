@@ -63,6 +63,7 @@ export type Result = {
   player_id: string;
   place: number;
   rating_points: number;
+  winnings: number;
   created_at: string;
 };
 
@@ -82,8 +83,11 @@ export type TournamentResultInput = {
   player_id: string;
   place: number;
   reentries: number;
+  addons: number;
   knockouts: number;
   rating_points: number;
+  winnings: number;
+  spent: number;
 };
 
 export type TournamentResult = {
@@ -92,6 +96,7 @@ export type TournamentResult = {
   knockouts: number;
   reentries: number;
   rating_points: number;
+  winnings: number;
   username: string | null;
   display_name: string;
 };
@@ -109,6 +114,7 @@ export type TournamentLiveEntry = {
   addons: number;
   knockouts: number;
   place: number | null;
+  winnings: number;
   sheet_row_number: number | null;
 };
 

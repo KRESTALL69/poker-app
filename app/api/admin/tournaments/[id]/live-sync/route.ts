@@ -77,6 +77,7 @@ function buildLiveSheetValues(
       "Addon",
       "Nok",
       "Место",
+      "Выигрыш",
     ],
     ...exportData.rows.map((row) => [
       row.player_id,
@@ -89,6 +90,7 @@ function buildLiveSheetValues(
       row.addons,
       row.knockouts,
       row.place ?? "",
+      row.winnings,
     ]),
   ];
 }
@@ -102,6 +104,7 @@ export async function syncTournamentLiveSheet(
     addons: number;
     knockouts: number;
     place: number | null;
+    winnings: number;
   }>,
   entryPrice = 0,
   addonPrice = 0,
@@ -156,6 +159,7 @@ export async function POST(
             addons: number;
             knockouts: number;
             place: number | null;
+            winnings: number;
           }>;
           entryPrice?: number;
           addonPrice?: number;

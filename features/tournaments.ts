@@ -43,6 +43,7 @@ export type TournamentLiveSheetRow = {
   addons: number;
   knockouts: number;
   place: number | null;
+  winnings: number;
   sheet_row_number: number | null;
 };
 
@@ -107,6 +108,7 @@ function mapTournamentLiveEntryRow(
     addons: row.addons,
     knockouts: row.knockouts,
     place: row.place,
+    winnings: row.winnings,
     sheet_row_number: row.sheet_row_number,
   };
 }
@@ -1111,6 +1113,7 @@ export async function updateTournamentLiveEntries(
     addons: number;
     knockouts: number;
     place: number | null;
+    winnings: number;
   }>
 ) {
   const tournament = await getTournamentById(tournamentId);
@@ -1134,6 +1137,7 @@ export async function updateTournamentLiveEntries(
         addons: row.addons,
         knockouts: row.knockouts,
         place: row.place,
+        winnings: row.winnings,
         updated_at: new Date().toISOString(),
       })
       .eq("tournament_id", tournamentId)
@@ -1169,6 +1173,7 @@ export async function getTournamentLiveSheetData(
       addons: row.addons,
       knockouts: row.knockouts,
       place: row.place,
+      winnings: row.winnings,
       sheet_row_number: row.sheet_row_number ?? index + 8,
     })),
   };
@@ -1183,6 +1188,7 @@ export async function applyTournamentLiveSheetRows(
     addons: number;
     knockouts: number;
     place: number | null;
+    winnings?: number;
     sheet_row_number?: number | null;
   }>
 ) {
@@ -1197,6 +1203,7 @@ export async function applyTournamentLiveSheetRows(
       addons: row.addons,
       knockouts: row.knockouts,
       place: row.place,
+      winnings: row.winnings ?? 0,
       updated_at: new Date().toISOString(),
     };
 
@@ -1218,7 +1225,12 @@ export async function applyTournamentLiveSheetRows(
   return getTournamentLiveEntries(tournamentId);
 }
 
-export async function completeTournamentFromLiveEntries(tournamentId: string) {
+export async function completeTournamentFromLiveEntries(
+  tournamentId: string,
+  entryPrice = 0,
+  addonPrice = 0,
+  bountyPrice = 0
+) {
   const tournament = await getTournamentById(tournamentId);
 
   if (tournament.kind === "free") {
@@ -1266,8 +1278,11 @@ export async function completeTournamentFromLiveEntries(tournamentId: string) {
     season_id: tournamentRow.season_id ?? null,
     place: entry.place,
     reentries: entry.rebuys,
+    addons: entry.addons,
     knockouts: entry.knockouts,
     rating_points: 0,
+    winnings: entry.winnings,
+    spent: (1 + entry.rebuys) * entryPrice + entry.addons * addonPrice + entry.knockouts * bountyPrice,
   }));
 
   const { error: insertError } = await supabase.from("results").insert(payload);
@@ -1332,8 +1347,11 @@ export async function saveTournamentResults(
     season_id: tournamentRow.season_id ?? null,
     place: item.place,
     reentries: item.reentries,
+    addons: item.addons,
     knockouts: item.knockouts,
     rating_points: item.rating_points,
+    winnings: item.winnings,
+    spent: item.spent,
   }));
 
   const { error: insertError } = await supabase
@@ -1483,6 +1501,7 @@ export async function getTournamentResults(
       knockouts,
       reentries,
       rating_points,
+      winnings,
       players (
         username,
         display_name
@@ -1504,9 +1523,77 @@ export async function getTournamentResults(
       knockouts: row.knockouts,
       reentries: row.reentries,
       rating_points: row.rating_points,
+      winnings: row.winnings ?? 0,
       username: player?.username ?? null,
       display_name: player?.display_name ?? "Игрок",
     };
+  });
+}
+
+export type PlayerResultsStats = {
+  player_id: string;
+  display_name: string;
+  username: string | null;
+  tournaments: number;
+  reentries: number;
+  addons: number;
+  knockouts: number;
+  spent: number;
+  winnings: number;
+};
+
+export async function getPlayerResultsStats(): Promise<PlayerResultsStats[]> {
+  const { data, error } = await supabase
+    .from("results")
+    .select(`
+      player_id,
+      reentries,
+      addons,
+      knockouts,
+      spent,
+      winnings,
+      players (
+        username,
+        display_name
+      )
+    `);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const map = new Map<string, PlayerResultsStats>();
+
+  for (const row of data ?? []) {
+    const player = Array.isArray(row.players) ? row.players[0] : row.players;
+    const existing = map.get(row.player_id);
+
+    if (existing) {
+      existing.tournaments += 1;
+      existing.reentries += row.reentries ?? 0;
+      existing.addons += row.addons ?? 0;
+      existing.knockouts += row.knockouts ?? 0;
+      existing.spent += row.spent ?? 0;
+      existing.winnings += row.winnings ?? 0;
+    } else {
+      map.set(row.player_id, {
+        player_id: row.player_id,
+        display_name: player?.display_name ?? "Игрок",
+        username: player?.username ?? null,
+        tournaments: 1,
+        reentries: row.reentries ?? 0,
+        addons: row.addons ?? 0,
+        knockouts: row.knockouts ?? 0,
+        spent: row.spent ?? 0,
+        winnings: row.winnings ?? 0,
+      });
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    const netA = a.spent - a.winnings;
+    const netB = b.spent - b.winnings;
+    return netB - netA;
   });
 }
 

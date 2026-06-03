@@ -19,6 +19,7 @@ type FreeSheetRowInput = {
   addons: number;
   knockouts: number;
   place: number | null;
+  winnings: number;
 };
 
 function buildTabName(title: string, startAt: string, tournamentId: string) {
@@ -107,6 +108,7 @@ function buildFreeSheetValues(
       "Addon",
       "Nok",
       "Место",
+      "Выигрыш",
     ],
     ...exportData.rows.map((row) => {
       const values = rowsMap.get(row.player_id);
@@ -122,6 +124,7 @@ function buildFreeSheetValues(
         values?.addons ?? 0,
         values?.knockouts ?? 0,
         values?.place ?? "",
+        values?.winnings ?? 0,
       ];
     }),
   ];
@@ -150,6 +153,7 @@ function buildLiveSheetValues(
       "Нокауты",
       "Место",
       "Комментарий",
+      "Выигрыш",
     ],
     ...exportData.rows.map((row) => [
       row.player_id,
@@ -161,6 +165,7 @@ function buildLiveSheetValues(
       0,
       "",
       "",
+      0,
     ]),
   ];
 }
@@ -215,7 +220,15 @@ export async function POST(
     const { id } = await context.params;
     const body = (await request.json().catch(() => null)) as
       | {
-          rows?: FreeSheetRowInput[];
+          rows?: Array<{
+            player_id: string;
+            arrived: boolean;
+            rebuys: number;
+            addons: number;
+            knockouts: number;
+            place: number | null;
+            winnings: number;
+          }>;
           entryPrice?: number;
           addonPrice?: number;
           bountyPrice?: number;

@@ -64,6 +64,7 @@ export async function POST(
           addons: parseNumberCell(row[7]),
           knockouts: parseNumberCell(row[8]),
           place: parseNullableNumberCell(row[9]),
+          winnings: parseNumberCell(row[10]),
         }))
         .filter(
           (row) =>
@@ -86,6 +87,7 @@ export async function POST(
           addons: sheetRow?.addons ?? 0,
           knockouts: sheetRow?.knockouts ?? 0,
           place: sheetRow?.place ?? null,
+          winnings: sheetRow?.winnings ?? 0,
         };
       });
 
@@ -106,6 +108,7 @@ export async function POST(
         addons: parseNumberCell(row[7]),
         knockouts: parseNumberCell(row[8]),
         place: parseNullableNumberCell(row[9]),
+        winnings: parseNumberCell(row[10]),
         sheet_row_number: index + 8,
       }))
       .filter(

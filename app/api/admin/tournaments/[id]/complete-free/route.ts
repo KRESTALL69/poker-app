@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { saveTournamentResults } from "@/features/tournaments";
+import { getPlayerResultsStats, saveTournamentResults } from "@/features/tournaments";
 import { syncTournamentSheet } from "@/app/api/admin/tournaments/[id]/export-sheet/route";
+import { writePlayerResultsSheet } from "@/lib/google-sheets";
 
 export async function POST(
   request: Request,
@@ -16,6 +17,7 @@ export async function POST(
         addons?: number;
         knockouts: number;
         place: number;
+        winnings: number;
       }>;
       entryPrice?: number;
       addonPrice?: number;
@@ -23,16 +25,28 @@ export async function POST(
     };
 
     const rows = body.rows ?? [];
+    const entryPrice = body.entryPrice ?? 0;
+    const addonPrice = body.addonPrice ?? 0;
+    const bountyPrice = body.bountyPrice ?? 0;
 
     await saveTournamentResults(
       id,
-      rows.map((row) => ({
-        player_id: row.player_id,
-        place: row.place,
-        reentries: row.rebuys,
-        knockouts: row.knockouts,
-        rating_points: 0, // TODO: restore automatic rating calculation for free tournaments.
-      }))
+      rows.map((row) => {
+        const rebuys = row.rebuys ?? 0;
+        const addons = row.addons ?? 0;
+        const knockouts = row.knockouts ?? 0;
+        const spent = (1 + rebuys) * entryPrice + addons * addonPrice + knockouts * bountyPrice;
+        return {
+          player_id: row.player_id,
+          place: row.place,
+          reentries: rebuys,
+          addons,
+          knockouts,
+          rating_points: 0, // TODO: restore automatic rating calculation for free tournaments.
+          winnings: row.winnings ?? 0,
+          spent,
+        };
+      })
     );
 
     await syncTournamentSheet(
@@ -44,11 +58,15 @@ export async function POST(
         addons: row.addons ?? 0,
         knockouts: row.knockouts,
         place: row.place,
+        winnings: row.winnings ?? 0,
       })),
-      body.entryPrice ?? 0,
-      body.addonPrice ?? 0,
-      body.bountyPrice ?? 0
+      entryPrice,
+      addonPrice,
+      bountyPrice
     );
+
+    const stats = await getPlayerResultsStats();
+    await writePlayerResultsSheet(stats);
 
     return NextResponse.json({
       ok: true,
