@@ -549,13 +549,13 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
     "Внесено",
     "Выиграно",
     "Чистый результат",
-    "ROI клуба (%)",
+    "ROI игрока (%)",
   ];
 
   const dataRows = rows.map((row) => {
-    const net = row.spent - row.winnings;
+    const net = row.winnings - row.spent;
     const roi = row.spent > 0
-      ? Math.round((net / row.spent) * 10000) / 100
+      ? Math.round((net / row.spent) * 100)
       : 0;
     return [
       row.display_name,
