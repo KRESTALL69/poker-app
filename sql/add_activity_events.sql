@@ -11,7 +11,7 @@ create table if not exists activity_events (
 
 create index if not exists activity_events_player_created
   on activity_events (player_id, created_at desc);
-
+1
 create index if not exists activity_events_type_created
   on activity_events (event_type, created_at desc);
 
