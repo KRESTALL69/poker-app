@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPlayerResultsStats, saveTournamentResults } from "@/features/tournaments";
 import { syncTournamentSheet } from "@/app/api/admin/tournaments/[id]/export-sheet/route";
 import { writePlayerResultsSheet } from "@/lib/google-sheets";
+import { calculateRatingPoints } from "@/config/rating";
 
 export async function POST(
   request: Request,
@@ -29,6 +30,9 @@ export async function POST(
     const addonPrice = body.addonPrice ?? 0;
     const bountyPrice = body.bountyPrice ?? 0;
 
+    const totalPrizePool = rows.reduce((sum, r) => sum + (r.winnings ?? 0), 0);
+    const totalPlayers = rows.length;
+
     await saveTournamentResults(
       id,
       rows.map((row) => {
@@ -36,13 +40,16 @@ export async function POST(
         const addons = row.addons ?? 0;
         const knockouts = row.knockouts ?? 0;
         const spent = (1 + rebuys) * entryPrice + addons * addonPrice + knockouts * bountyPrice;
+        const playerEntries = 1 + rebuys + addons;
+        const ratingPoints = calculateRatingPoints(row.place, totalPrizePool, totalPlayers, playerEntries);
+        console.log(`[rating] free tournament=${id} player=${row.player_id} place=${row.place} entries=${playerEntries} prizePool=${totalPrizePool} players=${totalPlayers} → ${ratingPoints}pts`);
         return {
           player_id: row.player_id,
           place: row.place,
           reentries: rebuys,
           addons,
           knockouts,
-          rating_points: 0, // TODO: restore automatic rating calculation for free tournaments.
+          rating_points: ratingPoints,
           winnings: row.winnings ?? 0,
           spent,
         };

@@ -1,13 +1,23 @@
-export const RATING_POINTS = {
-  firstPlace: 100,
-  secondPlace: 70,
-  thirdPlace: 50,
-  participation: 20,
-} as const;
+const PLACE_COEFFICIENTS: Record<number, number> = {
+  1: 0.28,
+  2: 0.20,
+  3: 0.15,
+  4: 0.11,
+  5: 0.08,
+  6: 0.07,
+  7: 0.06,
+  8: 0.05,
+};
 
-export function getRatingPointsByPlace(place: number): number {
-  if (place === 1) return RATING_POINTS.firstPlace;
-  if (place === 2) return RATING_POINTS.secondPlace;
-  if (place === 3) return RATING_POINTS.thirdPlace;
-  return RATING_POINTS.participation;
+export function calculateRatingPoints(
+  place: number,
+  totalPrizePool: number,
+  totalPlayers: number,
+  playerEntries: number
+): number {
+  const coefficient = PLACE_COEFFICIENTS[place];
+  if (!coefficient || totalPlayers === 0) return 0;
+  return Math.round(
+    (coefficient * totalPrizePool / totalPlayers) + playerEntries * 100
+  );
 }

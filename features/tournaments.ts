@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { syncPlayersAchievements } from "@/features/achievements";
+import { calculateRatingPoints } from "@/config/rating";
 import type {
   Registration,
   RegistrationStatus,
@@ -1272,18 +1273,26 @@ export async function completeTournamentFromLiveEntries(
     throw new Error(deleteError.message);
   }
 
-  const payload = liveEntries.map((entry) => ({
-    tournament_id: tournamentId,
-    player_id: entry.player_id,
-    season_id: tournamentRow.season_id ?? null,
-    place: entry.place,
-    reentries: entry.rebuys,
-    addons: entry.addons,
-    knockouts: entry.knockouts,
-    rating_points: 0,
-    winnings: entry.winnings,
-    spent: (1 + entry.rebuys) * entryPrice + entry.addons * addonPrice + entry.knockouts * bountyPrice,
-  }));
+  const totalPrizePool = liveEntries.reduce((sum, e) => sum + (e.winnings ?? 0), 0);
+  const totalPlayers = liveEntries.length;
+
+  const payload = liveEntries.map((entry) => {
+    const playerEntries = 1 + entry.rebuys + entry.addons;
+    const ratingPoints = calculateRatingPoints(entry.place!, totalPrizePool, totalPlayers, playerEntries);
+    console.log(`[rating] live tournament=${tournamentId} player=${entry.player_id} place=${entry.place} entries=${playerEntries} prizePool=${totalPrizePool} players=${totalPlayers} → ${ratingPoints}pts`);
+    return {
+      tournament_id: tournamentId,
+      player_id: entry.player_id,
+      season_id: tournamentRow.season_id ?? null,
+      place: entry.place,
+      reentries: entry.rebuys,
+      addons: entry.addons,
+      knockouts: entry.knockouts,
+      rating_points: ratingPoints,
+      winnings: entry.winnings,
+      spent: (1 + entry.rebuys) * entryPrice + entry.addons * addonPrice + entry.knockouts * bountyPrice,
+    };
+  });
 
   const { error: insertError } = await supabase.from("results").insert(payload);
 
