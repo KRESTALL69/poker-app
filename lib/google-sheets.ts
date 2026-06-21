@@ -526,6 +526,8 @@ type PlayerResultsRow = {
   display_name: string;
   username: string | null;
   tournaments: number;
+  finalTableCount: number;
+  itmCount: number;
   reentries: number;
   addons: number;
   knockouts: number;
@@ -543,6 +545,8 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
     "Игрок",
     "Телеграм ник",
     "Турниров",
+    "Финальный стол",
+    "ITM",
     "Ребаи",
     "Аддоны",
     "Баунти",
@@ -561,6 +565,8 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
       row.display_name,
       row.username ? `@${row.username}` : "",
       row.tournaments,
+      row.finalTableCount,
+      row.itmCount,
       row.reentries,
       row.addons,
       row.knockouts,
@@ -593,7 +599,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
               startRowIndex: 0,
               endRowIndex: 1,
               startColumnIndex: 0,
-              endColumnIndex: 10,
+              endColumnIndex: 12,
             },
             cell: {
               userEnteredFormat: {
@@ -614,7 +620,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
               sheetId,
               startRowIndex: 1,
               startColumnIndex: 0,
-              endColumnIndex: 10,
+              endColumnIndex: 12,
             },
             cell: {
               userEnteredFormat: {
@@ -641,7 +647,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
         },
         {
           updateDimensionProperties: {
-            range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 10 },
+            range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 12 },
             properties: { pixelSize: 110 },
             fields: "pixelSize",
           },

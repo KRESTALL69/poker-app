@@ -1535,6 +1535,8 @@ export type PlayerResultsStats = {
   display_name: string;
   username: string | null;
   tournaments: number;
+  finalTableCount: number;
+  itmCount: number;
   reentries: number;
   addons: number;
   knockouts: number;
@@ -1547,6 +1549,7 @@ export async function getPlayerResultsStats(): Promise<PlayerResultsStats[]> {
     .from("results")
     .select(`
       player_id,
+      place,
       reentries,
       addons,
       knockouts,
@@ -1567,25 +1570,33 @@ export async function getPlayerResultsStats(): Promise<PlayerResultsStats[]> {
   for (const row of data ?? []) {
     const player = Array.isArray(row.players) ? row.players[0] : row.players;
     const existing = map.get(row.player_id);
+    const place = row.place ?? 0;
+    const winnings = row.winnings ?? 0;
+    const isFinalTable = place >= 1 && place <= 8 ? 1 : 0;
+    const isItm = winnings > 0 ? 1 : 0;
 
     if (existing) {
       existing.tournaments += 1;
+      existing.finalTableCount += isFinalTable;
+      existing.itmCount += isItm;
       existing.reentries += row.reentries ?? 0;
       existing.addons += row.addons ?? 0;
       existing.knockouts += row.knockouts ?? 0;
       existing.spent += row.spent ?? 0;
-      existing.winnings += row.winnings ?? 0;
+      existing.winnings += winnings;
     } else {
       map.set(row.player_id, {
         player_id: row.player_id,
         display_name: player?.display_name ?? "Игрок",
         username: player?.username ?? null,
         tournaments: 1,
+        finalTableCount: isFinalTable,
+        itmCount: isItm,
         reentries: row.reentries ?? 0,
         addons: row.addons ?? 0,
         knockouts: row.knockouts ?? 0,
         spent: row.spent ?? 0,
-        winnings: row.winnings ?? 0,
+        winnings: winnings,
       });
     }
   }
