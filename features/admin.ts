@@ -22,6 +22,9 @@ function mapPlayerRowToDomain(row: PlayerRow): Player {
     can_access_free: row.can_access_free,
     can_access_paid: row.can_access_paid,
     can_access_cash: row.can_access_cash,
+    is_blocked: row.is_blocked ?? false,
+    blocked_at: row.blocked_at ?? undefined,
+    block_reason: row.block_reason ?? undefined,
     created_at: row.created_at,
   };
 }
@@ -117,6 +120,81 @@ export async function deleteManualPlayer(playerId: string): Promise<void> {
 
   const { error } = await supabase.from("players").delete().eq("id", playerId);
   if (error) throw new Error(`Ошибка удаления: ${error.message}`);
+}
+
+export async function blockPlayer(
+  playerId: string,
+  callerAdminId: string | null,
+  reason?: string
+): Promise<Player> {
+  const { data: target, error: fetchError } = await supabase
+    .from("players")
+    .select("id, role, is_blocked")
+    .eq("id", playerId)
+    .single();
+
+  if (fetchError || !target) throw new Error("Игрок не найден");
+  if (target.is_blocked) throw new Error("Игрок уже заблокирован");
+
+  if (target.role === "admin") {
+    const { count } = await supabase
+      .from("players")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin")
+      .eq("is_blocked", false);
+
+    if (count !== null && count <= 1) {
+      throw new Error("Нельзя заблокировать последнего администратора");
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("players")
+    .update({
+      is_blocked: true,
+      blocked_at: new Date().toISOString(),
+      blocked_by: callerAdminId,
+      block_reason: reason ?? null,
+    })
+    .eq("id", playerId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(`Ошибка блокировки: ${error.message}`);
+
+  console.log(
+    `[admin] player_blocked id=${playerId} by=${callerAdminId ?? "unknown"}${reason ? ` reason="${reason}"` : ""}`
+  );
+
+  return mapPlayerRowToDomain(data as PlayerRow);
+}
+
+export async function unblockPlayer(playerId: string): Promise<Player> {
+  const { data: target, error: fetchError } = await supabase
+    .from("players")
+    .select("id")
+    .eq("id", playerId)
+    .single();
+
+  if (fetchError || !target) throw new Error("Игрок не найден");
+
+  const { data, error } = await supabase
+    .from("players")
+    .update({
+      is_blocked: false,
+      blocked_at: null,
+      blocked_by: null,
+      block_reason: null,
+    })
+    .eq("id", playerId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(`Ошибка разблокировки: ${error.message}`);
+
+  console.log(`[admin] player_unblocked id=${playerId}`);
+
+  return mapPlayerRowToDomain(data as PlayerRow);
 }
 
 export async function updatePlayerTournamentAccess(

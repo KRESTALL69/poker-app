@@ -17,6 +17,10 @@ export type PlayerRow = {
   can_access_free: boolean;
   can_access_paid: boolean;
   can_access_cash: boolean;
+  is_blocked: boolean;
+  blocked_at: string | null;
+  blocked_by: string | null;
+  block_reason: string | null;
   created_at: string;
 };
 

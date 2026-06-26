@@ -604,6 +604,12 @@ export default function HomePage() {
           setPlayerError(null);
 
           const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+
+          if (ensuredPlayer.is_blocked) {
+            setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
+            return;
+          }
+
           setPlayer(ensuredPlayer);
 
           console.log("[emailLink] player loaded:", {
@@ -680,6 +686,12 @@ export default function HomePage() {
             setPlayerError(null);
 
             const webPlayer = await ensurePlayerFromEmail(session.user.email);
+
+            if (webPlayer.is_blocked) {
+              setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
+              return;
+            }
+
             setPlayer(webPlayer);
 
             if (
@@ -746,6 +758,8 @@ export default function HomePage() {
                   }
                 }
               }
+            } else if (meRes?.status === 403) {
+              setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
             } else if (!isTelegramMiniAppContext()) {
               router.replace("/login");
             }

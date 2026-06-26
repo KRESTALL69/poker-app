@@ -144,22 +144,29 @@ export default function AdminModerationPage() {
     setError(null);
   }
 
-  async function handleDeleteManualPlayer(targetPlayer: Player) {
+  async function handleBlockPlayer(targetPlayer: Player) {
     const nickname = getVisibleNickname(targetPlayer);
-    const confirmMessage = targetPlayer.telegram_id
-      ? `Удалить Telegram-игрока '${nickname}' и ВСЕ связанные данные? Это действие нельзя отменить.`
-      : `Удалить manual-игрока '${nickname}' и все связанные данные?`;
+    const isBlocked = targetPlayer.is_blocked ?? false;
 
-    if (!confirm(confirmMessage)) return;
+    if (!isBlocked) {
+      if (!confirm(`Заблокировать игрока '${nickname}'? Он потеряет доступ к приложению.`)) return;
+    }
+
     try {
-      setProcessingKey(`delete-${targetPlayer.id}`);
+      setProcessingKey(`block-${targetPlayer.id}`);
       setMessage(null);
       setError(null);
-      await fetchAdminJson(`/api/admin/players/${targetPlayer.id}`, { method: "DELETE" });
-      setPlayers((prev) => prev.filter((p) => p.id !== targetPlayer.id));
-      setMessage("Игрок удалён");
+
+      await fetchAdminJson(`/api/admin/players/${targetPlayer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: isBlocked ? "unblock" : "block" }),
+      });
+
+      await loadModerationData();
+      setMessage(isBlocked ? "Игрок разблокирован" : "Игрок заблокирован");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка удаления");
+      setError(err instanceof Error ? err.message : "Ошибка");
     } finally {
       setProcessingKey(null);
     }
@@ -404,9 +411,12 @@ export default function AdminModerationPage() {
                             </p>
                           )}
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                          {targetPlayer.admin_display_name ? (
-                            <span className="text-xs text-yellow-300">админский ник</span>
-                          ) : null}
+                            {targetPlayer.admin_display_name ? (
+                              <span className="text-xs text-yellow-300">админский ник</span>
+                            ) : null}
+                            {targetPlayer.is_blocked ? (
+                              <span className="text-xs text-red-400">заблокирован</span>
+                            ) : null}
                           </div>
                         </div>
                       )}
@@ -432,11 +442,19 @@ export default function AdminModerationPage() {
 
                       <button
                         type="button"
-                        onClick={() => handleDeleteManualPlayer(targetPlayer)}
-                        disabled={processingKey === `delete-${targetPlayer.id}`}
-                        className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-60"
+                        onClick={() => handleBlockPlayer(targetPlayer)}
+                        disabled={processingKey === `block-${targetPlayer.id}`}
+                        className={
+                          targetPlayer.is_blocked
+                            ? "rounded-lg border border-green-500/30 px-3 py-2 text-sm font-medium text-green-400 disabled:opacity-60"
+                            : "rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-400 disabled:opacity-60"
+                        }
                       >
-                        {processingKey === `delete-${targetPlayer.id}` ? "..." : "Удалить"}
+                        {processingKey === `block-${targetPlayer.id}`
+                          ? "..."
+                          : targetPlayer.is_blocked
+                            ? "Разблокировать"
+                            : "Заблокировать"}
                       </button>
                     </div>
                   </div>

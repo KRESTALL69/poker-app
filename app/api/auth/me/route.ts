@@ -22,6 +22,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
     }
 
+    if (player.is_blocked) {
+      return NextResponse.json(
+        { error: "Доступ заблокирован. Обратитесь к администратору клуба." },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json({ player });
   } catch {
     return NextResponse.json({ error: "Failed to load player" }, { status: 500 });

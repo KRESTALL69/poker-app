@@ -32,6 +32,9 @@ export type Player = {
   can_access_free?: boolean;
   can_access_paid?: boolean;
   can_access_cash?: boolean;
+  is_blocked?: boolean;
+  blocked_at?: string;
+  block_reason?: string;
   created_at: string;
 };
 

@@ -23,6 +23,9 @@ function mapPlayerRowToDomain(row: PlayerRow): Player {
     can_access_free: row.can_access_free,
     can_access_paid: row.can_access_paid,
     can_access_cash: row.can_access_cash,
+    is_blocked: row.is_blocked ?? false,
+    blocked_at: row.blocked_at ?? undefined,
+    block_reason: row.block_reason ?? undefined,
     created_at: row.created_at,
   };
 }

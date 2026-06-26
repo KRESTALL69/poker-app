@@ -79,6 +79,10 @@ export async function GET(request: Request) {
 
   console.log("[TG callback] Player OK, id:", player.id);
 
+  if (player.is_blocked) {
+    return fail("blocked");
+  }
+
   const cookieValue = signSession(player.id);
   const response = NextResponse.redirect(`${origin}/`);
 
