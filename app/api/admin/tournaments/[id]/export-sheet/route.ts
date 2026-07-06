@@ -109,6 +109,7 @@ function buildFreeSheetValues(
       "Nok",
       "Место",
       "Выигрыш",
+      "Рейтинг",
     ],
     ...exportData.rows.map((row) => {
       const values = rowsMap.get(row.player_id);
@@ -125,6 +126,7 @@ function buildFreeSheetValues(
         values?.knockouts ?? 0,
         values?.place ?? "",
         values?.winnings ?? 0,
+        row.rating_points ?? "",
       ];
     }),
   ];

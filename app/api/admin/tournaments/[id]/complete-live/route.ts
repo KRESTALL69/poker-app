@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { completeTournamentFromLiveEntries, getPlayerResultsStats } from "@/features/tournaments";
+import { completeTournamentFromLiveEntries, getPlayerResultsStats, getSeasonById } from "@/features/tournaments";
 import { syncTournamentLiveSheet } from "@/app/api/admin/tournaments/[id]/live-sync/route";
 import { writePlayerResultsSheet } from "@/lib/google-sheets";
 
@@ -29,8 +29,12 @@ export async function POST(
     const result = await completeTournamentFromLiveEntries(id, entryPrice, addonPrice, bountyPrice);
     await syncTournamentLiveSheet(id, undefined, entryPrice, addonPrice, bountyPrice);
 
-    const stats = await getPlayerResultsStats();
-    await writePlayerResultsSheet(stats);
+    // Лист и рейтинг привязаны к сезону самого турнира, а не к тому, что
+    // активен сейчас — иначе завершение "хвостового" турнира прошлого сезона
+    // перезаписало бы текущий сезонный лист.
+    const season = result.seasonId ? await getSeasonById(result.seasonId).catch(() => null) : null;
+    const stats = await getPlayerResultsStats(result.seasonId);
+    await writePlayerResultsSheet(stats, season?.title);
 
     return NextResponse.json({
       ok: true,

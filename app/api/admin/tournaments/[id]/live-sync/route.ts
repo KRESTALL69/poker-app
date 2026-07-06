@@ -78,6 +78,7 @@ function buildLiveSheetValues(
       "Nok",
       "Место",
       "Выигрыш",
+      "Рейтинг",
     ],
     ...exportData.rows.map((row) => [
       row.player_id,
@@ -91,6 +92,7 @@ function buildLiveSheetValues(
       row.knockouts,
       row.place ?? "",
       row.winnings,
+      row.rating_points ?? "",
     ]),
   ];
 }

@@ -232,7 +232,7 @@ export async function applyTournamentSheetFormatting(
               startRowIndex: 6,
               endRowIndex: 7,
               startColumnIndex: 0,
-              endColumnIndex: 11,
+              endColumnIndex: 12,
             },
             cell: {
               userEnteredFormat: {
@@ -263,7 +263,7 @@ export async function applyTournamentSheetFormatting(
               sheetId,
               startRowIndex: 7,
               startColumnIndex: 0,
-              endColumnIndex: 11,
+              endColumnIndex: 12,
             },
             cell: {
               userEnteredFormat: {
@@ -285,7 +285,7 @@ export async function applyTournamentSheetFormatting(
               sheetId,
               startRowIndex: 6,
               startColumnIndex: 0,
-              endColumnIndex: 11,
+              endColumnIndex: 12,
             },
             top: {
               style: "SOLID",
@@ -391,7 +391,7 @@ export async function applyTournamentSheetFormatting(
               sheetId,
               dimension: "COLUMNS",
               startIndex: 5,
-              endIndex: 11,
+              endIndex: 12,
             },
             properties: {
               pixelSize: 110,
@@ -519,7 +519,11 @@ export function buildSpreadsheetTabUrl(sheetId: number) {
   return `https://docs.google.com/spreadsheets/d/${getSpreadsheetId()}/edit#gid=${sheetId}`;
 }
 
-const PLAYER_RESULTS_TAB = "результаты игроков";
+const LEGACY_PLAYER_RESULTS_TAB = "результаты игроков";
+
+export function buildPlayerResultsTabName(seasonTitle?: string | null) {
+  return seasonTitle ? `Результаты игроков (${seasonTitle})` : LEGACY_PLAYER_RESULTS_TAB;
+}
 
 type PlayerResultsRow = {
   player_id: string;
@@ -533,13 +537,18 @@ type PlayerResultsRow = {
   knockouts: number;
   spent: number;
   winnings: number;
+  ratingSeason: number;
 };
 
-export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
+export async function writePlayerResultsSheet(
+  rows: PlayerResultsRow[],
+  seasonTitle?: string | null
+) {
   const sheets = getGoogleSheetsClient();
   const spreadsheetId = getSpreadsheetId();
 
-  const { sheetId } = await ensureSpreadsheetTab(PLAYER_RESULTS_TAB);
+  const tabName = buildPlayerResultsTabName(seasonTitle);
+  const { sheetId } = await ensureSpreadsheetTab(tabName);
 
   const headers = [
     "Игрок",
@@ -550,6 +559,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
     "Ребаи",
     "Аддоны",
     "Баунти",
+    "Рейтинг",
     "Внесено",
     "Выиграно",
     "Чистый результат",
@@ -570,6 +580,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
       row.reentries,
       row.addons,
       row.knockouts,
+      row.ratingSeason,
       row.spent,
       row.winnings,
       net,
@@ -577,7 +588,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
     ];
   });
 
-  await replaceSpreadsheetTabValues(PLAYER_RESULTS_TAB, [headers, ...dataRows]);
+  await replaceSpreadsheetTabValues(tabName, [headers, ...dataRows]);
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
@@ -599,7 +610,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
               startRowIndex: 0,
               endRowIndex: 1,
               startColumnIndex: 0,
-              endColumnIndex: 12,
+              endColumnIndex: 13,
             },
             cell: {
               userEnteredFormat: {
@@ -620,7 +631,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
               sheetId,
               startRowIndex: 1,
               startColumnIndex: 0,
-              endColumnIndex: 12,
+              endColumnIndex: 13,
             },
             cell: {
               userEnteredFormat: {
@@ -647,7 +658,7 @@ export async function writePlayerResultsSheet(rows: PlayerResultsRow[]) {
         },
         {
           updateDimensionProperties: {
-            range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 12 },
+            range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 13 },
             properties: { pixelSize: 110 },
             fields: "pixelSize",
           },

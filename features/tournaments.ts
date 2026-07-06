@@ -45,6 +45,7 @@ export type TournamentLiveSheetRow = {
   knockouts: number;
   place: number | null;
   winnings: number;
+  rating_points: number | null;
   sheet_row_number: number | null;
 };
 
@@ -464,6 +465,21 @@ export async function getMyTournaments(playerId: string) {
     }>;
 }
 
+export async function getTournamentRatingPointsMap(
+  tournamentId: string
+): Promise<Map<string, number>> {
+  const { data, error } = await supabase
+    .from("results")
+    .select("player_id, rating_points")
+    .eq("tournament_id", tournamentId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return new Map((data ?? []).map((row: any) => [row.player_id, row.rating_points ?? 0]));
+}
+
 export async function getTournamentSheetExportData(tournamentId: string) {
   const tournament = await getTournamentById(tournamentId);
 
@@ -491,6 +507,8 @@ export async function getTournamentSheetExportData(tournamentId: string) {
     throw new Error(error.message);
   }
 
+  const ratingMap = await getTournamentRatingPointsMap(tournamentId);
+
   return {
     tournament,
     rows: (data ?? []).map((row: any) => {
@@ -501,6 +519,7 @@ export async function getTournamentSheetExportData(tournamentId: string) {
         display_name: getPreferredPlayerDisplayName(player ?? {}),
         username: player?.username ?? null,
         registration_status: row.status,
+        rating_points: ratingMap.get(row.player_id) ?? null,
       };
     }),
   };
@@ -1160,6 +1179,7 @@ export async function getTournamentLiveSheetData(
 }> {
   const tournament = await getTournamentById(tournamentId);
   const rows = await getTournamentLiveEntries(tournamentId);
+  const ratingMap = await getTournamentRatingPointsMap(tournamentId);
 
   return {
     tournament,
@@ -1175,6 +1195,7 @@ export async function getTournamentLiveSheetData(
       knockouts: row.knockouts,
       place: row.place,
       winnings: row.winnings,
+      rating_points: ratingMap.get(row.player_id) ?? null,
       sheet_row_number: row.sheet_row_number ?? index + 8,
     })),
   };
@@ -1324,6 +1345,7 @@ export async function completeTournamentFromLiveEntries(
 
   return {
     completedCount: liveEntries.length,
+    seasonId: tournamentRow.season_id ?? null,
   };
 }
 
@@ -1398,6 +1420,10 @@ export async function saveTournamentResults(
   if (playerIds.length > 0) {
     await syncPlayersAchievements(playerIds);
   }
+
+  return {
+    seasonId: tournamentRow.season_id ?? null,
+  };
 }
 
 export async function getTournamentNotificationRecipients(tournamentId: string) {
@@ -1551,10 +1577,26 @@ export type PlayerResultsStats = {
   knockouts: number;
   spent: number;
   winnings: number;
+  ratingSeason: number;
 };
 
-export async function getPlayerResultsStats(): Promise<PlayerResultsStats[]> {
-  const { data, error } = await supabase
+export async function getPlayerResultsStats(
+  seasonId?: string | null
+): Promise<PlayerResultsStats[]> {
+  // Все показатели листа строятся относительно сезона турнира, а не того,
+  // что активен "сейчас" — иначе поздний экспорт старого турнира перезаписал бы
+  // текущий сезонный лист данными активного сезона. Активный сезон — лишь fallback
+  // для случаев, когда seasonId не передан (например, у турнира не проставлен сезон).
+  let resolvedSeasonId = seasonId ?? null;
+  if (!resolvedSeasonId) {
+    try {
+      resolvedSeasonId = (await getActiveSeason()).id;
+    } catch {
+      resolvedSeasonId = null;
+    }
+  }
+
+  let query = supabase
     .from("results")
     .select(`
       player_id,
@@ -1570,8 +1612,24 @@ export async function getPlayerResultsStats(): Promise<PlayerResultsStats[]> {
       )
     `);
 
+  if (resolvedSeasonId) {
+    query = query.eq("season_id", resolvedSeasonId);
+  }
+
+  const { data, error } = await query;
+
   if (error) {
     throw new Error(error.message);
+  }
+
+  let seasonRatingMap = new Map<string, number>();
+  if (resolvedSeasonId) {
+    try {
+      const leaderboard = await getSeasonLeaderboard(resolvedSeasonId);
+      seasonRatingMap = new Map(leaderboard.map((entry) => [entry.player_id, entry.rating]));
+    } catch {
+      // Сезон не найден — сезонный рейтинг будет 0
+    }
   }
 
   const map = new Map<string, PlayerResultsStats>();
@@ -1606,6 +1664,7 @@ export async function getPlayerResultsStats(): Promise<PlayerResultsStats[]> {
         knockouts: row.knockouts ?? 0,
         spent: row.spent ?? 0,
         winnings: winnings,
+        ratingSeason: seasonRatingMap.get(row.player_id) ?? 0,
       });
     }
   }
@@ -1682,6 +1741,20 @@ export async function getActiveSeason() {
 
   if (error) {
     throw new Error("Активный сезон не найден");
+  }
+
+  return data;
+}
+
+export async function getSeasonById(seasonId: string) {
+  const { data, error } = await supabase
+    .from("seasons")
+    .select("*")
+    .eq("id", seasonId)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
   }
 
   return data;
