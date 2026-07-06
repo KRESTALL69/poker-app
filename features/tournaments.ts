@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { syncPlayersAchievements } from "@/features/achievements";
-import { calculateRatingPoints } from "@/config/rating";
+import { calculateRatingPoints, getPlaceCoefficient, FIXED_PLAYERS_COUNT } from "@/config/rating";
 import type {
   Registration,
   RegistrationStatus,
@@ -1294,13 +1294,25 @@ export async function completeTournamentFromLiveEntries(
     throw new Error(deleteError.message);
   }
 
-  const totalPrizePool = liveEntries.reduce((sum, e) => sum + (e.winnings ?? 0), 0);
-  const totalPlayers = liveEntries.length;
+  // "Общий призовой" считается по структуре турнира (входы/ребаи/аддоны * цены),
+  // только по игрокам, отмеченным "Пришел" — как в Excel-формуле
+  // (C+D)*G + E*H + F*I, где C/D/E/F берутся через SUMIF/COUNTIF(F="Пришел", ...).
+  // Не-пришедшие (arrived=false) в призовой не входят, даже если у них указано место.
+  const totalPrizePool = liveEntries
+    .filter((e) => e.arrived)
+    .reduce(
+      (sum, e) =>
+        sum + (1 + e.rebuys) * entryPrice + e.addons * addonPrice + e.knockouts * bountyPrice,
+      0
+    );
 
   const payload = liveEntries.map((entry) => {
     const playerEntries = 1 + entry.rebuys + entry.addons;
-    const ratingPoints = calculateRatingPoints(entry.place!, totalPrizePool, totalPlayers, playerEntries);
-    console.log(`[rating] live tournament=${tournamentId} player=${entry.player_id} place=${entry.place} entries=${playerEntries} prizePool=${totalPrizePool} players=${totalPlayers} → ${ratingPoints}pts`);
+    const spent = (1 + entry.rebuys) * entryPrice + entry.addons * addonPrice + entry.knockouts * bountyPrice;
+    const ratingPoints = calculateRatingPoints(entry.place!, totalPrizePool, playerEntries);
+    console.log(
+      `[rating] live tournament=${tournamentId} player=${entry.player_id} place=${entry.place} coefficient=${getPlaceCoefficient(entry.place!)} prizePool=${totalPrizePool} fixedPlayersCount=${FIXED_PLAYERS_COUNT} playerEntries=${playerEntries} → ${ratingPoints}pts`
+    );
     return {
       tournament_id: tournamentId,
       player_id: entry.player_id,
@@ -1311,7 +1323,7 @@ export async function completeTournamentFromLiveEntries(
       knockouts: entry.knockouts,
       rating_points: ratingPoints,
       winnings: entry.winnings,
-      spent: (1 + entry.rebuys) * entryPrice + entry.addons * addonPrice + entry.knockouts * bountyPrice,
+      spent,
     };
   });
 

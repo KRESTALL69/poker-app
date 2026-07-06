@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getPlayerResultsStats, getSeasonById, saveTournamentResults } from "@/features/tournaments";
 import { syncTournamentSheet } from "@/app/api/admin/tournaments/[id]/export-sheet/route";
 import { writePlayerResultsSheet } from "@/lib/google-sheets";
-import { calculateRatingPoints } from "@/config/rating";
+import { calculateRatingPoints, getPlaceCoefficient, FIXED_PLAYERS_COUNT } from "@/config/rating";
 
 export async function POST(
   request: Request,
@@ -30,8 +30,18 @@ export async function POST(
     const addonPrice = body.addonPrice ?? 0;
     const bountyPrice = body.bountyPrice ?? 0;
 
-    const totalPrizePool = rows.reduce((sum, r) => sum + (r.winnings ?? 0), 0);
-    const totalPlayers = rows.length;
+    // "Общий призовой" считается по структуре турнира (входы/ребаи/аддоны * цены),
+    // только по игрокам, отмеченным "Пришел" — как в Excel-формуле
+    // (C+D)*G + E*H + F*I, где C/D/E/F берутся через SUMIF/COUNTIF(F="Пришел", ...).
+    // Не-пришедшие (arrived=false) в призовой не входят, даже если у них указано место.
+    const totalPrizePool = rows
+      .filter((r) => r.arrived ?? false)
+      .reduce((sum, r) => {
+        const rebuys = r.rebuys ?? 0;
+        const addons = r.addons ?? 0;
+        const knockouts = r.knockouts ?? 0;
+        return sum + (1 + rebuys) * entryPrice + addons * addonPrice + knockouts * bountyPrice;
+      }, 0);
 
     const saveResult = await saveTournamentResults(
       id,
@@ -41,8 +51,10 @@ export async function POST(
         const knockouts = row.knockouts ?? 0;
         const spent = (1 + rebuys) * entryPrice + addons * addonPrice + knockouts * bountyPrice;
         const playerEntries = 1 + rebuys + addons;
-        const ratingPoints = calculateRatingPoints(row.place, totalPrizePool, totalPlayers, playerEntries);
-        console.log(`[rating] free tournament=${id} player=${row.player_id} place=${row.place} entries=${playerEntries} prizePool=${totalPrizePool} players=${totalPlayers} → ${ratingPoints}pts`);
+        const ratingPoints = calculateRatingPoints(row.place, totalPrizePool, playerEntries);
+        console.log(
+          `[rating] free tournament=${id} player=${row.player_id} place=${row.place} coefficient=${getPlaceCoefficient(row.place)} prizePool=${totalPrizePool} fixedPlayersCount=${FIXED_PLAYERS_COUNT} playerEntries=${playerEntries} → ${ratingPoints}pts`
+        );
         return {
           player_id: row.player_id,
           place: row.place,
