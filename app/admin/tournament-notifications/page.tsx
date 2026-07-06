@@ -202,6 +202,10 @@ export default function AdminTournamentNotificationsPage() {
     setMessageText(buildNotificationTemplate(selectedTournament));
   }, [selectedTournamentId, selectedTournament]);
 
+  function handleRemoveRecipient(playerId: string) {
+    setRecipients((prev) => prev.filter((recipient) => recipient.player_id !== playerId));
+  }
+
   async function handleSendNotifications() {
     if (!selectedTournament) {
       setError("Выберите турнир");
@@ -227,6 +231,7 @@ export default function AdminTournamentNotificationsPage() {
             tournamentId: selectedTournament.id,
             audience,
             message: messageText.trim(),
+            recipientPlayerIds: recipients.map((recipient) => recipient.player_id),
           }),
         }
       );
@@ -449,17 +454,26 @@ export default function AdminTournamentNotificationsPage() {
                 {recipients.map((recipient) => (
                   <div
                     key={recipient.player_id}
-                    className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2"
                   >
-                    <p className="text-sm font-medium text-white">
-                      {recipient.display_name}
-                    </p>
-                    <p className="mt-1 text-xs text-white/55">
-                      Telegram ID: {recipient.telegram_id}
-                      {recipient.registration_status ? (
-                        <> • {recipient.registration_status}</>
-                      ) : null}
-                    </p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white">
+                        {recipient.display_name}
+                      </p>
+                      <p className="mt-1 text-xs text-white/55">
+                        Telegram ID: {recipient.telegram_id}
+                        {recipient.registration_status ? (
+                          <> • {recipient.registration_status}</>
+                        ) : null}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRecipient(recipient.player_id)}
+                      className="shrink-0 rounded-lg border border-white/10 px-2 py-1 text-xs text-white/60 hover:border-red-500/40 hover:text-red-300"
+                    >
+                      Удалить
+                    </button>
                   </div>
                 ))}
               </div>

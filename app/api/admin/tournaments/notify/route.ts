@@ -20,11 +20,15 @@ export async function POST(request: Request) {
       tournamentId?: string;
       message?: string;
       audience?: TournamentNotificationAudience;
+      recipientPlayerIds?: string[];
     };
 
     const tournamentId = body.tournamentId?.trim();
     const message = body.message?.trim();
     const audience = body.audience === "access" ? "access" : "registered";
+    const recipientPlayerIds = body.recipientPlayerIds
+      ? new Set(body.recipientPlayerIds)
+      : null;
 
     if (!tournamentId) {
       return NextResponse.json(
@@ -41,11 +45,14 @@ export async function POST(request: Request) {
     }
 
     const tournament = await getTournamentById(tournamentId);
-    const recipients = await getTournamentNotificationRecipientsByAudience({
+    const allRecipients = await getTournamentNotificationRecipientsByAudience({
       tournamentId,
       tournamentKind: tournament.kind,
       audience,
     });
+    const recipients = recipientPlayerIds
+      ? allRecipients.filter((recipient) => recipientPlayerIds.has(recipient.player_id))
+      : allRecipients;
 
     let successCount = 0;
     let failedCount = 0;
