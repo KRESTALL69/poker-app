@@ -28,7 +28,8 @@ export type TournamentNotificationAudience = "registered" | "access";
 
 export type TournamentNotificationRecipient = {
   player_id: string;
-  telegram_id: number;
+  telegram_id: number | null;
+  username: string | null;
   display_name: string;
   registration_status: RegistrationStatus | null;
 };
@@ -1447,6 +1448,7 @@ export async function getTournamentNotificationRecipients(tournamentId: string) 
       status,
       players (
         telegram_id,
+        username,
         display_name
       )
     `
@@ -1458,23 +1460,21 @@ export async function getTournamentNotificationRecipients(tournamentId: string) 
     throw new Error(error.message);
   }
 
-  const recipientsMap = new Map<number, TournamentNotificationRecipient>();
+  const recipientsMap = new Map<string, TournamentNotificationRecipient>();
 
   for (const row of data ?? []) {
     const player = Array.isArray((row as any).players)
       ? (row as any).players[0]
       : (row as any).players;
 
+    const playerId = (row as any).player_id;
     const telegramId = player?.telegram_id;
 
-    if (typeof telegramId !== "number") {
-      continue;
-    }
-
-    if (!recipientsMap.has(telegramId)) {
-      recipientsMap.set(telegramId, {
-        player_id: (row as any).player_id,
-        telegram_id: telegramId,
+    if (!recipientsMap.has(playerId)) {
+      recipientsMap.set(playerId, {
+        player_id: playerId,
+        telegram_id: typeof telegramId === "number" ? telegramId : null,
+        username: player?.username ?? null,
         display_name: getPreferredPlayerDisplayName(player ?? {}),
         registration_status: (row as any).status as RegistrationStatus,
       });
@@ -1496,26 +1496,24 @@ export async function getTournamentAccessRecipientsByKind(
 
   const { data, error } = await supabase
     .from("players")
-    .select("id, telegram_id, display_name")
+    .select("id, telegram_id, username, display_name")
     .eq(accessColumn, true);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const recipientsMap = new Map<number, TournamentNotificationRecipient>();
+  const recipientsMap = new Map<string, TournamentNotificationRecipient>();
 
   for (const row of data ?? []) {
+    const playerId = (row as any).id;
     const telegramId = (row as any).telegram_id;
 
-    if (typeof telegramId !== "number") {
-      continue;
-    }
-
-    if (!recipientsMap.has(telegramId)) {
-      recipientsMap.set(telegramId, {
-        player_id: (row as any).id,
-        telegram_id: telegramId,
+    if (!recipientsMap.has(playerId)) {
+      recipientsMap.set(playerId, {
+        player_id: playerId,
+        telegram_id: typeof telegramId === "number" ? telegramId : null,
+        username: (row as any).username ?? null,
         display_name: (row as any).display_name ?? "Игрок",
         registration_status: null,
       });
@@ -1575,6 +1573,35 @@ export async function getTournamentResults(
       display_name: player?.display_name ?? "Игрок",
     };
   });
+}
+
+export type PlayerDirectoryEntry = {
+  player_id: string;
+  display_name: string;
+  username: string | null;
+  telegram_id: number | null;
+  email: string | null;
+};
+
+export async function getPlayerDirectoryForExport(): Promise<PlayerDirectoryEntry[]> {
+  const { data, error } = await supabase
+    .from("players")
+    .select("id, telegram_id, username, display_name, admin_display_name, email");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? [])
+    .map((row) => ({
+      player_id: (row as any).id,
+      display_name: getPreferredPlayerDisplayName(row as any),
+      username: (row as any).username ?? null,
+      telegram_id:
+        typeof (row as any).telegram_id === "number" ? (row as any).telegram_id : null,
+      email: (row as any).email ?? null,
+    }))
+    .sort((a, b) => a.display_name.localeCompare(b.display_name, "ru"));
 }
 
 export type PlayerResultsStats = {

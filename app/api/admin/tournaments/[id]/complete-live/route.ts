@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { completeTournamentFromLiveEntries, getPlayerResultsStats, getSeasonById } from "@/features/tournaments";
+import { completeTournamentFromLiveEntries, getPlayerDirectoryForExport, getPlayerResultsStats, getSeasonById } from "@/features/tournaments";
 import { syncTournamentLiveSheet } from "@/app/api/admin/tournaments/[id]/live-sync/route";
-import { writePlayerResultsSheet } from "@/lib/google-sheets";
+import { writePlayerDirectorySheet, writePlayerResultsSheet } from "@/lib/google-sheets";
 
 export async function POST(
   request: Request,
@@ -35,6 +35,9 @@ export async function POST(
     const season = result.seasonId ? await getSeasonById(result.seasonId).catch(() => null) : null;
     const stats = await getPlayerResultsStats(result.seasonId);
     await writePlayerResultsSheet(stats, season?.title);
+
+    const directory = await getPlayerDirectoryForExport();
+    await writePlayerDirectorySheet(directory);
 
     return NextResponse.json({
       ok: true,

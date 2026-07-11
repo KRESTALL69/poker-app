@@ -3,7 +3,80 @@ import {
   getTournamentById,
   getTournamentNotificationRecipientsByAudience,
   type TournamentNotificationAudience,
+  type TournamentNotificationRecipient,
 } from "@/features/tournaments";
+
+export type NotificationFailure = {
+  player_id: string;
+  display_name: string;
+  username: string | null;
+  telegram_id: number | null;
+  reason: string;
+};
+
+function describeTelegramError(errorCode: number | undefined, description: string | undefined) {
+  const normalized = description?.toLowerCase() ?? "";
+
+  if (normalized.includes("chat not found")) {
+    return "Чат не найден";
+  }
+
+  if (normalized.includes("bot was blocked by the user")) {
+    return "Пользователь заблокировал бота";
+  }
+
+  if (normalized.includes("user is deactivated")) {
+    return "Аккаунт пользователя удалён";
+  }
+
+  if (errorCode === 429) {
+    return "Превышен лимит Telegram";
+  }
+
+  if (errorCode === 400) {
+    return "Некорректные данные";
+  }
+
+  return description || "Неизвестная ошибка";
+}
+
+async function sendTelegramMessage(
+  token: string,
+  recipient: TournamentNotificationRecipient,
+  message: string
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (typeof recipient.telegram_id !== "number") {
+    return { ok: false, reason: "Нет Telegram ID" };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${token}/sendMessage`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: recipient.telegram_id,
+          text: message,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      return {
+        ok: false,
+        reason: describeTelegramError(errorBody?.error_code, errorBody?.description),
+      };
+    }
+
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "Ошибка сети" };
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -55,33 +128,23 @@ export async function POST(request: Request) {
       : allRecipients;
 
     let successCount = 0;
-    let failedCount = 0;
+    const failedRecipients: NotificationFailure[] = [];
 
     for (const recipient of recipients) {
-      try {
-        const response = await fetch(
-          `https://api.telegram.org/bot${token}/sendMessage`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              chat_id: recipient.telegram_id,
-              text: message,
-            }),
-          }
-        );
+      const result = await sendTelegramMessage(token, recipient, message);
 
-        if (!response.ok) {
-          failedCount += 1;
-          continue;
-        }
-
+      if (result.ok) {
         successCount += 1;
-      } catch {
-        failedCount += 1;
+        continue;
       }
+
+      failedRecipients.push({
+        player_id: recipient.player_id,
+        display_name: recipient.display_name,
+        username: recipient.username,
+        telegram_id: recipient.telegram_id,
+        reason: result.reason,
+      });
     }
 
     return NextResponse.json({
@@ -89,7 +152,8 @@ export async function POST(request: Request) {
       tournamentTitle: tournament.title,
       totalRecipients: recipients.length,
       successCount,
-      failedCount,
+      failedCount: failedRecipients.length,
+      failedRecipients,
     });
   } catch (error) {
     return NextResponse.json(

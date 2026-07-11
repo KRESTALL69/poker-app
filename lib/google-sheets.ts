@@ -667,3 +667,100 @@ export async function writePlayerResultsSheet(
     },
   });
 }
+
+const PLAYER_DIRECTORY_TAB = "Список Игроков";
+
+type PlayerDirectoryRow = {
+  display_name: string;
+  username: string | null;
+  telegram_id: number | null;
+  email: string | null;
+};
+
+export async function writePlayerDirectorySheet(rows: PlayerDirectoryRow[]) {
+  const sheets = getGoogleSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  const { sheetId } = await ensureSpreadsheetTab(PLAYER_DIRECTORY_TAB);
+
+  const headers = ["Имя", "Telegram username", "Telegram ID", "Email"];
+
+  const dataRows = rows.map((row) => [
+    row.display_name,
+    row.username ? `@${row.username}` : "",
+    row.telegram_id ?? "",
+    row.email ?? "",
+  ]);
+
+  await replaceSpreadsheetTabValues(PLAYER_DIRECTORY_TAB, [headers, ...dataRows]);
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: {
+              sheetId,
+              gridProperties: { frozenRowCount: 1 },
+            },
+            fields: "gridProperties.frozenRowCount",
+          },
+        },
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 0,
+              endRowIndex: 1,
+              startColumnIndex: 0,
+              endColumnIndex: 4,
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 0.92, green: 0.95, blue: 0.99 },
+                textFormat: {
+                  bold: true,
+                  foregroundColor: { red: 0.1, green: 0.1, blue: 0.1 },
+                },
+                horizontalAlignment: "CENTER",
+              },
+            },
+            fields: "userEnteredFormat(backgroundColor,textFormat.bold,textFormat.foregroundColor,horizontalAlignment)",
+          },
+        },
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 1,
+              startColumnIndex: 0,
+              endColumnIndex: 4,
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 1, green: 1, blue: 1 },
+                verticalAlignment: "MIDDLE",
+              },
+            },
+            fields: "userEnteredFormat(backgroundColor,verticalAlignment)",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: 1 },
+            properties: { pixelSize: 200 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 1, endIndex: 4 },
+            properties: { pixelSize: 160 },
+            fields: "pixelSize",
+          },
+        },
+      ],
+    },
+  });
+}

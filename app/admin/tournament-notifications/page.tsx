@@ -35,12 +35,21 @@ function buildNotificationTemplate(tournament: Tournament) {
   return `Турнир: ${tournament.title}\nДата и время: ${timeLine}\n${locationLine}`;
 }
 
+type NotificationFailure = {
+  player_id: string;
+  display_name: string;
+  username: string | null;
+  telegram_id: number | null;
+  reason: string;
+};
+
 type NotificationResult = {
   ok: boolean;
   tournamentTitle: string;
   totalRecipients: number;
   successCount: number;
   failedCount: number;
+  failedRecipients: NotificationFailure[];
 };
 
 export default function AdminTournamentNotificationsPage() {
@@ -302,8 +311,35 @@ export default function AdminTournamentNotificationsPage() {
             <p className="font-semibold">Рассылка завершена</p>
             <p className="mt-2">Турнир: {result.tournamentTitle}</p>
             <p className="mt-1">Получателей: {result.totalRecipients}</p>
-            <p className="mt-1">Успешно: {result.successCount}</p>
-            <p className="mt-1">Не отправилось: {result.failedCount}</p>
+            <p className="mt-1">✅ Отправлено: {result.successCount}</p>
+            <p className="mt-1">❌ Не отправлено: {result.failedCount}</p>
+
+            {result.failedRecipients.length > 0 ? (
+              <div className="mt-4 border-t border-green-500/20 pt-3">
+                <p className="font-semibold text-red-200">Не удалось отправить:</p>
+                <div className="mt-2 max-h-80 space-y-2 overflow-y-auto pr-1">
+                  {result.failedRecipients.map((failure) => (
+                    <div
+                      key={failure.player_id}
+                      className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-red-100"
+                    >
+                      <p className="font-medium">
+                        {failure.display_name}
+                        {failure.username ? ` (@${failure.username})` : ""}
+                      </p>
+                      {failure.telegram_id ? (
+                        <p className="mt-1 text-xs text-red-200/70">
+                          Telegram ID: {failure.telegram_id}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-xs text-red-200/90">
+                        Причина: {failure.reason}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -459,9 +495,12 @@ export default function AdminTournamentNotificationsPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-white">
                         {recipient.display_name}
+                        {recipient.username ? ` (@${recipient.username})` : ""}
                       </p>
                       <p className="mt-1 text-xs text-white/55">
-                        Telegram ID: {recipient.telegram_id}
+                        {recipient.telegram_id
+                          ? `Telegram ID: ${recipient.telegram_id}`
+                          : "Нет Telegram ID"}
                         {recipient.registration_status ? (
                           <> • {recipient.registration_status}</>
                         ) : null}
