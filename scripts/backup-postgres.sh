@@ -15,7 +15,7 @@ mkdir -p "$BACKUP_DIR"
 
 : "${POSTGRES_APP_USER:?Set POSTGRES_APP_USER (the poker_app database user)}"
 : "${POSTGRES_APP_DB:?Set POSTGRES_APP_DB (defaults to poker_app)}"
-: "${PGPASSWORD:?Set PGPASSWORD (the poker_app role's password) — pg_dump needs it non-interactively}"
+: "${PGPASSWORD:?Set PGPASSWORD (the poker_app role password) so pg_dump can authenticate non-interactively}"
 
 docker exec -e PGPASSWORD="$PGPASSWORD" poker-clock-db pg_dump -U "$POSTGRES_APP_USER" -d "$POSTGRES_APP_DB" \
   | gzip > "$FILE"
