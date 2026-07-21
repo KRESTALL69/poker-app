@@ -114,4 +114,4 @@ docker compose logs --tail=200 app
 
 **Логи:** `docker compose logs --tail=200 -f app` (там же, где и раньше — штатный `json-file`-драйвер Docker, отдельной агрегации логов на VPS нет ни у одного из существующих проектов).
 
-**Backup БД:** `POSTGRES_APP_USER=poker_app POSTGRES_APP_DB=poker_app ./scripts/backup-postgres.sh` — дамп только базы `poker_app` из общего контейнера, хранит последние 14. У ReRaise аналогичного скрипта нет (проверено аудитом) — это новый процесс, не копия существующего.
+**Backup БД:** `POSTGRES_APP_USER=poker_app POSTGRES_APP_DB=poker_app PGPASSWORD=<пароль роли poker_app> ./scripts/backup-postgres.sh` — дамп только базы `poker_app` из общего контейнера, хранит последние 14. `PGPASSWORD` обязателен — без него `pg_dump` неинтерактивно зависнет на запросе пароля. У ReRaise аналогичного скрипта нет (проверено аудитом) — это новый процесс, не копия существующего.
