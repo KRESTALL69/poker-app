@@ -1,0 +1,60 @@
+services:
+  app:
+    build:
+      context: .
+      # NEXT_PUBLIC_* vars are baked into the client JS bundle at build time.
+      # Changing them here requires a full rebuild (docker compose build).
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    image: poker-app:latest
+    container_name: poker-app
+    restart: unless-stopped
+    ports:
+      # Loopback-only for now — no nginx site/DNS/TLS exists for Poker App
+      # yet (that's a later, separate step). Reach this for verification via
+      # SSH tunnel (ssh -L 3003:127.0.0.1:3003 poker-clock-vps), never by
+      # opening this port to 0.0.0.0.
+      - "127.0.0.1:3003:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      SUPPORT_ADMIN_CHAT_ID: ${SUPPORT_ADMIN_CHAT_ID}
+      SESSION_SECRET: ${SESSION_SECRET}
+      GOOGLE_CLIENT_EMAIL: ${GOOGLE_CLIENT_EMAIL}
+      GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY}
+      GOOGLE_SHEETS_SPREADSHEET_ID: ${GOOGLE_SHEETS_SPREADSHEET_ID}
+      # Postgres cutover — DATABASE_URL resolves poker-clock-db by its
+      # Docker-internal service name because of the `networks:` override
+      # below, joining the same external network poker-clock-db publishes
+      # itself on. Never goes over the host's published 127.0.0.1:5432.
+      DATABASE_PROVIDER: ${DATABASE_PROVIDER:-supabase}
+      DATABASE_URL: ${DATABASE_URL}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # One-shot migration runner — never part of the default `docker compose up`
+  # (profile gate). Applies lib/db/migrations/ to whatever DATABASE_URL
+  # points at via scripts/migrate.mjs. Run explicitly and deliberately:
+  #   docker compose run --rm migrate
+  migrate:
+    build:
+      context: .
+      target: migrator
+    image: poker-app-migrator:latest
+    profiles: ["migrate"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+
+networks:
+  default:
+    name: poker-clock_default
+    external: true
