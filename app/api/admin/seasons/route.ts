@@ -1,25 +1,27 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { seasonRepository } from "@/lib/repositories/season";
+import { tournamentRepository } from "@/lib/repositories/tournament";
 
 export async function GET() {
   try {
-    const { data: seasons, error: seasonsError } = await supabase
-      .from("seasons")
-      .select("id, title, start_date, end_date, is_active")
-      .order("start_date", { ascending: false });
+    let seasons;
+    try {
+      seasons = await seasonRepository.list();
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
+    }
 
-    if (seasonsError) throw new Error(seasonsError.message);
-
-    const { data: tournaments, error: tournamentsError } = await supabase
-      .from("tournaments")
-      .select("season_id");
-
-    if (tournamentsError) throw new Error(tournamentsError.message);
+    let seasonIds: Array<string | null>;
+    try {
+      seasonIds = await tournamentRepository.listSeasonIds();
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
+    }
 
     const countMap = new Map<string, number>();
-    for (const t of tournaments ?? []) {
-      if (t.season_id) {
-        countMap.set(t.season_id, (countMap.get(t.season_id) ?? 0) + 1);
+    for (const seasonId of seasonIds) {
+      if (seasonId) {
+        countMap.set(seasonId, (countMap.get(seasonId) ?? 0) + 1);
       }
     }
 
@@ -48,15 +50,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Дата начала обязательна" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from("seasons")
-      .insert({ title: body.title.trim(), start_date: body.start_date, is_active: false })
-      .select("*")
-      .single();
+    let season;
+    try {
+      season = await seasonRepository.create({
+        title: body.title.trim(),
+        startDate: body.start_date,
+        isActive: false,
+      });
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
+    }
 
-    if (error) throw new Error(error.message);
-
-    return NextResponse.json({ season: data });
+    return NextResponse.json({ season });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Не удалось создать сезон" },

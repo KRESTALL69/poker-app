@@ -1,17 +1,8 @@
 import { createHmac } from "crypto";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function createSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error("Supabase admin env is not configured");
-  }
-
-  return createClient(url, serviceRoleKey);
-}
+import { avatarStorageRepository } from "@/lib/repositories/avatar-storage";
+import { getPlayerByTelegramId, updatePlayerCustomAvatar } from "@/features/auth";
+import type { Player } from "@/types/domain";
 
 function validateTelegramInitData(initData: string) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -93,15 +84,15 @@ export async function POST(
     }
 
     const telegramUser = validateTelegramInitData(telegramInitData);
-    const supabase = createSupabaseAdmin();
 
-    const { data: player, error: playerError } = await supabase
-      .from("players")
-      .select("*")
-      .eq("telegram_id", telegramUser.id)
-      .single();
+    let player: Player | null;
+    try {
+      player = await getPlayerByTelegramId(telegramUser.id);
+    } catch {
+      player = null;
+    }
 
-    if (playerError || !player) {
+    if (!player) {
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
     }
 
@@ -109,33 +100,22 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const filePath = `${player.id}/avatar`;
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, file, {
-        upsert: true,
-        contentType: file.type,
-      });
-
-    if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 400 });
+    let publicUrl: string;
+    try {
+      publicUrl = await avatarStorageRepository.uploadAvatar(player.id, file);
+    } catch (uploadError) {
+      const message = (uploadError as { message?: string })?.message ?? "Upload failed";
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const { data: publicData } = supabase.storage.from("avatars").getPublicUrl(filePath);
-    const versionedUrl = `${publicData.publicUrl}?v=${Date.now()}`;
+    const versionedUrl = `${publicUrl}?v=${Date.now()}`;
 
-    const { data: updatedPlayer, error: updateError } = await supabase
-      .from("players")
-      .update({
-        custom_avatar_url: versionedUrl,
-        avatar_updated_at: new Date().toISOString(),
-      })
-      .eq("id", player.id)
-      .select("*")
-      .single();
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 400 });
+    let updatedPlayer: Player;
+    try {
+      updatedPlayer = await updatePlayerCustomAvatar(player.id, versionedUrl);
+    } catch (error) {
+      const message = (error as { message?: string })?.message ?? "Unknown error";
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     return NextResponse.json({ player: updatedPlayer });

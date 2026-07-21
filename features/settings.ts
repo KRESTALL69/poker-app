@@ -1,10 +1,9 @@
-import { supabase } from "@/lib/supabase";
+import { appSettingsRepository } from "@/lib/repositories/app-settings";
 
 export async function getAppSettingBool(key: string): Promise<boolean> {
-  const { data } = await supabase
-    .from("app_settings")
-    .select("value")
-    .eq("key", key)
-    .single();
-  return data?.value === true;
+  return appSettingsRepository.getBool(key);
+}
+
+export async function setAppSettingBool(key: string, value: boolean): Promise<void> {
+  return appSettingsRepository.setBool(key, value);
 }

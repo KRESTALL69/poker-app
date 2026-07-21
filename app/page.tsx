@@ -9,8 +9,8 @@ import {
   linkEmailToPlayer,
   acceptTerms,
   completeProfile,
-  TERMS_VERSION,
 } from "@/features/auth";
+import { TERMS_VERSION } from "@/lib/terms";
 import {
   getVisibleOpenTournamentsForPlayer,
   getPlayerRegistrations,

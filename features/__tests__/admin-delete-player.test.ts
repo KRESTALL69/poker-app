@@ -14,6 +14,7 @@ function makeChain(result: { data?: any; error?: any }) {
     chain[method] = vi.fn().mockReturnValue(chain);
   }
   chain.single = vi.fn().mockResolvedValue(result);
+  chain.maybeSingle = vi.fn().mockResolvedValue(result);
   chain.then = (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
   return chain;
 }

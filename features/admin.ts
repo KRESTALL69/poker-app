@@ -1,58 +1,16 @@
-import { supabase } from "@/lib/supabase";
 import type { Player } from "@/types/domain";
-import type { PlayerRow } from "@/types/database";
-
-function mapPlayerRowToDomain(row: PlayerRow): Player {
-  return {
-    id: row.id,
-    telegram_id: row.telegram_id,
-    email: row.email ?? undefined,
-    username: row.username,
-    display_name: row.display_name,
-    admin_display_name: row.admin_display_name ?? undefined,
-    telegram_avatar_url: row.telegram_avatar_url ?? undefined,
-    custom_avatar_url: row.custom_avatar_url ?? undefined,
-    avatar_updated_at: row.avatar_updated_at ?? undefined,
-    role: row.role as "player" | "admin",
-    accepted_terms_at: row.accepted_terms_at ?? undefined,
-    accepted_terms_version: row.accepted_terms_version ?? undefined,
-    profile_completed_at: row.profile_completed_at ?? undefined,
-    nickname_status: (row.nickname_status as "approved" | "pending") ?? undefined,
-    pending_display_name: row.pending_display_name ?? undefined,
-    can_access_free: row.can_access_free,
-    can_access_paid: row.can_access_paid,
-    can_access_cash: row.can_access_cash,
-    is_blocked: row.is_blocked ?? false,
-    blocked_at: row.blocked_at ?? undefined,
-    block_reason: row.block_reason ?? undefined,
-    created_at: row.created_at,
-  };
-}
+import { achievementRepository } from "@/lib/repositories/achievement";
+import { playerRepository } from "@/lib/repositories/player";
+import { registrationRepository } from "@/lib/repositories/registration";
+import { tournamentLiveStateRepository } from "@/lib/repositories/tournament-live-state";
+import { resultRepository } from "@/lib/repositories/result";
 
 export async function getPlayersForAccessManagement(): Promise<Player[]> {
-  const { data, error } = await supabase
-    .from("players")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw new Error(`Ошибка загрузки игроков: ${error.message}`);
-  }
-
-  return (data ?? []).map((row) => mapPlayerRowToDomain(row as PlayerRow));
+  return playerRepository.listForAccessManagement();
 }
 
 export async function getPlayersForNicknameDirectory(): Promise<Player[]> {
-  const { data, error } = await supabase
-    .from("players")
-    .select("*")
-    .order("display_name", { ascending: true });
-
-  if (error) {
-    throw new Error(`Ошибка загрузки игроков: ${error.message}`);
-  }
-
-  return (data ?? []).map((row) => mapPlayerRowToDomain(row as PlayerRow));
+  return playerRepository.listForNicknameDirectory();
 }
 
 export async function updatePlayerAdminDisplayName(
@@ -60,66 +18,48 @@ export async function updatePlayerAdminDisplayName(
   adminDisplayName: string | null
 ): Promise<Player> {
   const normalizedDisplayName = adminDisplayName?.trim() ?? "";
-
-  const { data, error } = await supabase
-    .from("players")
-    .update({
-      admin_display_name: normalizedDisplayName || null,
-    })
-    .eq("id", playerId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(`Ошибка обновления админского ника: ${error.message}`);
-  }
-
-  return mapPlayerRowToDomain(data as PlayerRow);
+  return playerRepository.updateAdminDisplayName(playerId, normalizedDisplayName || null);
 }
 
 export async function deleteManualPlayer(playerId: string): Promise<void> {
-  const { data: player, error: fetchError } = await supabase
-    .from("players")
-    .select("id")
-    .eq("id", playerId)
-    .single();
-
-  if (fetchError || !player) throw new Error("Игрок не найден");
-
-  const { error: liveEntriesError } = await supabase
-    .from("tournament_live_entries")
-    .delete()
-    .eq("player_id", playerId);
-  if (liveEntriesError) {
-    throw new Error(`Ошибка удаления live-записей: ${liveEntriesError.message}`);
+  let player: Player | null;
+  try {
+    player = await playerRepository.findById(playerId);
+  } catch {
+    player = null;
   }
 
-  const { error: achievementsError } = await supabase
-    .from("player_achievements")
-    .delete()
-    .eq("player_id", playerId);
-  if (achievementsError) {
-    throw new Error(`Ошибка удаления достижений: ${achievementsError.message}`);
+  if (!player) throw new Error("Игрок не найден");
+
+  try {
+    await tournamentLiveStateRepository.deleteByPlayerId(playerId);
+  } catch (error) {
+    const message = (error as { message?: string })?.message ?? "Unknown error";
+    throw new Error(`Ошибка удаления live-записей: ${message}`);
   }
 
-  const { error: resultsError } = await supabase
-    .from("results")
-    .delete()
-    .eq("player_id", playerId);
-  if (resultsError) {
-    throw new Error(`Ошибка удаления results: ${resultsError.message}`);
+  try {
+    await achievementRepository.deleteByPlayerId(playerId);
+  } catch (error) {
+    const message = (error as { message?: string })?.message ?? "Unknown error";
+    throw new Error(`Ошибка удаления достижений: ${message}`);
   }
 
-  const { error: registrationsError } = await supabase
-    .from("registrations")
-    .delete()
-    .eq("player_id", playerId);
-  if (registrationsError) {
-    throw new Error(`Ошибка удаления registrations: ${registrationsError.message}`);
+  try {
+    await resultRepository.deleteByPlayerId(playerId);
+  } catch (error) {
+    const message = (error as { message?: string })?.message ?? "Unknown error";
+    throw new Error(`Ошибка удаления results: ${message}`);
   }
 
-  const { error } = await supabase.from("players").delete().eq("id", playerId);
-  if (error) throw new Error(`Ошибка удаления: ${error.message}`);
+  try {
+    await registrationRepository.deleteByPlayerId(playerId);
+  } catch (error) {
+    const message = (error as { message?: string })?.message ?? "Unknown error";
+    throw new Error(`Ошибка удаления registrations: ${message}`);
+  }
+
+  await playerRepository.deleteById(playerId);
 }
 
 export async function blockPlayer(
@@ -127,74 +67,51 @@ export async function blockPlayer(
   callerAdminId: string | null,
   reason?: string
 ): Promise<Player> {
-  const { data: target, error: fetchError } = await supabase
-    .from("players")
-    .select("id, role, is_blocked")
-    .eq("id", playerId)
-    .single();
+  let target: Player | null;
+  try {
+    target = await playerRepository.findById(playerId);
+  } catch {
+    target = null;
+  }
 
-  if (fetchError || !target) throw new Error("Игрок не найден");
+  if (!target) throw new Error("Игрок не найден");
   if (target.is_blocked) throw new Error("Игрок уже заблокирован");
 
   if (target.role === "admin") {
-    const { count } = await supabase
-      .from("players")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "admin")
-      .eq("is_blocked", false);
+    const count = await playerRepository.countActiveAdmins();
 
     if (count !== null && count <= 1) {
       throw new Error("Нельзя заблокировать последнего администратора");
     }
   }
 
-  const { data, error } = await supabase
-    .from("players")
-    .update({
-      is_blocked: true,
-      blocked_at: new Date().toISOString(),
-      blocked_by: callerAdminId,
-      block_reason: reason ?? null,
-    })
-    .eq("id", playerId)
-    .select("*")
-    .single();
-
-  if (error) throw new Error(`Ошибка блокировки: ${error.message}`);
+  const updated = await playerRepository.block(playerId, {
+    blockedBy: callerAdminId,
+    reason: reason ?? null,
+  });
 
   console.log(
     `[admin] player_blocked id=${playerId} by=${callerAdminId ?? "unknown"}${reason ? ` reason="${reason}"` : ""}`
   );
 
-  return mapPlayerRowToDomain(data as PlayerRow);
+  return updated;
 }
 
 export async function unblockPlayer(playerId: string): Promise<Player> {
-  const { data: target, error: fetchError } = await supabase
-    .from("players")
-    .select("id")
-    .eq("id", playerId)
-    .single();
+  let target: Player | null;
+  try {
+    target = await playerRepository.findById(playerId);
+  } catch {
+    target = null;
+  }
 
-  if (fetchError || !target) throw new Error("Игрок не найден");
+  if (!target) throw new Error("Игрок не найден");
 
-  const { data, error } = await supabase
-    .from("players")
-    .update({
-      is_blocked: false,
-      blocked_at: null,
-      blocked_by: null,
-      block_reason: null,
-    })
-    .eq("id", playerId)
-    .select("*")
-    .single();
-
-  if (error) throw new Error(`Ошибка разблокировки: ${error.message}`);
+  const updated = await playerRepository.unblock(playerId);
 
   console.log(`[admin] player_unblocked id=${playerId}`);
 
-  return mapPlayerRowToDomain(data as PlayerRow);
+  return updated;
 }
 
 export async function updatePlayerTournamentAccess(
@@ -223,16 +140,5 @@ export async function updatePlayerTournamentAccess(
     payload.can_access_cash = input.can_access_cash;
   }
 
-  const { data, error } = await supabase
-    .from("players")
-    .update(payload)
-    .eq("id", playerId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(`Ошибка обновления доступа: ${error.message}`);
-  }
-
-  return mapPlayerRowToDomain(data as PlayerRow);
+  return playerRepository.updateTournamentAccess(playerId, payload);
 }

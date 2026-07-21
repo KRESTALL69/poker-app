@@ -2,7 +2,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifySession, COOKIE_NAME } from "@/lib/telegram-web-session";
 import { logActivityEvent } from "@/lib/activity";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getAppSettingBool } from "@/features/settings";
+import { getPlayerByTelegramId, getPlayerByEmail, getPlayerById } from "@/features/auth";
 
 async function resolvePlayerId(request: NextRequest): Promise<string | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -16,12 +17,8 @@ async function resolvePlayerId(request: NextRequest): Promise<string | null> {
     const telegramId = await verifyTelegramInitData(initData, botToken);
     if (!telegramId) return null;
 
-    const { data } = await supabaseAdmin
-      .from("players")
-      .select("id")
-      .eq("telegram_id", telegramId)
-      .maybeSingle();
-    return data?.id ?? null;
+    const player = await getPlayerByTelegramId(telegramId);
+    return player?.id ?? null;
   }
 
   // --- Web email session ---
@@ -36,12 +33,8 @@ async function resolvePlayerId(request: NextRequest): Promise<string | null> {
     const { data: { user } } = await adminClient.auth.getUser(supabaseToken);
     if (!user?.email) return null;
 
-    const { data } = await supabaseAdmin
-      .from("players")
-      .select("id")
-      .eq("email", user.email)
-      .maybeSingle();
-    return data?.id ?? null;
+    const player = await getPlayerByEmail(user.email);
+    return player?.id ?? null;
   }
 
   // --- Cookie-based session (Telegram OAuth redirect) ---
@@ -125,19 +118,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Skip logging if player is admin and include_admin_activity is off
-    const { data: playerData } = await supabaseAdmin
-      .from("players")
-      .select("role")
-      .eq("id", playerId)
-      .maybeSingle();
+    const player = await getPlayerById(playerId);
 
-    if (playerData?.role === "admin") {
-      const { data: settingData } = await supabaseAdmin
-        .from("app_settings")
-        .select("value")
-        .eq("key", "include_admin_activity")
-        .maybeSingle();
-      if (settingData?.value !== true) {
+    if (player?.role === "admin") {
+      const includeAdminActivity = await getAppSettingBool("include_admin_activity");
+      if (!includeAdminActivity) {
         return NextResponse.json({ ok: true });
       }
     }

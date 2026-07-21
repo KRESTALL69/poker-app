@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteManualPlayer, blockPlayer, unblockPlayer } from "@/features/admin";
-import { supabase } from "@/lib/supabase";
+import { getPlayerByTelegramId } from "@/features/auth";
 
 function parseCallerTelegramId(request: Request): number | null {
   const initData = request.headers.get("x-telegram-init-data");
@@ -17,12 +17,8 @@ function parseCallerTelegramId(request: Request): number | null {
 async function getCallerAdminId(request: Request): Promise<string | null> {
   const telegramId = parseCallerTelegramId(request);
   if (!telegramId) return null;
-  const { data } = await supabase
-    .from("players")
-    .select("id")
-    .eq("telegram_id", telegramId)
-    .maybeSingle();
-  return data?.id ?? null;
+  const player = await getPlayerByTelegramId(telegramId);
+  return player?.id ?? null;
 }
 
 export async function DELETE(

@@ -1,4 +1,11 @@
-import { supabase } from "@/lib/supabase";
+"use server";
+
+import { seasonRepository } from "@/lib/repositories/season";
+import { playerRepository } from "@/lib/repositories/player";
+import { registrationRepository } from "@/lib/repositories/registration";
+import { tournamentLiveStateRepository } from "@/lib/repositories/tournament-live-state";
+import { resultRepository } from "@/lib/repositories/result";
+import { tournamentRepository } from "@/lib/repositories/tournament";
 import { syncPlayersAchievements } from "@/features/achievements";
 import { calculateRatingPoints, getPlaceCoefficient, FIXED_PLAYERS_COUNT } from "@/config/rating";
 import type {
@@ -10,13 +17,8 @@ import type {
   TournamentParticipant,
   TournamentResult,
   TournamentResultInput,
-  TournamentStatus,
 } from "@/types/domain";
-import type {
-  RegistrationRow,
-  TournamentLiveEntryRow,
-  TournamentRow,
-} from "@/types/database";
+import type { TournamentLiveEntryRow } from "@/types/database";
 
 const TOURNAMENT_NOTIFICATION_STATUSES: RegistrationStatus[] = [
   "registered",
@@ -69,32 +71,6 @@ function getPreferredPlayerDisplayName(player: {
   return adminDisplayName || displayName || "Игрок";
 }
 
-function mapTournamentRow(row: TournamentRow): Tournament {
-  return {
-    id: row.id,
-    title: row.title,
-    description: row.description ?? undefined,
-    location: row.location ?? undefined,
-    google_sheet_tab_name: row.google_sheet_tab_name ?? null,
-    start_at: row.start_at,
-    max_players: row.max_players,
-    kind: row.kind,
-    season_id: row.season_id,
-    status: row.status as TournamentStatus,
-    created_at: row.created_at,
-  };
-}
-
-function mapRegistrationRow(row: RegistrationRow): Registration {
-  return {
-    id: row.id,
-    player_id: row.player_id,
-    tournament_id: row.tournament_id,
-    status: row.status as RegistrationStatus,
-    created_at: row.created_at,
-  };
-}
-
 function mapTournamentLiveEntryRow(
   row: TournamentLiveEntryRow
 ): TournamentLiveEntry {
@@ -121,17 +97,11 @@ async function getTournamentsByIds(tournamentIds: string[]) {
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("tournaments")
-    .select("*")
-    .in("id", tournamentIds)
-    .order("start_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await tournamentRepository.findByIds(tournamentIds);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
 }
 
 function getAllowedTournamentKinds(player: {
@@ -157,17 +127,11 @@ function getAllowedTournamentKinds(player: {
 }
 
 export async function getOpenTournaments() {
-  const { data, error } = await supabase
-    .from("tournaments")
-    .select("*")
-    .eq("status", "open")
-    .order("start_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await tournamentRepository.listOpen();
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
 }
 
 export async function getVisibleOpenTournamentsForPlayer(player: {
@@ -175,46 +139,27 @@ export async function getVisibleOpenTournamentsForPlayer(player: {
   can_access_paid?: boolean;
   can_access_cash?: boolean;
 }) {
-  const { data, error } = await supabase
-    .from("tournaments")
-    .select("*")
-    .eq("status", "open")
-    .in("kind", getAllowedTournamentKinds(player))
-    .order("start_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await tournamentRepository.listOpenByKinds(getAllowedTournamentKinds(player));
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
 }
 
 export async function getCompletedTournaments() {
-  const { data, error } = await supabase
-    .from("tournaments")
-    .select("*")
-    .eq("status", "completed")
-    .order("start_at", { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await tournamentRepository.listCompleted();
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
 }
 
 export async function getAdminNotificationTournaments() {
-  const { data, error } = await supabase
-    .from("tournaments")
-    .select("*")
-    .neq("status", "completed")
-    .order("start_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await tournamentRepository.listNotCompleted();
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
 }
 
 export async function getVisibleCompletedTournamentsForPlayer(player: {
@@ -222,32 +167,19 @@ export async function getVisibleCompletedTournamentsForPlayer(player: {
   can_access_paid?: boolean;
   can_access_cash?: boolean;
 }) {
-  const { data, error } = await supabase
-    .from("tournaments")
-    .select("*")
-    .eq("status", "completed")
-    .in("kind", getAllowedTournamentKinds(player))
-    .order("start_at", { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await tournamentRepository.listCompletedByKinds(getAllowedTournamentKinds(player));
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).map((row) => mapTournamentRow(row as TournamentRow));
 }
 
 export async function getTournamentById(tournamentId: string) {
-  const { data, error } = await supabase
-    .from("tournaments")
-    .select("*")
-    .eq("id", tournamentId)
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await tournamentRepository.findById(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return mapTournamentRow(data as TournamentRow);
 }
 
 export async function getVisibleTournamentByIdForPlayer(
@@ -268,31 +200,23 @@ export async function getVisibleTournamentByIdForPlayer(
 }
 
 export async function getPlayerRegistrations(playerId: string) {
-  const { data, error } = await supabase
-    .from("registrations")
-    .select("*")
-    .eq("player_id", playerId)
-    .in("status", ["registered", "waitlist", "attended"]);
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await registrationRepository.findActiveByPlayerId(playerId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).map((row) => mapRegistrationRow(row as RegistrationRow));
 }
 
 export async function getTournamentRegistrationCounts() {
-  const { data, error } = await supabase
-    .from("registrations")
-    .select("tournament_id, status")
-    .eq("status", "registered");
-
-  if (error) {
-    throw new Error(error.message);
+  let tournamentIds: string[];
+  try {
+    tournamentIds = await registrationRepository.findRegisteredTournamentIds();
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return (data ?? []).reduce<Record<string, number>>((acc, row: any) => {
-    acc[row.tournament_id] = (acc[row.tournament_id] ?? 0) + 1;
+  return tournamentIds.reduce<Record<string, number>>((acc, tournamentId) => {
+    acc[tournamentId] = (acc[tournamentId] ?? 0) + 1;
     return acc;
   }, {});
 }
@@ -301,21 +225,15 @@ export async function registerPlayerForTournament(
   playerId: string,
   tournamentId: string
 ) {
-  const { data: existingRegistrationData, error: existingRegistrationError } = await supabase
-    .from("registrations")
-    .select("*")
-    .eq("player_id", playerId)
-    .eq("tournament_id", tournamentId)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (existingRegistrationError) {
-    throw new Error(existingRegistrationError.message);
+  let existingRegistration: Registration | null;
+  try {
+    existingRegistration = await registrationRepository.findLatestByPlayerAndTournament(
+      playerId,
+      tournamentId
+    );
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  const existingRegistration = existingRegistrationData?.[0]
-    ? mapRegistrationRow(existingRegistrationData[0] as RegistrationRow)
-    : null;
 
   if (existingRegistration?.status === "registered") {
     return existingRegistration;
@@ -325,14 +243,11 @@ export async function registerPlayerForTournament(
     return existingRegistration;
   }
 
-  const { data: playerData, error: playerError } = await supabase
-    .from("players")
-    .select("can_access_free, can_access_paid, can_access_cash")
-    .eq("id", playerId)
-    .single();
-
-  if (playerError) {
-    throw new Error(playerError.message);
+  let playerData: Awaited<ReturnType<typeof playerRepository.findAccessFlags>>;
+  try {
+    playerData = await playerRepository.findAccessFlags(playerId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   const tournament = await getVisibleTournamentByIdForPlayer(tournamentId, {
@@ -351,89 +266,57 @@ export async function registerPlayerForTournament(
   }
 
   if (existingRegistration?.status === "cancelled") {
-    const { data, error } = await supabase
-      .from("registrations")
-      .update({ status: nextStatus })
-      .eq("id", existingRegistration.id)
-      .select("*")
-      .single();
-
-    if (error) {
-      throw new Error(error.message);
+    try {
+      return await registrationRepository.updateStatus(existingRegistration.id, nextStatus);
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
     }
-
-    return mapRegistrationRow(data as RegistrationRow);
   }
 
-  const { data, error } = await supabase
-    .from("registrations")
-    .insert({
-      player_id: playerId,
-      tournament_id: tournamentId,
+  try {
+    return await registrationRepository.create({
+      playerId,
+      tournamentId,
       status: nextStatus,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
+    });
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return mapRegistrationRow(data as RegistrationRow);
 }
 
 export async function cancelPlayerRegistration(
   playerId: string,
   tournamentId: string
 ) {
-  const { data: registrationData, error: registrationError } = await supabase
-    .from("registrations")
-    .select("*")
-    .eq("player_id", playerId)
-    .eq("tournament_id", tournamentId)
-    .in("status", ["registered", "waitlist"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (registrationError) {
-    throw new Error(registrationError.message);
+  let currentRegistration: Registration;
+  try {
+    currentRegistration = await registrationRepository.findLatestActiveByPlayerAndTournament(
+      playerId,
+      tournamentId
+    );
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  const currentRegistration = mapRegistrationRow(registrationData as RegistrationRow);
-
-  const { error: cancelError } = await supabase
-    .from("registrations")
-    .update({ status: "cancelled" })
-    .eq("id", currentRegistration.id);
-
-  if (cancelError) {
-    throw new Error(cancelError.message);
+  try {
+    await registrationRepository.setStatus(currentRegistration.id, "cancelled");
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   if (currentRegistration.status === "registered") {
-    const { data: waitlistData, error: waitlistError } = await supabase
-      .from("registrations")
-      .select("*")
-      .eq("tournament_id", tournamentId)
-      .eq("status", "waitlist")
-      .order("created_at", { ascending: true })
-      .limit(1);
-
-    if (waitlistError) {
-      throw new Error(waitlistError.message);
+    let nextWaitlistPlayer: Registration | null;
+    try {
+      nextWaitlistPlayer = await registrationRepository.findOldestWaitlisted(tournamentId);
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
     }
 
-    const nextWaitlistPlayer = waitlistData?.[0];
-
     if (nextWaitlistPlayer) {
-      const { error: promoteError } = await supabase
-        .from("registrations")
-        .update({ status: "registered" })
-        .eq("id", nextWaitlistPlayer.id);
-
-      if (promoteError) {
-        throw new Error(promoteError.message);
+      try {
+        await registrationRepository.setStatus(nextWaitlistPlayer.id, "registered");
+      } catch (error) {
+        throw new Error((error as { message?: string })?.message ?? "Unknown error");
       }
     }
   }
@@ -469,43 +352,24 @@ export async function getMyTournaments(playerId: string) {
 export async function getTournamentRatingPointsMap(
   tournamentId: string
 ): Promise<Map<string, number>> {
-  const { data, error } = await supabase
-    .from("results")
-    .select("player_id, rating_points")
-    .eq("tournament_id", tournamentId);
-
-  if (error) {
-    throw new Error(error.message);
+  let data: Awaited<ReturnType<typeof resultRepository.findRatingPointsByTournament>>;
+  try {
+    data = await resultRepository.findRatingPointsByTournament(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return new Map((data ?? []).map((row: any) => [row.player_id, row.rating_points ?? 0]));
+  return new Map(data.map((row) => [row.player_id, row.rating_points ?? 0]));
 }
 
 export async function getTournamentSheetExportData(tournamentId: string) {
   const tournament = await getTournamentById(tournamentId);
 
-  const { data, error } = await supabase
-    .from("registrations")
-    .select(
-      `
-      id,
-      status,
-      created_at,
-      player_id,
-      players (
-        id,
-        username,
-        admin_display_name,
-        display_name
-      )
-    `
-    )
-    .eq("tournament_id", tournamentId)
-    .in("status", ["registered", "waitlist", "attended"])
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await registrationRepository.findExportParticipants(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   const ratingMap = await getTournamentRatingPointsMap(tournamentId);
@@ -530,36 +394,22 @@ export async function setTournamentGoogleSheetTabName(
   tournamentId: string,
   tabName: string
 ) {
-  const { error } = await supabase
-    .from("tournaments")
-    .update({ google_sheet_tab_name: tabName })
-    .eq("id", tournamentId);
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    await tournamentRepository.updateGoogleSheetTabName(tournamentId, tabName);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 }
 
 export async function getMyTournamentHistory(playerId: string) {
-  const { data, error } = await supabase
-    .from("results")
-    .select(`
-      player_id,
-      tournament_id,
-      place,
-      knockouts,
-      reentries,
-      rating_points
-    `)
-    .eq("player_id", playerId)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
+  let results: Awaited<ReturnType<typeof resultRepository.findHistoryByPlayerId>>;
+  try {
+    results = await resultRepository.findHistoryByPlayerId(playerId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  const results = data ?? [];
-  const tournamentIds = results.map((row: any) => row.tournament_id);
+  const tournamentIds = results.map((row) => row.tournament_id);
   const tournaments = await getTournamentsByIds(tournamentIds);
   const tournamentsMap = new Map(tournaments.map((tournament) => [tournament.id, tournament]));
 
@@ -595,34 +445,21 @@ export async function getPlayerTournamentHistory(playerId: string) {
 }
 
 export async function getPlayerRating(playerId: string): Promise<number> {
-  const { data, error } = await supabase
-    .from("results")
-    .select("rating_points")
-    .eq("player_id", playerId);
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await resultRepository.getPlayerRating(playerId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).reduce(
-    (sum, row: any) => sum + (row.rating_points ?? 0),
-    0
-  );
 }
 
 export async function getPlayedTournamentsCount(
   playerId: string
 ): Promise<number> {
-  const { count, error } = await supabase
-    .from("results")
-    .select("*", { count: "exact", head: true })
-    .eq("player_id", playerId);
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await resultRepository.countByPlayerId(playerId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return count ?? 0;
 }
 
 export async function createTournament(input: {
@@ -633,37 +470,28 @@ export async function createTournament(input: {
   max_players: number;
   kind: TournamentKind;
 }) {
-  const { data: activeSeason, error: activeSeasonError } = await supabase
-    .from("seasons")
-    .select("id")
-    .eq("is_active", true)
-    .limit(1)
-    .single();
-
-  if (activeSeasonError) {
+  let activeSeasonId: string;
+  try {
+    const id = await seasonRepository.findActiveId();
+    if (id === null) throw new Error("Активный сезон не найден");
+    activeSeasonId = id;
+  } catch {
     throw new Error("Активный сезон не найден");
   }
 
-  const { data, error } = await supabase
-    .from("tournaments")
-    .insert({
+  try {
+    return await tournamentRepository.create({
       title: input.title,
       description: input.description,
       location: input.location,
       start_at: input.start_at,
       max_players: input.max_players,
       kind: input.kind,
-      status: "open",
-      season_id: activeSeason.id,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
+      season_id: activeSeasonId,
+    });
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return mapTournamentRow(data as TournamentRow);
 }
 
 export async function updateTournament(
@@ -677,35 +505,18 @@ export async function updateTournament(
     kind: TournamentKind;
   }
 ) {
-  const { data, error } = await supabase
-    .from("tournaments")
-    .update({
-      title: input.title,
-      description: input.description,
-      location: input.location,
-      start_at: input.start_at,
-      max_players: input.max_players,
-      kind: input.kind,
-    })
-    .eq("id", tournamentId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await tournamentRepository.update(tournamentId, input);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return mapTournamentRow(data as TournamentRow);
 }
 
 export async function deleteTournament(tournamentId: string) {
-  const { error } = await supabase
-    .from("tournaments")
-    .delete()
-    .eq("id", tournamentId);
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    await tournamentRepository.deleteById(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 }
 
@@ -714,43 +525,24 @@ export async function getTournamentParticipants(
 ): Promise<TournamentParticipant[]> {
   const tournament = await getTournamentById(tournamentId);
 
-  const { data, error } = await supabase
-    .from("registrations")
-    .select(`
-      id,
-      status,
-      created_at,
-      tournament_id,
-      player_id,
-      players (
-        id,
-        username,
-        display_name,
-        telegram_avatar_url,
-        custom_avatar_url
-      )
-    `)
-    .eq("tournament_id", tournamentId)
-    .in("status", ["registered", "attended", "waitlist"])
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await registrationRepository.findParticipantsWithRating(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   let ratingsMap = new Map<string, number>();
 
   if (tournament.season_id) {
-    const { data: resultsData, error: resultsError } = await supabase
-      .from("results")
-      .select("player_id, rating_points")
-      .eq("season_id", tournament.season_id);
-
-    if (resultsError) {
-      throw new Error(resultsError.message);
+    let resultsData: Awaited<ReturnType<typeof resultRepository.findRatingPointsBySeason>>;
+    try {
+      resultsData = await resultRepository.findRatingPointsBySeason(tournament.season_id);
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
     }
 
-    ratingsMap = (resultsData ?? []).reduce((map, row: any) => {
+    ratingsMap = resultsData.reduce((map, row) => {
       const currentValue = map.get(row.player_id) ?? 0;
       map.set(row.player_id, currentValue + (row.rating_points ?? 0));
       return map;
@@ -775,27 +567,11 @@ export async function getTournamentParticipants(
 }
 
 export async function getTournamentResultsDraft(tournamentId: string) {
-  const { data, error } = await supabase
-    .from("registrations")
-    .select(`
-      id,
-      status,
-      created_at,
-      tournament_id,
-      player_id,
-      players (
-        id,
-        username,
-        admin_display_name,
-        display_name
-      )
-    `)
-    .eq("tournament_id", tournamentId)
-    .in("status", ["registered", "attended"])
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await registrationRepository.findResultsDraftParticipants(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   return (data ?? []).map((row: any) => {
@@ -814,27 +590,11 @@ export async function getTournamentResultsDraft(tournamentId: string) {
 export async function getAdminTournamentParticipants(
   tournamentId: string
 ): Promise<AdminTournamentParticipant[]> {
-  const { data, error } = await supabase
-    .from("registrations")
-    .select(
-      `
-      id,
-      status,
-      player_id,
-      players (
-        admin_display_name,
-        display_name,
-        telegram_avatar_url,
-        custom_avatar_url
-      )
-    `
-    )
-    .eq("tournament_id", tournamentId)
-    .in("status", ["registered", "attended", "waitlist"])
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await registrationRepository.findAdminParticipants(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   return (data ?? []).map((row: any) => {
@@ -861,32 +621,21 @@ export async function addAdminTournamentParticipant(
     throw new Error("Введите ник");
   }
 
-  const { data: playerData, error: playerError } = await supabase
-    .from("players")
-    .insert({
-      telegram_id: null,
-      username: null,
-      display_name: normalizedNick,
-      admin_display_name: normalizedNick,
-      role: "player",
-    })
-    .select("id")
-    .single();
-
-  if (playerError) {
-    throw new Error(playerError.message);
+  let playerData: { id: string };
+  try {
+    playerData = await playerRepository.createManualPlayer({ displayName: normalizedNick });
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  const { error: registrationError } = await supabase
-    .from("registrations")
-    .insert({
-      player_id: playerData.id,
-      tournament_id: tournamentId,
+  try {
+    await registrationRepository.create({
+      playerId: playerData.id,
+      tournamentId,
       status: "registered",
     });
-
-  if (registrationError) {
-    throw new Error(registrationError.message);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 }
 
@@ -894,19 +643,15 @@ export async function addExistingPlayerToTournament(
   tournamentId: string,
   playerId: string
 ): Promise<void> {
-  const { data: existing, error: existingError } = await supabase
-    .from("registrations")
-    .select("*")
-    .eq("player_id", playerId)
-    .eq("tournament_id", tournamentId)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (existingError) {
-    throw new Error(existingError.message);
+  let existingReg: Registration | null;
+  try {
+    existingReg = await registrationRepository.findLatestByPlayerAndTournament(
+      playerId,
+      tournamentId
+    );
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  const existingReg = existing?.[0];
 
   if (existingReg?.status === "registered" || existingReg?.status === "waitlist") {
     throw new Error("Игрок уже зарегистрирован в этом турнире");
@@ -923,95 +668,57 @@ export async function addExistingPlayerToTournament(
   const nextStatus: RegistrationStatus =
     registeredCount < tournament.max_players ? "registered" : "waitlist";
 
-  if (existingReg?.status === "cancelled") {
-    const { error } = await supabase
-      .from("registrations")
-      .update({ status: nextStatus })
-      .eq("id", existingReg.id);
-
-    if (error) {
-      throw new Error(error.message);
+  try {
+    if (existingReg?.status === "cancelled") {
+      await registrationRepository.setStatus(existingReg.id, nextStatus);
+    } else {
+      await registrationRepository.create({ playerId, tournamentId, status: nextStatus });
     }
-  } else {
-    const { error } = await supabase
-      .from("registrations")
-      .insert({ player_id: playerId, tournament_id: tournamentId, status: nextStatus });
-
-    if (error) {
-      throw new Error(error.message);
-    }
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 }
 
 export async function removeAdminTournamentParticipant(registrationId: string) {
-  const { data: regData, error: fetchError } = await supabase
-    .from("registrations")
-    .select("status, tournament_id")
-    .eq("id", registrationId)
-    .single();
-
-  if (fetchError) {
-    throw new Error(fetchError.message);
+  let regData: { status: string; tournament_id: string };
+  try {
+    regData = await registrationRepository.findStatusAndTournament(registrationId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  const { error } = await supabase
-    .from("registrations")
-    .delete()
-    .eq("id", registrationId);
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    await registrationRepository.deleteById(registrationId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   if (regData.status === "registered") {
-    const { data: waitlistData, error: waitlistError } = await supabase
-      .from("registrations")
-      .select("*")
-      .eq("tournament_id", regData.tournament_id)
-      .eq("status", "waitlist")
-      .order("created_at", { ascending: true })
-      .limit(1);
-
-    if (waitlistError) {
-      throw new Error(waitlistError.message);
+    let nextWaitlistPlayer: Registration | null;
+    try {
+      nextWaitlistPlayer = await registrationRepository.findOldestWaitlisted(
+        regData.tournament_id
+      );
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
     }
 
-    const nextWaitlistPlayer = waitlistData?.[0];
     if (nextWaitlistPlayer) {
-      const { error: promoteError } = await supabase
-        .from("registrations")
-        .update({ status: "registered" })
-        .eq("id", nextWaitlistPlayer.id);
-
-      if (promoteError) {
-        throw new Error(promoteError.message);
+      try {
+        await registrationRepository.setStatus(nextWaitlistPlayer.id, "registered");
+      } catch (error) {
+        throw new Error((error as { message?: string })?.message ?? "Unknown error");
       }
     }
   }
 }
 
 async function getTournamentLiveEligibleRegistrations(tournamentId: string) {
-  const { data, error } = await supabase
-    .from("registrations")
-    .select(
-      `
-      id,
-      status,
-      player_id,
-      players (
-        id,
-        username,
-        admin_display_name,
-        display_name
-      )
-    `
-    )
-    .eq("tournament_id", tournamentId)
-    .in("status", ["registered", "attended"])
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await registrationRepository.findLiveEligible(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   return (data ?? []).map((row: any) => {
@@ -1038,40 +745,27 @@ export async function ensureTournamentLiveEntries(tournamentId: string) {
     tournamentId
   );
 
-  const { data: existingEntriesData, error: existingEntriesError } = await supabase
-    .from("tournament_live_entries")
-    .select("player_id")
-    .eq("tournament_id", tournamentId);
-
-  if (existingEntriesError) {
-    throw new Error(existingEntriesError.message);
+  let existingPlayerIds: Set<string>;
+  try {
+    existingPlayerIds = new Set(
+      await tournamentLiveStateRepository.findPlayerIdsByTournament(tournamentId)
+    );
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  const existingPlayerIds = new Set(
-    (existingEntriesData ?? []).map((row: any) => row.player_id as string)
-  );
 
   const rowsToInsert = eligibleRegistrations
     .filter((row) => !existingPlayerIds.has(row.player_id))
     .map((row) => ({
-      tournament_id: tournamentId,
-      player_id: row.player_id,
-      registration_id: row.registration_id,
-      arrived: false,
-      rebuys: 0,
-      addons: 0,
-      knockouts: 0,
-      place: null,
+      tournamentId,
+      playerId: row.player_id,
+      registrationId: row.registration_id,
     }));
 
-  if (rowsToInsert.length > 0) {
-    const { error: insertError } = await supabase
-      .from("tournament_live_entries")
-      .insert(rowsToInsert);
-
-    if (insertError) {
-      throw new Error(insertError.message);
-    }
+  try {
+    await tournamentLiveStateRepository.insertMissingEntries(rowsToInsert);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 }
 
@@ -1086,26 +780,11 @@ export async function getTournamentLiveEntries(
 
   await ensureTournamentLiveEntries(tournamentId);
 
-  const { data, error } = await supabase
-    .from("tournament_live_entries")
-    .select(
-      `
-      *,
-      registrations (
-        status
-      ),
-      players (
-        username,
-        admin_display_name,
-        display_name
-      )
-    `
-    )
-    .eq("tournament_id", tournamentId)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await tournamentLiveStateRepository.findWithDetails(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   return (data ?? []).map((row: any) => {
@@ -1150,22 +829,17 @@ export async function updateTournamentLiveEntries(
   await ensureTournamentLiveEntries(tournamentId);
 
   for (const row of rows) {
-    const { error } = await supabase
-      .from("tournament_live_entries")
-      .update({
+    try {
+      await tournamentLiveStateRepository.updateEntry(tournamentId, row.player_id, {
         arrived: row.arrived,
         rebuys: row.rebuys,
         addons: row.addons,
         knockouts: row.knockouts,
         place: row.place,
         winnings: row.winnings,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("tournament_id", tournamentId)
-      .eq("player_id", row.player_id);
-
-    if (error) {
-      throw new Error(error.message);
+      });
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
     }
   }
 
@@ -1220,28 +894,31 @@ export async function applyTournamentLiveSheetRows(
   }
 
   for (const row of rows) {
-    const payload: Record<string, unknown> = {
+    const patch: {
+      arrived: boolean;
+      rebuys: number;
+      addons: number;
+      knockouts: number;
+      place: number | null;
+      winnings: number;
+      sheet_row_number?: number;
+    } = {
       arrived: row.arrived,
       rebuys: row.rebuys,
       addons: row.addons,
       knockouts: row.knockouts,
       place: row.place,
       winnings: row.winnings ?? 0,
-      updated_at: new Date().toISOString(),
     };
 
     if (row.sheet_row_number != null) {
-      payload.sheet_row_number = row.sheet_row_number;
+      patch.sheet_row_number = row.sheet_row_number;
     }
 
-    const { error } = await supabase
-      .from("tournament_live_entries")
-      .update(payload)
-      .eq("tournament_id", tournamentId)
-      .eq("player_id", row.player_id);
-
-    if (error) {
-      throw new Error(error.message);
+    try {
+      await tournamentLiveStateRepository.updateEntry(tournamentId, row.player_id, patch);
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
     }
   }
 
@@ -1276,23 +953,17 @@ export async function completeTournamentFromLiveEntries(
     );
   }
 
-  const { data: tournamentRow, error: tournamentError } = await supabase
-    .from("tournaments")
-    .select("id, season_id")
-    .eq("id", tournamentId)
-    .single();
-
-  if (tournamentError) {
-    throw new Error(tournamentError.message);
+  let tournamentRow: Awaited<ReturnType<typeof tournamentRepository.findIdAndSeasonId>>;
+  try {
+    tournamentRow = await tournamentRepository.findIdAndSeasonId(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  const { error: deleteError } = await supabase
-    .from("results")
-    .delete()
-    .eq("tournament_id", tournamentId);
-
-  if (deleteError) {
-    throw new Error(deleteError.message);
+  try {
+    await resultRepository.deleteByTournamentId(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   // "Общий призовой" считается по структуре турнира (входы/ребаи/аддоны * цены),
@@ -1328,32 +999,24 @@ export async function completeTournamentFromLiveEntries(
     };
   });
 
-  const { error: insertError } = await supabase.from("results").insert(payload);
-
-  if (insertError) {
-    throw new Error(insertError.message);
+  try {
+    await resultRepository.bulkInsert(payload);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   const playerIds = liveEntries.map((entry) => entry.player_id);
 
-  const { error: registrationsError } = await supabase
-    .from("registrations")
-    .update({ status: "attended" })
-    .eq("tournament_id", tournamentId)
-    .in("player_id", playerIds)
-    .in("status", ["registered", "attended"]);
-
-  if (registrationsError) {
-    throw new Error(registrationsError.message);
+  try {
+    await registrationRepository.markAttendedForTournament(tournamentId, playerIds);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  const { error: tournamentStatusError } = await supabase
-    .from("tournaments")
-    .update({ status: "completed" })
-    .eq("id", tournamentId);
-
-  if (tournamentStatusError) {
-    throw new Error(tournamentStatusError.message);
+  try {
+    await tournamentRepository.updateStatus(tournamentId, "completed");
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   return {
@@ -1366,23 +1029,17 @@ export async function saveTournamentResults(
   tournamentId: string,
   results: TournamentResultInput[]
 ) {
-  const { data: tournamentRow, error: tournamentError } = await supabase
-    .from("tournaments")
-    .select("id, season_id")
-    .eq("id", tournamentId)
-    .single();
-
-  if (tournamentError) {
-    throw new Error(tournamentError.message);
+  let tournamentRow: Awaited<ReturnType<typeof tournamentRepository.findIdAndSeasonId>>;
+  try {
+    tournamentRow = await tournamentRepository.findIdAndSeasonId(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  const { error: deleteError } = await supabase
-    .from("results")
-    .delete()
-    .eq("tournament_id", tournamentId);
-
-  if (deleteError) {
-    throw new Error(deleteError.message);
+  try {
+    await resultRepository.deleteByTournamentId(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   const payload = results.map((item) => ({
@@ -1398,36 +1055,26 @@ export async function saveTournamentResults(
     spent: item.spent,
   }));
 
-  const { error: insertError } = await supabase
-    .from("results")
-    .insert(payload);
-
-  if (insertError) {
-    throw new Error(insertError.message);
+  try {
+    await resultRepository.bulkInsert(payload);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   const playerIds = results.map((item) => item.player_id);
 
   if (playerIds.length > 0) {
-    const { error: registrationsError } = await supabase
-      .from("registrations")
-      .update({ status: "attended" })
-      .eq("tournament_id", tournamentId)
-      .in("player_id", playerIds)
-      .in("status", ["registered", "attended"]);
-
-    if (registrationsError) {
-      throw new Error(registrationsError.message);
+    try {
+      await registrationRepository.markAttendedForTournament(tournamentId, playerIds);
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
     }
   }
 
-  const { error: tournamentStatusError } = await supabase
-    .from("tournaments")
-    .update({ status: "completed" })
-    .eq("id", tournamentId);
-
-  if (tournamentStatusError) {
-    throw new Error(tournamentStatusError.message);
+  try {
+    await tournamentRepository.updateStatus(tournamentId, "completed");
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   if (playerIds.length > 0) {
@@ -1440,24 +1087,14 @@ export async function saveTournamentResults(
 }
 
 export async function getTournamentNotificationRecipients(tournamentId: string) {
-  const { data, error } = await supabase
-    .from("registrations")
-    .select(
-      `
-      player_id,
-      status,
-      players (
-        telegram_id,
-        username,
-        display_name
-      )
-    `
-    )
-    .eq("tournament_id", tournamentId)
-    .in("status", TOURNAMENT_NOTIFICATION_STATUSES);
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await registrationRepository.findNotificationRecipients(
+      tournamentId,
+      TOURNAMENT_NOTIFICATION_STATUSES
+    );
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   const recipientsMap = new Map<string, TournamentNotificationRecipient>();
@@ -1494,13 +1131,11 @@ export async function getTournamentAccessRecipientsByKind(
         ? "can_access_cash"
         : "can_access_free";
 
-  const { data, error } = await supabase
-    .from("players")
-    .select("id, telegram_id, username, display_name")
-    .eq(accessColumn, true);
-
-  if (error) {
-    throw new Error(error.message);
+  let data: Awaited<ReturnType<typeof playerRepository.findByAccessColumn>>;
+  try {
+    data = await playerRepository.findByAccessColumn(accessColumn);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   const recipientsMap = new Map<string, TournamentNotificationRecipient>();
@@ -1538,25 +1173,11 @@ export async function getTournamentNotificationRecipientsByAudience(input: {
 export async function getTournamentResults(
   tournamentId: string
 ): Promise<TournamentResult[]> {
-  const { data, error } = await supabase
-    .from("results")
-    .select(`
-      player_id,
-      place,
-      knockouts,
-      reentries,
-      rating_points,
-      winnings,
-      players (
-        username,
-        display_name
-      )
-    `)
-    .eq("tournament_id", tournamentId)
-    .order("place", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await resultRepository.findByTournamentId(tournamentId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   return (data ?? []).map((row: any) => {
@@ -1584,12 +1205,11 @@ export type PlayerDirectoryEntry = {
 };
 
 export async function getPlayerDirectoryForExport(): Promise<PlayerDirectoryEntry[]> {
-  const { data, error } = await supabase
-    .from("players")
-    .select("id, telegram_id, username, display_name, admin_display_name, email");
-
-  if (error) {
-    throw new Error(error.message);
+  let data: Awaited<ReturnType<typeof playerRepository.findAllForExport>>;
+  try {
+    data = await playerRepository.findAllForExport();
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   return (data ?? [])
@@ -1635,30 +1255,11 @@ export async function getPlayerResultsStats(
     }
   }
 
-  let query = supabase
-    .from("results")
-    .select(`
-      player_id,
-      place,
-      reentries,
-      addons,
-      knockouts,
-      spent,
-      winnings,
-      players (
-        username,
-        display_name
-      )
-    `);
-
-  if (resolvedSeasonId) {
-    query = query.eq("season_id", resolvedSeasonId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await resultRepository.findForPlayerStats(resolvedSeasonId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   let seasonRatingMap = new Map<string, number>();
@@ -1716,22 +1317,11 @@ export async function getPlayerResultsStats(
 }
 
 export async function getSeasonLeaderboard(seasonId: string) {
-  const { data, error } = await supabase
-    .from("results")
-    .select(`
-      player_id,
-      rating_points,
-      players (
-        username,
-        display_name,
-        telegram_avatar_url,
-        custom_avatar_url
-      )
-    `)
-    .eq("season_id", seasonId);
-
-  if (error) {
-    throw new Error(error.message);
+  let data: any[];
+  try {
+    data = await resultRepository.findBySeasonId(seasonId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
   const leaderboardMap = new Map<
@@ -1771,30 +1361,24 @@ export async function getSeasonLeaderboard(seasonId: string) {
 }
 
 export async function getActiveSeason() {
-  const { data, error } = await supabase
-    .from("seasons")
-    .select("*")
-    .eq("is_active", true)
-    .limit(1)
-    .single();
+  let season;
+  try {
+    season = await seasonRepository.findActive();
+  } catch {
+    season = null;
+  }
 
-  if (error) {
+  if (!season) {
     throw new Error("Активный сезон не найден");
   }
 
-  return data;
+  return season;
 }
 
 export async function getSeasonById(seasonId: string) {
-  const { data, error } = await supabase
-    .from("seasons")
-    .select("*")
-    .eq("id", seasonId)
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await seasonRepository.findById(seasonId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return data;
 }

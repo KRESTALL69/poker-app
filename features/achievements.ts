@@ -1,6 +1,7 @@
-import { supabase } from "@/lib/supabase";
-import type { PlayerAchievement } from "@/types/domain";
-import type { PlayerAchievementRow } from "@/types/database";
+"use server";
+
+import { achievementRepository } from "@/lib/repositories/achievement";
+import { resultRepository } from "@/lib/repositories/result";
 
 const ACHIEVEMENT_TARGETS = {
   first_tournament: 1,
@@ -10,84 +11,53 @@ const ACHIEVEMENT_TARGETS = {
   pro_1000_rating: 1000,
 } as const;
 
-function mapPlayerAchievementRow(row: PlayerAchievementRow): PlayerAchievement {
-  return {
-    id: row.id,
-    player_id: row.player_id,
-    achievement_code: row.achievement_code,
-    current_value: row.current_value,
-    completed_at: row.completed_at,
-    updated_at: row.updated_at,
-  };
-}
-
 export async function getPlayerAchievements(playerId: string) {
-  const { data, error } = await supabase
-    .from("player_achievements")
-    .select("*")
-    .eq("player_id", playerId);
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    return await achievementRepository.findByPlayerId(playerId);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-
-  return (data ?? []).map((row) =>
-    mapPlayerAchievementRow(row as PlayerAchievementRow)
-  );
 }
 
 async function getPlayerAchievementStats(playerId: string) {
-  const [
-    { count: playedCount, error: playedError },
-    { data: winsData, error: winsError },
-    { data: ratingData, error: ratingError },
-  ] =
-    await Promise.all([
-      supabase
-        .from("results")
-        .select("*", { count: "exact", head: true })
-        .eq("player_id", playerId),
-      supabase
-        .from("results")
-        .select("id")
-        .eq("player_id", playerId)
-        .eq("place", 1),
-      supabase
-        .from("results")
-        .select("rating_points")
-        .eq("player_id", playerId),
-    ]);
+  const [playedResult, winsResult, ratingResult] = await Promise.allSettled([
+    resultRepository.countByPlayerId(playerId),
+    resultRepository.countWinsByPlayerId(playerId),
+    resultRepository.getPlayerRating(playerId),
+  ]);
 
-  if (playedError) {
-    throw new Error(playedError.message);
+  if (playedResult.status === "rejected") {
+    throw new Error(
+      (playedResult.reason as { message?: string })?.message ?? "Unknown error"
+    );
   }
 
-  if (winsError) {
-    throw new Error(winsError.message);
+  if (winsResult.status === "rejected") {
+    throw new Error(
+      (winsResult.reason as { message?: string })?.message ?? "Unknown error"
+    );
   }
 
-  if (ratingError) {
-    throw new Error(ratingError.message);
+  if (ratingResult.status === "rejected") {
+    throw new Error(
+      (ratingResult.reason as { message?: string })?.message ?? "Unknown error"
+    );
   }
 
-  const ratingTotal = (ratingData ?? []).reduce(
-    (sum, row: any) => sum + (row.rating_points ?? 0),
-    0
-  );
+  const playedCount = playedResult.value;
+  const winsCount = winsResult.value;
+  const ratingTotal = ratingResult.value;
 
   return {
     first_tournament: Math.min(
-      playedCount ?? 0,
+      playedCount,
       ACHIEVEMENT_TARGETS.first_tournament
     ),
     ten_tournaments: Math.min(
-      playedCount ?? 0,
+      playedCount,
       ACHIEVEMENT_TARGETS.ten_tournaments
     ),
-    first_win: Math.min(
-      (winsData ?? []).length,
-      ACHIEVEMENT_TARGETS.first_win
-    ),
+    first_win: Math.min(winsCount, ACHIEVEMENT_TARGETS.first_win),
     rookie_100_rating: Math.min(
       ratingTotal,
       ACHIEVEMENT_TARGETS.rookie_100_rating
@@ -116,12 +86,10 @@ export async function syncPlayerAchievements(playerId: string) {
     };
   });
 
-  const { error } = await supabase
-    .from("player_achievements")
-    .upsert(payload, { onConflict: "player_id,achievement_code" });
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    await achievementRepository.upsertMany(payload);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 }
 

@@ -4,7 +4,8 @@ import {
   getOpenTournaments,
 } from "@/features/tournaments";
 import type { TournamentKind } from "@/types/domain";
-import { supabase } from "@/lib/supabase";
+import { seasonRepository } from "@/lib/repositories/season";
+import { tournamentRepository } from "@/lib/repositories/tournament";
 
 export async function GET(request: Request) {
   try {
@@ -41,47 +42,39 @@ export async function POST(request: Request) {
       kind: TournamentKind;
     };
 
-    const { data: activeSeason, error: activeSeasonError } = await supabase
-      .from("seasons")
-      .select("id")
-      .eq("is_active", true)
-      .limit(1)
-      .single();
-
-    if (activeSeasonError) {
-      if (activeSeasonError.code === "PGRST116") {
+    let activeSeasonId: string;
+    try {
+      const id = await seasonRepository.findActiveId();
+      if (id === null) {
         return NextResponse.json(
           { error: "Активный сезон не найден" },
           { status: 400 }
         );
       }
-
+      activeSeasonId = id;
+    } catch (error) {
+      const message = (error as { message?: string })?.message ?? "Unknown error";
       return NextResponse.json(
-        {
-          error: `Не удалось получить активный сезон: ${activeSeasonError.message}`,
-        },
+        { error: `Не удалось получить активный сезон: ${message}` },
         { status: 500 }
       );
     }
 
-    const { data: tournament, error: createError } = await supabase
-      .from("tournaments")
-      .insert({
+    let tournament;
+    try {
+      tournament = await tournamentRepository.create({
         title: body.title,
         description: body.description,
         location: body.location,
         start_at: body.start_at,
         max_players: body.max_players,
         kind: body.kind,
-        status: "open",
-        season_id: activeSeason.id,
-      })
-      .select("*")
-      .single();
-
-    if (createError) {
+        season_id: activeSeasonId,
+      });
+    } catch (error) {
+      const message = (error as { message?: string })?.message ?? "Unknown error";
       return NextResponse.json(
-        { error: `Не удалось создать турнир: ${createError.message}` },
+        { error: `Не удалось создать турнир: ${message}` },
         { status: 500 }
       );
     }

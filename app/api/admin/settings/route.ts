@@ -1,16 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function createSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error("Supabase admin env is not configured");
-  }
-
-  return createClient(url, serviceRoleKey);
-}
+import { setAppSettingBool } from "@/features/settings";
 
 export async function PATCH(request: Request) {
   try {
@@ -21,12 +10,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const admin = createSupabaseAdmin();
-    const { error } = await admin
-      .from("app_settings")
-      .upsert({ key, value, updated_at: new Date().toISOString() });
-
-    if (error) throw error;
+    await setAppSettingBool(key, value);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

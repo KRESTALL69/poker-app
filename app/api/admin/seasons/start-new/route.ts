@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { seasonRepository } from "@/lib/repositories/season";
 
 export async function POST(request: Request) {
   try {
@@ -11,24 +11,22 @@ export async function POST(request: Request) {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Close current active season
-    const { error: closeError } = await supabase
-      .from("seasons")
-      .update({ is_active: false, end_date: today })
-      .eq("is_active", true);
+    let season;
+    try {
+      // Close current active season
+      await seasonRepository.closeActiveSeason(today);
 
-    if (closeError) throw new Error(closeError.message);
+      // Create new active season starting today
+      season = await seasonRepository.create({
+        title: body.title.trim(),
+        startDate: today,
+        isActive: true,
+      });
+    } catch (error) {
+      throw new Error((error as { message?: string })?.message ?? "Unknown error");
+    }
 
-    // Create new active season starting today
-    const { data, error: createError } = await supabase
-      .from("seasons")
-      .insert({ title: body.title.trim(), start_date: today, is_active: true })
-      .select("*")
-      .single();
-
-    if (createError) throw new Error(createError.message);
-
-    return NextResponse.json({ season: data });
+    return NextResponse.json({ season });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Не удалось начать новый сезон" },

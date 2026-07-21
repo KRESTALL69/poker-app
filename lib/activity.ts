@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { activityRepository } from "@/lib/repositories/activity";
 
 export async function logActivityEvent(
   playerId: string,
@@ -11,13 +11,13 @@ export async function logActivityEvent(
   }
 ): Promise<void> {
   try {
-    await supabaseAdmin.from("activity_events").insert({
-      player_id: playerId,
-      event_type: eventType,
-      event_label: options?.label ?? null,
+    await activityRepository.log({
+      playerId,
+      eventType,
+      eventLabel: options?.label ?? null,
       metadata: options?.metadata ?? null,
       platform: options?.platform ?? "unknown",
-      session_id: options?.session_id ?? null,
+      sessionId: options?.session_id ?? null,
     });
   } catch {
     // Never break the main flow

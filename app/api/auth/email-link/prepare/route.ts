@@ -1,6 +1,6 @@
 import { createHmac } from "crypto";
 import { type NextRequest, NextResponse } from "next/server";
-import { getPlayerByEmail } from "@/features/auth";
+import { getPlayerByEmail, getPlayerByTelegramId } from "@/features/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 function validateTelegramInitData(initData: string): { id: number } {
@@ -51,18 +51,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: playerRow } = await supabaseAdmin
-    .from("players")
-    .select("id, telegram_id")
-    .eq("telegram_id", telegramUser.id)
-    .single();
+  const playerRow = await getPlayerByTelegramId(telegramUser.id);
 
   if (!playerRow) {
     return NextResponse.json({ error: "Player not found" }, { status: 404 });
   }
 
   const existingPlayer = await getPlayerByEmail(email);
-  if (existingPlayer && existingPlayer.id !== (playerRow as { id: string }).id) {
+  if (existingPlayer && existingPlayer.id !== playerRow.id) {
     return NextResponse.json(
       { error: "Этот email уже привязан к другому игроку" },
       { status: 409 }

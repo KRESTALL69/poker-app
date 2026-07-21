@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { seasonRepository } from "@/lib/repositories/season";
 
 export async function PATCH(
   request: Request,
@@ -11,31 +11,22 @@ export async function PATCH(
 
     if (body.action === "close") {
       const today = new Date().toISOString().split("T")[0];
-      const { error } = await supabase
-        .from("seasons")
-        .update({ is_active: false, end_date: today })
-        .eq("id", id);
-
-      if (error) throw new Error(error.message);
+      try {
+        await seasonRepository.closeById(id, today);
+      } catch (error) {
+        throw new Error((error as { message?: string })?.message ?? "Unknown error");
+      }
       return NextResponse.json({ ok: true });
     }
 
     if (body.action === "activate") {
-      // Deactivate any currently active season first — prevents two active seasons
-      const { error: deactivateError } = await supabase
-        .from("seasons")
-        .update({ is_active: false })
-        .eq("is_active", true)
-        .neq("id", id);
-
-      if (deactivateError) throw new Error(deactivateError.message);
-
-      const { error: activateError } = await supabase
-        .from("seasons")
-        .update({ is_active: true, end_date: null })
-        .eq("id", id);
-
-      if (activateError) throw new Error(activateError.message);
+      try {
+        // Deactivate any currently active season first — prevents two active seasons
+        await seasonRepository.deactivateOthers(id);
+        await seasonRepository.activateById(id);
+      } catch (error) {
+        throw new Error((error as { message?: string })?.message ?? "Unknown error");
+      }
 
       return NextResponse.json({ ok: true });
     }
