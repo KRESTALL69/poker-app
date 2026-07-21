@@ -82,6 +82,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       .set({ telegramAvatarUrl: url })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -91,6 +92,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       .set({ customAvatarUrl: url, avatarUpdatedAt: new Date().toISOString() })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -100,6 +102,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       .set({ acceptedTermsAt: new Date().toISOString(), acceptedTermsVersion: version })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -127,6 +130,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -140,6 +144,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -149,6 +154,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       .set({ nicknameStatus: "pending", pendingDisplayName })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -167,6 +173,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       .set({ displayName: newDisplayName, pendingDisplayName: null, nicknameStatus: "approved" })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -176,6 +183,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       .set({ pendingDisplayName: null, nicknameStatus: "approved" })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -189,6 +197,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
 
   async updateEmail(playerId: string, email: string): Promise<Player> {
     const [row] = await db.update(players).set({ email }).where(eq(players.id, playerId)).returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -208,6 +217,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       .set({ adminDisplayName })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -222,6 +232,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -231,6 +242,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       .set({ isBlocked: false, blockedAt: null, blockedBy: null, blockReason: null })
       .where(eq(players.id, playerId))
       .returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 
@@ -248,6 +260,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
     if (patch.can_access_cash !== undefined) set.canAccessCash = patch.can_access_cash;
 
     const [row] = await db.update(players).set(set).where(eq(players.id, playerId)).returning();
+    if (!row) throw new Error(`Player not found: ${playerId}`);
     return mapPlayerRow(row);
   }
 

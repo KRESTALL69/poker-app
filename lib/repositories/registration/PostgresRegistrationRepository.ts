@@ -113,6 +113,7 @@ export class PostgresRegistrationRepository implements RegistrationRepository {
       .set({ status })
       .where(eq(registrations.id, registrationId))
       .returning();
+    if (!row) throw new Error(`Registration not found: ${registrationId}`);
     return mapRegistrationRow(row);
   }
 

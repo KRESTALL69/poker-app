@@ -126,6 +126,7 @@ export class PostgresTournamentRepository implements TournamentRepository {
       })
       .where(eq(tournaments.id, tournamentId))
       .returning();
+    if (!row) throw new Error(`Tournament not found: ${tournamentId}`);
     return mapTournamentRow(row);
   }
 
