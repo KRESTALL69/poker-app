@@ -434,9 +434,9 @@ Dockerfile, docker-compose.yml и health check — уже спроектиров
 
 **Что должно быть реализовано.**
 1. DNS собственного домена Poker App — переключён на VPS (A-запись на IP сервера), TLS-сертификат выпущен для этого домена в nginx-конфиге (этап 8).
-2. **Обновление кода**: `WEB_APP_URL` в `app/api/telegram/webhook/route.ts` (сейчас захардкожен как `https://poker-app-psi-livid.vercel.app/`) — заменить на реальный новый домен. Это единственное известное по аудиту место в коде, жёстко привязанное к текущему Vercel-адресу.
-3. **BotFather** — обновить Main Mini App URL для `DontWorryClubBot` на новый домен (вне кода, через диалог с BotFather).
-4. Webhook Telegram-бота (`setWebhook`) — переключить на новый домен (`https://<новый-домен>/api/telegram/webhook`).
+2. **Обновление кода**: `WEB_APP_URL` в `app/api/telegram/webhook/route.ts` — заменено с `https://poker-app-psi-livid.vercel.app/` на `https://www.dontworryclub.pro/` (это код инлайн-кнопки `web_app` в `/start`, не глобальная кнопка меню бота — см. п.3).
+3. **Menu Button бота** — `getChatMenuButton` подтвердил отдельную, глобальную кнопку меню (`type: "web_app"`), тоже указывающую на старый Vercel-адрес. Обновляется не через диалог с BotFather, а обычным вызовом Bot API `setChatMenuButton` (тем же токеном, что уже есть в `.env`) — не выполнено самостоятельно, меняет живое поведение бота для реальных пользователей немедленно; ждёт отдельного подтверждения.
+4. Webhook Telegram-бота (`setWebhook`) — подтверждено через `getWebhookInfo`: всё ещё указывает на `https://poker-app-psi-livid.vercel.app/api/telegram/webhook`. Требует валидного HTTPS на новом домене (этап 13 доступа TLS) прежде чем переключать — иначе Telegram не примет новый URL.
 5. Финальная проверка по чек-листу здоровья: `/api/health` (Docker healthcheck, `deploy.yml`-поллинг), полный ручной прогон всех сценариев (Telegram-вход, email-вход, турниры, waitlist, рейтинг, аватары, live-турнир, support-бот, Google Sheets export/import).
 6. Vercel-проект — не удаляется сразу, отключается от продового трафика (домен отвязан), остаётся как путь отката на согласованный период.
 
