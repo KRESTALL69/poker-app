@@ -579,6 +579,11 @@ export default function FaqPage() {
       tab === "tournament-rules" ||
       tab === "rating-rules"
     ) {
+      // window.location.search is only available after mount; deriving this
+      // from a useState initializer instead would make the server always
+      // render "general" and the client jump straight to the URL's tab,
+      // causing a hydration mismatch whenever ?tab= is present.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(tab);
     }
   }, []);
@@ -595,7 +600,7 @@ export default function FaqPage() {
 
         <header className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
           <p className="text-xs uppercase tracking-[0.24em] text-white/45">
-            Don't worry club
+            Don&apos;t worry club
           </p>
           <h1 className="mt-3 text-3xl font-semibold leading-tight">FAQ</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">

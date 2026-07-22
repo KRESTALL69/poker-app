@@ -36,7 +36,7 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Minimal registration row factory */
-function reg(overrides: Record<string, any> = {}) {
+function reg(overrides: Record<string, unknown> = {}) {
   return {
     id: 'reg-1',
     player_id: 'player-1',

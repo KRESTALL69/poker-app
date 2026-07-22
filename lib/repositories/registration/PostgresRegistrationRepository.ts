@@ -3,8 +3,14 @@ import { players, registrations } from "@/lib/db/schema";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { Registration, RegistrationStatus } from "@/types/domain";
 import type {
+  AdminParticipant,
+  ExportParticipant,
+  LiveEligibleParticipant,
+  NotificationRecipient,
+  ParticipantWithRating,
   RegistrationRepository,
   RegistrationStatusAndTournament,
+  ResultsDraftParticipant,
 } from "./Interface";
 
 function mapRegistrationRow(row: typeof registrations.$inferSelect): Registration {
@@ -142,7 +148,7 @@ export class PostgresRegistrationRepository implements RegistrationRepository {
       );
   }
 
-  async findExportParticipants(tournamentId: string): Promise<any[]> {
+  async findExportParticipants(tournamentId: string): Promise<ExportParticipant[]> {
     return db
       .select({
         id: registrations.id,
@@ -167,7 +173,7 @@ export class PostgresRegistrationRepository implements RegistrationRepository {
       .orderBy(asc(registrations.createdAt));
   }
 
-  async findParticipantsWithRating(tournamentId: string): Promise<any[]> {
+  async findParticipantsWithRating(tournamentId: string): Promise<ParticipantWithRating[]> {
     return db
       .select({
         id: registrations.id,
@@ -194,7 +200,7 @@ export class PostgresRegistrationRepository implements RegistrationRepository {
       .orderBy(asc(registrations.createdAt));
   }
 
-  async findResultsDraftParticipants(tournamentId: string): Promise<any[]> {
+  async findResultsDraftParticipants(tournamentId: string): Promise<ResultsDraftParticipant[]> {
     return db
       .select({
         id: registrations.id,
@@ -220,7 +226,7 @@ export class PostgresRegistrationRepository implements RegistrationRepository {
       .orderBy(asc(registrations.createdAt));
   }
 
-  async findAdminParticipants(tournamentId: string): Promise<any[]> {
+  async findAdminParticipants(tournamentId: string): Promise<AdminParticipant[]> {
     return db
       .select({
         id: registrations.id,
@@ -244,7 +250,7 @@ export class PostgresRegistrationRepository implements RegistrationRepository {
       .orderBy(asc(registrations.createdAt));
   }
 
-  async findLiveEligible(tournamentId: string): Promise<any[]> {
+  async findLiveEligible(tournamentId: string): Promise<LiveEligibleParticipant[]> {
     return db
       .select({
         id: registrations.id,
@@ -271,7 +277,7 @@ export class PostgresRegistrationRepository implements RegistrationRepository {
   async findNotificationRecipients(
     tournamentId: string,
     statuses: RegistrationStatus[]
-  ): Promise<any[]> {
+  ): Promise<NotificationRecipient[]> {
     return db
       .select({
         player_id: registrations.playerId,

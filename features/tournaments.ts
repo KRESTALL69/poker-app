@@ -6,6 +6,20 @@ import { registrationRepository } from "@/lib/repositories/registration";
 import { tournamentLiveStateRepository } from "@/lib/repositories/tournament-live-state";
 import { resultRepository } from "@/lib/repositories/result";
 import { tournamentRepository } from "@/lib/repositories/tournament";
+import type {
+  AdminParticipant,
+  ExportParticipant,
+  LiveEligibleParticipant,
+  NotificationRecipient,
+  ParticipantWithRating,
+  ResultsDraftParticipant,
+} from "@/lib/repositories/registration/Interface";
+import type {
+  ResultByTournamentRow,
+  ResultBySeasonRow,
+  ResultForPlayerStatsRow,
+} from "@/lib/repositories/result/Interface";
+import type { TournamentLiveEntryWithDetails } from "@/lib/repositories/tournament-live-state/Interface";
 import { syncPlayersAchievements } from "@/features/achievements";
 import { calculateRatingPoints, getPlaceCoefficient, FIXED_PLAYERS_COUNT } from "@/config/rating";
 import type {
@@ -365,7 +379,7 @@ export async function getTournamentRatingPointsMap(
 export async function getTournamentSheetExportData(tournamentId: string) {
   const tournament = await getTournamentById(tournamentId);
 
-  let data: any[];
+  let data: ExportParticipant[];
   try {
     data = await registrationRepository.findExportParticipants(tournamentId);
   } catch (error) {
@@ -376,7 +390,7 @@ export async function getTournamentSheetExportData(tournamentId: string) {
 
   return {
     tournament,
-    rows: (data ?? []).map((row: any) => {
+    rows: (data ?? []).map((row) => {
       const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
       return {
@@ -414,7 +428,7 @@ export async function getMyTournamentHistory(playerId: string) {
   const tournamentsMap = new Map(tournaments.map((tournament) => [tournament.id, tournament]));
 
   return results
-    .map((row: any) => {
+    .map((row) => {
       const tournament = tournamentsMap.get(row.tournament_id);
 
       if (!tournament) {
@@ -525,7 +539,7 @@ export async function getTournamentParticipants(
 ): Promise<TournamentParticipant[]> {
   const tournament = await getTournamentById(tournamentId);
 
-  let data: any[];
+  let data: ParticipantWithRating[];
   try {
     data = await registrationRepository.findParticipantsWithRating(tournamentId);
   } catch (error) {
@@ -549,13 +563,13 @@ export async function getTournamentParticipants(
     }, new Map<string, number>());
   }
 
-  return (data ?? []).map((row: any) => {
+  return (data ?? []).map((row) => {
     const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
     return {
       registration_id: row.id,
       player_id: row.player_id,
-      status: row.status,
+      status: row.status as "registered" | "waitlist" | "attended",
       created_at: row.created_at,
       username: player?.username ?? null,
       telegram_avatar_url: player?.telegram_avatar_url ?? undefined,
@@ -567,14 +581,14 @@ export async function getTournamentParticipants(
 }
 
 export async function getTournamentResultsDraft(tournamentId: string) {
-  let data: any[];
+  let data: ResultsDraftParticipant[];
   try {
     data = await registrationRepository.findResultsDraftParticipants(tournamentId);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return (data ?? []).map((row: any) => {
+  return (data ?? []).map((row) => {
     const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
     return {
@@ -590,14 +604,14 @@ export async function getTournamentResultsDraft(tournamentId: string) {
 export async function getAdminTournamentParticipants(
   tournamentId: string
 ): Promise<AdminTournamentParticipant[]> {
-  let data: any[];
+  let data: AdminParticipant[];
   try {
     data = await registrationRepository.findAdminParticipants(tournamentId);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return (data ?? []).map((row: any) => {
+  return (data ?? []).map((row) => {
     const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
     return {
@@ -714,14 +728,14 @@ export async function removeAdminTournamentParticipant(registrationId: string) {
 }
 
 async function getTournamentLiveEligibleRegistrations(tournamentId: string) {
-  let data: any[];
+  let data: LiveEligibleParticipant[];
   try {
     data = await registrationRepository.findLiveEligible(tournamentId);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return (data ?? []).map((row: any) => {
+  return (data ?? []).map((row) => {
     const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
     return {
@@ -780,15 +794,15 @@ export async function getTournamentLiveEntries(
 
   await ensureTournamentLiveEntries(tournamentId);
 
-  let data: any[];
+  let data: TournamentLiveEntryWithDetails[];
   try {
     data = await tournamentLiveStateRepository.findWithDetails(tournamentId);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return (data ?? []).map((row: any) => {
-    const base = mapTournamentLiveEntryRow(row as TournamentLiveEntryRow);
+  return (data ?? []).map((row) => {
+    const base = mapTournamentLiveEntryRow(row);
     const player = Array.isArray(row.players) ? row.players[0] : row.players;
     const registration = Array.isArray(row.registrations)
       ? row.registrations[0]
@@ -1087,7 +1101,7 @@ export async function saveTournamentResults(
 }
 
 export async function getTournamentNotificationRecipients(tournamentId: string) {
-  let data: any[];
+  let data: NotificationRecipient[];
   try {
     data = await registrationRepository.findNotificationRecipients(
       tournamentId,
@@ -1100,11 +1114,9 @@ export async function getTournamentNotificationRecipients(tournamentId: string) 
   const recipientsMap = new Map<string, TournamentNotificationRecipient>();
 
   for (const row of data ?? []) {
-    const player = Array.isArray((row as any).players)
-      ? (row as any).players[0]
-      : (row as any).players;
+    const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
-    const playerId = (row as any).player_id;
+    const playerId = row.player_id;
     const telegramId = player?.telegram_id;
 
     if (!recipientsMap.has(playerId)) {
@@ -1113,7 +1125,7 @@ export async function getTournamentNotificationRecipients(tournamentId: string) 
         telegram_id: typeof telegramId === "number" ? telegramId : null,
         username: player?.username ?? null,
         display_name: getPreferredPlayerDisplayName(player ?? {}),
-        registration_status: (row as any).status as RegistrationStatus,
+        registration_status: row.status as RegistrationStatus,
       });
     }
   }
@@ -1141,15 +1153,15 @@ export async function getTournamentAccessRecipientsByKind(
   const recipientsMap = new Map<string, TournamentNotificationRecipient>();
 
   for (const row of data ?? []) {
-    const playerId = (row as any).id;
-    const telegramId = (row as any).telegram_id;
+    const playerId = row.id;
+    const telegramId = row.telegram_id;
 
     if (!recipientsMap.has(playerId)) {
       recipientsMap.set(playerId, {
         player_id: playerId,
         telegram_id: typeof telegramId === "number" ? telegramId : null,
-        username: (row as any).username ?? null,
-        display_name: (row as any).display_name ?? "Игрок",
+        username: row.username ?? null,
+        display_name: row.display_name ?? "Игрок",
         registration_status: null,
       });
     }
@@ -1173,14 +1185,14 @@ export async function getTournamentNotificationRecipientsByAudience(input: {
 export async function getTournamentResults(
   tournamentId: string
 ): Promise<TournamentResult[]> {
-  let data: any[];
+  let data: ResultByTournamentRow[];
   try {
     data = await resultRepository.findByTournamentId(tournamentId);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return (data ?? []).map((row: any) => {
+  return (data ?? []).map((row) => {
     const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
     return {
@@ -1214,12 +1226,11 @@ export async function getPlayerDirectoryForExport(): Promise<PlayerDirectoryEntr
 
   return (data ?? [])
     .map((row) => ({
-      player_id: (row as any).id,
-      display_name: getPreferredPlayerDisplayName(row as any),
-      username: (row as any).username ?? null,
-      telegram_id:
-        typeof (row as any).telegram_id === "number" ? (row as any).telegram_id : null,
-      email: (row as any).email ?? null,
+      player_id: row.id,
+      display_name: getPreferredPlayerDisplayName(row),
+      username: row.username ?? null,
+      telegram_id: typeof row.telegram_id === "number" ? row.telegram_id : null,
+      email: row.email ?? null,
     }))
     .sort((a, b) => a.display_name.localeCompare(b.display_name, "ru"));
 }
@@ -1255,7 +1266,7 @@ export async function getPlayerResultsStats(
     }
   }
 
-  let data: any[];
+  let data: ResultForPlayerStatsRow[];
   try {
     data = await resultRepository.findForPlayerStats(resolvedSeasonId);
   } catch (error) {
@@ -1317,7 +1328,7 @@ export async function getPlayerResultsStats(
 }
 
 export async function getSeasonLeaderboard(seasonId: string) {
-  let data: any[];
+  let data: ResultBySeasonRow[];
   try {
     data = await resultRepository.findBySeasonId(seasonId);
   } catch (error) {
@@ -1337,9 +1348,7 @@ export async function getSeasonLeaderboard(seasonId: string) {
   >();
 
   for (const row of data ?? []) {
-    const player = Array.isArray((row as any).players)
-      ? (row as any).players[0]
-      : (row as any).players;
+    const player = Array.isArray(row.players) ? row.players[0] : row.players;
 
     const existing = leaderboardMap.get(row.player_id);
 

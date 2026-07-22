@@ -1036,7 +1036,7 @@ export default function HomePage() {
 
             <p className="mt-4 text-sm text-white/75">Привет, {greetingName}</p>
             <p className="mt-1 text-xs text-white/45">
-              Добро пожаловать в Don't worry club
+              Добро пожаловать в Don&apos;t worry club
             </p>
           </div>
         </header>

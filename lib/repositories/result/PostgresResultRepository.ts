@@ -2,6 +2,9 @@ import { db } from "@/lib/db";
 import { players, results } from "@/lib/db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 import type {
+  ResultByTournamentRow,
+  ResultBySeasonRow,
+  ResultForPlayerStatsRow,
   ResultHistoryRow,
   ResultInsertInput,
   ResultRatingPointsRow,
@@ -93,7 +96,7 @@ export class PostgresResultRepository implements ResultRepository {
     );
   }
 
-  async findByTournamentId(tournamentId: string): Promise<any[]> {
+  async findByTournamentId(tournamentId: string): Promise<ResultByTournamentRow[]> {
     return db
       .select({
         player_id: results.playerId,
@@ -113,7 +116,7 @@ export class PostgresResultRepository implements ResultRepository {
       .orderBy(asc(results.place));
   }
 
-  async findForPlayerStats(seasonId?: string | null): Promise<any[]> {
+  async findForPlayerStats(seasonId?: string | null): Promise<ResultForPlayerStatsRow[]> {
     const query = db
       .select({
         player_id: results.playerId,
@@ -138,7 +141,7 @@ export class PostgresResultRepository implements ResultRepository {
     return query;
   }
 
-  async findBySeasonId(seasonId: string): Promise<any[]> {
+  async findBySeasonId(seasonId: string): Promise<ResultBySeasonRow[]> {
     return db
       .select({
         player_id: results.playerId,

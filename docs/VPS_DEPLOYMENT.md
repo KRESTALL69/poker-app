@@ -8,6 +8,11 @@ PostgreSQL и авторизация полностью self-hosted (Supabase н
 
 ## Инфраструктура VPS
 
+Ветка `main` — единственная production-ветка. Каждый push в неё автоматически
+собирает и разворачивает новую версию через GitHub Actions (`.github/workflows/deploy.yml`)
+— см. раздел «Автоматический деплой (CI/CD)» ниже. Ручной путь (`scripts/deploy.sh`
+или команды вручную) остаётся рабочим fallback-ом на случай недоступности CI.
+
 Один VPS хостит три независимых проекта в отдельных Docker-контейнерах:
 
 | Контейнер | Порт | Владелец |
@@ -112,6 +117,104 @@ Docker healthcheck.
 `alias /opt/poker-app/storage/`), без обращения к Node. Supabase Storage не
 используется — см. `docs/POSTGRES_MIGRATION_AUDIT.md` (архив) для истории
 переноса.
+
+---
+
+## Автоматический деплой (CI/CD)
+
+Реализовано по образцу ReRaise (`.github/workflows/deploy.yml` в `reraise-miniapp`),
+адаптировано под структуру Poker App. Workflow: `.github/workflows/deploy.yml`.
+
+**Когда запускается:** на каждый push в `main`.
+
+**Job `checks`** (обычный GitHub-раннер, без доступа к VPS/секретам приложения):
+
+1. `npm ci`
+2. `npx tsc --noEmit` — typecheck
+3. `npm run lint`
+4. `npm test` — `vitest run`
+5. `npm run build` — санитарная сборка Next.js на раннере, с
+   `NEXT_PUBLIC_APP_URL` = production-домен как plain env (не секрет — это
+   публичный URL). Не использует `DATABASE_URL` и другие секреты: `lib/db/index.ts`
+   резолвит подключение к Postgres лениво, только при первом реальном
+   обращении, поэтому `next build` не падает без переменных окружения VPS.
+   Эта сборка отдельна от реальной production-сборки образа на VPS — она
+   существует только чтобы поймать typecheck/build-ошибки до SSH-шага.
+
+Если любой из шагов падает — job `deploy` не запускается вообще (`needs: checks`).
+
+**Job `deploy`** (только для `main`, только если `checks` прошли; `concurrency:
+production-deploy`, `cancel-in-progress: false` — деплой никогда не прерывается
+на середине, следующий push просто встаёт в очередь после текущего):
+
+1. SSH на VPS по ключу из `secrets.VPS_SSH_KEY`.
+2. `cd /opt/poker-app`, `git fetch && git checkout main && git pull --ff-only`.
+3. Сверка SHA: если `git rev-parse HEAD` на VPS не совпадает с коммитом,
+   для которого запущен workflow — деплой прерывается (`exit 1`), а не
+   разворачивает случайно другой коммит.
+4. `docker compose build app` — сборка production-образа (здесь и происходит
+   настоящий `next build`, уже с реальным `/opt/poker-app/.env`).
+5. `docker compose build migrate && docker compose run --rm migrate` —
+   применение миграций схемы. Идемпотентно: `scripts/migrate.mjs`
+   (`drizzle-orm/postgres-js/migrator`) хранит журнал применённых миграций и
+   просто ничего не делает, если новых `.sql`-файлов нет.
+6. `docker compose up -d --no-deps app` — пересоздаётся только контейнер
+   `app`; `poker-clock-db`, `re-raise`, `poker-clock`, сеть, volumes и
+   bind mount аватарок не затрагиваются ни одной командой.
+7. Проверка, что запущенный контейнер реально работает на только что
+   собранном image ID (а не на старом — на случай отсутствия эффекта от `up`).
+8. Поллинг `docker inspect` до `running` + `healthy` (таймаут 120с). Если
+   контейнер падает или сообщает `unhealthy` — job красный, в лог попадают
+   последние 200 строк `docker compose logs`.
+9. Smoke-test: `GET /api/health` (ожидается ровно `{"ok":true}`) и `GET /`
+   на `https://www.dontworryclub.pro`.
+10. Только после успеха всех шагов — `docker image prune -f` (удаляет только
+    dangling-образы, ничего тегированного/используемого).
+
+Если что-то из этого не проходит — деплой завершается с ошибкой, старый
+контейнер `app` продолжает работать (шаг 6 создаёт новый контейнер, но
+`docker compose up` не удаляет предыдущий образ, и до успешного healthcheck/
+smoke-теста мы не считаем деплой завершённым; см. «Откат» ниже, если сам
+запущенный контейнер оказался нерабочим).
+
+### Требуемые GitHub Secrets
+
+Настраиваются в repo Settings → Secrets and variables → Actions:
+
+| Secret | Назначение |
+|---|---|
+| `VPS_SSH_KEY` | Приватный SSH-ключ для входа на VPS (deploy-ключ, доступ только к нужному пользователю) |
+| `VPS_HOST` | Хост/IP VPS |
+| `VPS_USER` | Пользователь SSH на VPS (от его имени выполняется `git pull`/`docker compose`) |
+| `VPS_SSH_PORT` | (опционально) нестандартный SSH-порт; по умолчанию `22`, если secret не задан |
+
+Ничего не хранится в репозитории — `.env` на VPS, как и раньше, создаётся
+вручную (`docs/VPS_DEPLOYMENT.md`, раздел «Первое развёртывание») и в git не
+попадает.
+
+### Ручной деплой (fallback)
+
+Если CI недоступен или нужно продеплоить руками — команды из раздела
+«Команды» ниже или `./scripts/deploy.sh` по-прежнему работают без изменений;
+CI выполняет ровно те же шаги, просто автоматически на каждый push.
+
+### Откат к предыдущей версии
+
+```bash
+cd /opt/poker-app
+git log --oneline -5              # найти <previous-sha>
+git checkout <previous-sha>
+docker compose build app
+docker compose up -d --no-deps app
+docker compose ps                 # убедиться, что снова running/healthy
+```
+
+БД не трогается — миграции откатом кода не отменяются (Drizzle-миграции
+считаются forward-only; для отката схемы нужна отдельная ручная
+`down`-миграция, если она вообще нужна). После отката вернуть `main` на
+нужный коммит (`git push --force` с осторожностью, либо `git revert` —
+предпочтительно) и продолжить работу через обычный CI-деплой, иначе
+следующий push в `main` снова накатит откаченный код.
 
 ---
 

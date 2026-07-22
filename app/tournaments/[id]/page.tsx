@@ -329,7 +329,7 @@ const waitlistParticipants = participants.filter(
       }
 
       await refreshPageData(player, tournamentId);
-    } catch (err) {
+    } catch {
       setMessage("Ошибка записи");
     } finally {
       setActionLoading(false);
@@ -353,7 +353,7 @@ const waitlistParticipants = participants.filter(
       }
 
       await refreshPageData(player, tournamentId);
-    } catch (err) {
+    } catch {
       setMessage("Ошибка отмены записи");
     } finally {
       setActionLoading(false);

@@ -79,25 +79,6 @@ function PencilIcon() {
   );
 }
 
-function ImageIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
-      <circle cx="9" cy="10" r="1.5" />
-      <path d="m20.5 16.5-5.25-5.25L6 20.5" />
-    </svg>
-  );
-}
-
 function EditBadge({
   onClick,
   label,

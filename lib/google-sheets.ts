@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import type { sheets_v4 } from "googleapis";
 
 type SheetCellValue = string | number | boolean | null;
 
@@ -51,7 +52,7 @@ export async function ensureSpreadsheetTab(tabName: string) {
   const spreadsheetId = getSpreadsheetId();
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const existingSheet = spreadsheet.data.sheets?.find(
-    (sheet: any) => sheet.properties?.title === tabName
+    (sheet: sheets_v4.Schema$Sheet) => sheet.properties?.title === tabName
   );
 
   if (existingSheet?.properties?.sheetId != null) {
@@ -154,7 +155,7 @@ export async function applyTournamentSheetFormatting(
   const spreadsheetId = getSpreadsheetId();
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const targetSheet = spreadsheet.data.sheets?.find(
-    (sheet: any) => sheet.properties?.title === tabName
+    (sheet: sheets_v4.Schema$Sheet) => sheet.properties?.title === tabName
   );
 
   const sheetId = targetSheet?.properties?.sheetId;

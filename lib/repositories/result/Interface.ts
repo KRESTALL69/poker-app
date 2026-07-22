@@ -1,3 +1,8 @@
+import type { players, results } from "@/lib/db/schema";
+
+type PlayerRow = typeof players.$inferSelect;
+type ResultRow = typeof results.$inferSelect;
+
 export interface ResultRatingPointsRow {
   player_id: string;
   rating_points: number;
@@ -25,6 +30,44 @@ export interface ResultInsertInput {
   spent: number;
 }
 
+export interface ResultByTournamentRow {
+  player_id: ResultRow["playerId"];
+  place: ResultRow["place"];
+  knockouts: ResultRow["knockouts"];
+  reentries: ResultRow["reentries"];
+  rating_points: ResultRow["ratingPoints"];
+  winnings: ResultRow["winnings"];
+  players: {
+    username: PlayerRow["username"];
+    display_name: PlayerRow["displayName"];
+  };
+}
+
+export interface ResultForPlayerStatsRow {
+  player_id: ResultRow["playerId"];
+  place: ResultRow["place"];
+  reentries: ResultRow["reentries"];
+  addons: ResultRow["addons"];
+  knockouts: ResultRow["knockouts"];
+  spent: ResultRow["spent"];
+  winnings: ResultRow["winnings"];
+  players: {
+    username: PlayerRow["username"];
+    display_name: PlayerRow["displayName"];
+  };
+}
+
+export interface ResultBySeasonRow {
+  player_id: ResultRow["playerId"];
+  rating_points: ResultRow["ratingPoints"];
+  players: {
+    username: PlayerRow["username"];
+    display_name: PlayerRow["displayName"];
+    telegram_avatar_url: PlayerRow["telegramAvatarUrl"];
+    custom_avatar_url: PlayerRow["customAvatarUrl"];
+  };
+}
+
 export interface ResultRepository {
   findRatingPointsByTournament(tournamentId: string): Promise<ResultRatingPointsRow[]>;
   findRatingPointsBySeason(seasonId: string): Promise<ResultRatingPointsRow[]>;
@@ -38,7 +81,7 @@ export interface ResultRepository {
   bulkInsert(rows: ResultInsertInput[]): Promise<void>;
 
   // JOIN-based reads (results + players) — raw rows, combining/aggregation stays in Feature.
-  findByTournamentId(tournamentId: string): Promise<any[]>;
-  findForPlayerStats(seasonId?: string | null): Promise<any[]>;
-  findBySeasonId(seasonId: string): Promise<any[]>;
+  findByTournamentId(tournamentId: string): Promise<ResultByTournamentRow[]>;
+  findForPlayerStats(seasonId?: string | null): Promise<ResultForPlayerStatsRow[]>;
+  findBySeasonId(seasonId: string): Promise<ResultBySeasonRow[]>;
 }

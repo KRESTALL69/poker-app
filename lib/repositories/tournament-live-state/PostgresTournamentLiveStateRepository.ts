@@ -3,6 +3,7 @@ import { players, registrations, tournamentLiveEntries } from "@/lib/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import type {
   TournamentLiveEntryPatch,
+  TournamentLiveEntryWithDetails,
   TournamentLiveStateRepository,
 } from "./Interface";
 
@@ -34,7 +35,7 @@ export class PostgresTournamentLiveStateRepository implements TournamentLiveStat
     );
   }
 
-  async findWithDetails(tournamentId: string): Promise<any[]> {
+  async findWithDetails(tournamentId: string): Promise<TournamentLiveEntryWithDetails[]> {
     return db
       .select({
         id: tournamentLiveEntries.id,
