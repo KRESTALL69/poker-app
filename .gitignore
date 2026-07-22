@@ -43,3 +43,8 @@ next-env.d.ts
 .claude/
 .planning/
 graphify-out/
+
+# Postgres backups and Supabase backfill exports — VPS-only runtime
+# artifacts, may contain production data, never committed.
+/backups/
+/backfill/
