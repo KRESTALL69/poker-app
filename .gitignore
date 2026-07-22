@@ -48,3 +48,7 @@ graphify-out/
 # artifacts, may contain production data, never committed.
 /backups/
 /backfill/
+
+# Locally-stored avatars (LocalAvatarStorageRepository bind mount target,
+# see compose.yaml) — VPS-only runtime data, never committed.
+/storage/
