@@ -1,6 +1,13 @@
 # Backfill Supabase → PostgreSQL: runbook
 
-Статус: **черновик, backfill выполняется поэтапно, cutover не входит в объём**. Дополняет `docs/MIGRATION_PLAN.md` (Этап 2) и `docs/POSTGRES_MIGRATION_ARCHITECTURE.md`.
+> **АРХИВ — backfill и cutover выполнены, Supabase-проект выведен из
+> эксплуатации.** Скрипты (`scripts/backfill-supabase-to-postgres.mjs`,
+> `scripts/validate-postgres-backfill.mjs`) сегодня нерабочие — Supabase,
+> из которого они читали данные, больше не существует. Документ оставлен как
+> историческая запись протокола переноса (snapshot+delta, порядок импорта,
+> откат) на случай похожей задачи в будущем, не как исполняемая инструкция.
+
+Статус (на момент написания): **черновик, backfill выполняется поэтапно, cutover не входит в объём**. Дополняет `docs/MIGRATION_PLAN.md` (Этап 2) и `docs/POSTGRES_MIGRATION_ARCHITECTURE.md`.
 
 ---
 

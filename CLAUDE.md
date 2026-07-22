@@ -3,7 +3,8 @@
 ## TL;DR
 
 - Telegram Mini App + Web App для покерного клуба DWC / Don't Worry Club
-- стек: Next.js + TypeScript + Supabase + Telegram Bot API + Vercel
+- стек: Next.js + TypeScript + PostgreSQL (self-hosted, Drizzle) + Telegram Bot API + VPS/Docker/nginx
+- Supabase и Vercel не используются — полностью self-hosted, см. `README.md`
 - ключевая логика:
   - турниры
   - waitlist FIFO
@@ -24,10 +25,9 @@
 Проект уже полностью развернут:
 
 - отдельный GitHub repo
-- отдельный Vercel project
-- отдельный Supabase project
-- отдельный Telegram bot
-- собственный домен
+- собственный VPS (Docker + nginx), собственный PostgreSQL
+- отдельный Telegram bot (webhook и Menu Button — на production-домен)
+- собственный домен, HTTPS
 - env variables настроены
 
 Приложение уже работает в production:
@@ -49,10 +49,15 @@
 - React
 - TypeScript
 - Tailwind CSS
-- Supabase
+- PostgreSQL (self-hosted, Drizzle ORM) — доступ только через Repository Layer (`lib/repositories/`)
+- Собственная OTP-авторизация + собственные сессии (без Supabase Auth) — см. `docs/AUTH_MIGRATION.md`
+- Локальное файловое хранилище для аватарок (без Supabase Storage)
 - Telegram Mini App SDK
 - Telegram Bot API
-- Vercel
+- Resend (отправка OTP-писем)
+- Docker + nginx (VPS)
+
+Подробнее — `README.md`, раздел «Архитектура».
 
 ---
 

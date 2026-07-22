@@ -1,6 +1,14 @@
 # Аудит текущей схемы Supabase перед проектированием PostgreSQL/Drizzle
 
-Статус: **read-only аудит, шаг 1 этапа PostgreSQL migration** (см. `docs/POSTGRES_MIGRATION_ARCHITECTURE.md`, Migration strategy). Ни одна DDL/DML-команда не выполнялась. Drizzle не устанавливался, `lib/db` не создавался, схема и миграции не писались, ни один `Postgres*Repository` не создавался, production-код не менялся.
+> **АРХИВ — миграция завершена, Supabase полностью выведен из эксплуатации.**
+> Этот аудит сравнивал схему Supabase с проектируемой схемой PostgreSQL перед
+> переносом; сегодня Supabase-проект и все Supabase-реализации Repository
+> удалены из кодовой базы. Документ ценен только как историческая запись
+> найденных особенностей схемы (мёртвые колонки, отсутствующие FK и т.п.),
+> перенесённых в `lib/db/schema.ts` осознанно как есть. Актуальная схема —
+> `lib/db/schema.ts`, актуальная архитектура — `README.md`.
+
+Статус (на момент написания): **read-only аудит, шаг 1 этапа PostgreSQL migration** (см. `docs/POSTGRES_MIGRATION_ARCHITECTURE.md`, Migration strategy). Ни одна DDL/DML-команда не выполнялась. Drizzle не устанавливался, `lib/db` не создавался, схема и миграции не писались, ни один `Postgres*Repository` не создавался, production-код не менялся.
 
 ## Как читать этот документ
 
