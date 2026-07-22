@@ -24,10 +24,16 @@ function requireEnv(name) {
 }
 
 // Canonical per-row representation for checksumming: fixed column order
-// (from the shared registry, not object key order), timestamps normalized
-// to ISO strings, null made explicit, jsonb columns canonicalized via
-// JSON.stringify of the parsed value (not the raw driver-specific string
-// form Supabase vs. Drizzle/postgres.js might hand back).
+// (from the shared registry, not object key order), null made explicit,
+// jsonb columns canonicalized via JSON.stringify of the parsed value.
+// Timestamp columns are normalized to Unix milliseconds (see below) rather
+// than compared as raw strings/Date objects — the Supabase JS client
+// (PostgREST) and postgres.js format the exact same timestamptz value
+// differently (microsecond-precision "+00" string vs. millisecond-precision
+// Date/"Z"), so comparing the raw forms directly makes every row look
+// different even when the underlying value is identical. Found by actually
+// running the validator: the first version compared raw forms and every
+// row in every table mismatched.
 function canonicalizeRow(row, table) {
   const parts = table.columns.map((col) => {
     let value = row[col];
@@ -36,7 +42,11 @@ function canonicalizeRow(row, table) {
       const parsed = typeof value === "string" ? JSON.parse(value) : value;
       return JSON.stringify(parsed);
     }
-    if (value instanceof Date) return value.toISOString();
+    if (table.timestampColumns?.includes(col)) {
+      const ms = value instanceof Date ? value.getTime() : Date.parse(value);
+      if (Number.isNaN(ms)) return String(value);
+      return String(ms);
+    }
     return String(value);
   });
   return parts.join("");

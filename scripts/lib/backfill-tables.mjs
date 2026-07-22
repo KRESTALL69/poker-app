@@ -7,6 +7,14 @@
 // lib/db/schema.ts / docs/POSTGRES_MIGRATION_AUDIT.md — not re-derived or
 // guessed. jsonb columns (app_settings.value, activity_events.metadata) are
 // flagged so the backfill script knows to wrap them with sql.json(...).
+//
+// timestampColumns lists every timestamptz/date column so
+// validate-postgres-backfill.mjs can normalize them before hashing: the
+// Supabase JS client (PostgREST) and postgres.js format the exact same
+// timestamptz value differently (microsecond precision + "+00" offset vs.
+// millisecond-precision Date objects + "Z" suffix) — comparing the raw
+// string/Date forms directly makes every row look different even when the
+// underlying value is identical. Found by actually running the validator.
 
 export const TABLES = [
   {
@@ -23,6 +31,10 @@ export const TABLES = [
       "blocked_at", "blocked_by", "block_reason",
     ],
     jsonbColumns: [],
+    timestampColumns: [
+      "created_at", "accepted_terms_at", "profile_completed_at",
+      "avatar_updated_at", "last_no_show_at", "blocked_at",
+    ],
     // players.blocked_by is a self-referential FK — a row can reference
     // another player inserted later in the same batch. Handled as a
     // separate second pass in the backfill script, never as part of the
@@ -35,6 +47,7 @@ export const TABLES = [
     orderBy: "id",
     columns: ["id", "title", "start_date", "end_date", "is_active", "created_at"],
     jsonbColumns: [],
+    timestampColumns: ["start_date", "end_date", "created_at"],
   },
   {
     name: "tournaments",
@@ -45,6 +58,7 @@ export const TABLES = [
       "season_id", "description", "location", "google_sheet_tab_name", "kind",
     ],
     jsonbColumns: [],
+    timestampColumns: ["start_at", "created_at"],
   },
   {
     name: "registrations",
@@ -52,6 +66,7 @@ export const TABLES = [
     orderBy: "id",
     columns: ["id", "player_id", "tournament_id", "status", "created_at"],
     jsonbColumns: [],
+    timestampColumns: ["created_at"],
   },
   {
     name: "results",
@@ -63,6 +78,7 @@ export const TABLES = [
       "addons", "spent",
     ],
     jsonbColumns: [],
+    timestampColumns: ["created_at"],
   },
   {
     name: "player_achievements",
@@ -70,6 +86,7 @@ export const TABLES = [
     orderBy: "id",
     columns: ["id", "player_id", "achievement_code", "current_value", "completed_at", "updated_at"],
     jsonbColumns: [],
+    timestampColumns: ["completed_at", "updated_at"],
   },
   {
     name: "app_settings",
@@ -77,6 +94,7 @@ export const TABLES = [
     orderBy: "key",
     columns: ["key", "value", "updated_at"],
     jsonbColumns: ["value"],
+    timestampColumns: ["updated_at"],
   },
   {
     name: "activity_events",
@@ -87,6 +105,7 @@ export const TABLES = [
       "session_id", "created_at",
     ],
     jsonbColumns: ["metadata"],
+    timestampColumns: ["created_at"],
   },
   {
     name: "tournament_live_entries",
@@ -98,6 +117,7 @@ export const TABLES = [
       "created_at", "updated_at", "winnings",
     ],
     jsonbColumns: [],
+    timestampColumns: ["created_at", "updated_at"],
   },
 ];
 
