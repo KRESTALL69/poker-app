@@ -15,8 +15,10 @@ COPY . .
 # They MUST be supplied here — runtime injection does not affect the client.
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
 # lib/supabase-admin.ts constructs its client eagerly at module load, so
 # `next build`'s page-data-collection step needs a non-empty value here even
@@ -55,6 +57,12 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 # Public assets
 COPY --from=builder /app/public ./public
+
+# Locally-stored avatars (LocalAvatarStorageRepository) -- bind-mounted on
+# the VPS (see compose.yaml), pre-created here with nextjs ownership so the
+# non-root runtime user can write to it. Same pattern as ReRaise's Dockerfile.
+RUN mkdir -p public/storage/avatars && \
+    chown -R nextjs:nodejs public/storage
 
 # Next.js standalone output: when WORKDIR is /app the basename is "app", so
 # the standalone server lands at .next/standalone/app/ — copy that directory

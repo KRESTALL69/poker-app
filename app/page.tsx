@@ -778,57 +778,14 @@ export default function HomePage() {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    if (!player?.id) return;
-    if (showTerms || showProfileSetup) return;
-
-    const registrationsChannel = supabase
-      .channel(`home-registrations-realtime-${player.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "registrations",
-        },
-        async () => {
-          try {
-            await refreshHomeData(player, {
-              showPromotionToast: true,
-            });
-          } catch (error) {
-            console.error("Home registrations realtime refresh error:", error);
-          }
-        }
-      )
-      .subscribe();
-
-    const tournamentsChannel = supabase
-      .channel(`home-tournaments-realtime-${player.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tournaments",
-        },
-        async () => {
-          try {
-            await refreshHomeData(player, {
-              showPromotionToast: false,
-            });
-          } catch (error) {
-            console.error("Home tournaments realtime refresh error:", error);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(registrationsChannel);
-      supabase.removeChannel(tournamentsChannel);
-    };
-  }, [player, player?.id, showTerms, showProfileSetup]);
+  // Removed: a Supabase Realtime (`postgres_changes`) subscription used to
+  // live here. Since the Postgres cutover, writes land in the self-hosted
+  // PostgreSQL database, not Supabase, so Supabase's own `registrations`/
+  // `tournaments` tables never change and the subscription never fired --
+  // dead code kept no functional value. Live auto-refresh is currently
+  // manual-reload-only; refreshHomeData() still runs after the viewer's own
+  // actions. See docs/POSTGRES_MIGRATION_AUDIT.md's Realtime follow-up for
+  // the architectural analysis of a real replacement.
 
   const greetingName = useMemo(() => {
     if (player?.display_name) return player.display_name;

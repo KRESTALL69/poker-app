@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { playerRepository } from "@/lib/repositories/player";
 
 async function verifyTelegramInitData(
   initData: string,
@@ -82,21 +83,23 @@ async function verifyTelegramInitData(
   }
 }
 
-export async function middleware(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+type PlayerLookupKey =
+  | { column: "telegram_id"; value: number }
+  | { column: "email"; value: string };
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-  }
-
-  // --- Telegram Mini App path ---
+// The two independent entry points into the app (Telegram Mini App,
+// Supabase-email-OTP web session) each prove identity a different way --
+// this is the one place that reconciles them into "which row in `players`
+// is asking". The role check itself stays a single shared block in
+// middleware() below, regardless of which path resolved the caller.
+async function resolveCallerLookupKey(request: NextRequest): Promise<PlayerLookupKey | null> {
   const initData = request.headers.get("x-telegram-init-data");
+
   if (initData) {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) {
       console.log("[admin-auth] 401: TELEGRAM_BOT_TOKEN not configured");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return null;
     }
 
     const telegramId = await verifyTelegramInitData(initData, botToken);
@@ -107,35 +110,27 @@ export async function middleware(request: NextRequest) {
         hasHash: new URLSearchParams(initData).has("hash"),
         hasUser: new URLSearchParams(initData).has("user"),
       });
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return null;
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: player } = await supabase
-      .from("players")
-      .select("role")
-      .eq("telegram_id", telegramId)
-      .maybeSingle();
-
-    if (!player) {
-      console.log("[admin-auth] 401: player not found for telegram_id", telegramId);
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (player.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.next();
+    return { column: "telegram_id", value: telegramId };
   }
 
-  // --- Web email session path ---
   const supabaseToken = request.headers.get("x-supabase-token");
+
   if (supabaseToken) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.log("[admin-auth] 500: Supabase env not configured");
+      return null;
+    }
+
     if (!serviceRoleKey) {
       console.log("[admin-auth] 500: SUPABASE_SERVICE_ROLE_KEY not configured");
-      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+      return null;
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -146,32 +141,48 @@ export async function middleware(request: NextRequest) {
 
     if (userError || !user?.email) {
       console.log("[admin-auth] 401: invalid Supabase token");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return null;
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: player } = await supabase
-      .from("players")
-      .select("role")
-      .eq("email", user.email)
-      .maybeSingle();
-
-    if (!player) {
-      console.log("[admin-auth] 401: player not found for email", user.email);
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (player.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.next();
+    return { column: "email", value: user.email };
   }
 
-  console.log("[admin-auth] 401: no auth header (x-telegram-init-data or x-supabase-token)");
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return null;
+}
+
+export async function middleware(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  const lookupKey = await resolveCallerLookupKey(request);
+
+  if (!lookupKey) {
+    console.log("[admin-auth] 401: no auth header (x-telegram-init-data or x-supabase-token)");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const player =
+    lookupKey.column === "telegram_id"
+      ? await playerRepository.findByTelegramId(lookupKey.value)
+      : await playerRepository.findByEmail(lookupKey.value);
+
+  if (!player) {
+    console.log(`[admin-auth] 401: player not found for ${lookupKey.column}`, lookupKey.value);
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (player.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
+  runtime: "nodejs",
   matcher: ["/api/admin/:path*"],
 };

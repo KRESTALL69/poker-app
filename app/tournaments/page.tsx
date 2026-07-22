@@ -238,52 +238,14 @@ export default function TournamentsPage() {
     init();
   }, []);
 
-  useEffect(() => {
-    if (!playerId || !player) return;
-
-    const registrationsChannel = supabase
-      .channel(`registrations-realtime-${playerId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "registrations",
-        },
-        async () => {
-          try {
-            await refreshPageData(player, { showPromotionToast: true });
-          } catch (err) {
-            console.error("Registrations realtime refresh error:", err);
-          }
-        }
-      )
-      .subscribe();
-
-    const tournamentsChannel = supabase
-      .channel(`tournaments-realtime-${playerId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tournaments",
-        },
-        async () => {
-          try {
-            await refreshPageData(player, { showPromotionToast: false });
-          } catch (err) {
-            console.error("Tournaments realtime refresh error:", err);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(registrationsChannel);
-      supabase.removeChannel(tournamentsChannel);
-    };
-  }, [player, playerId]);
+  // Removed: a Supabase Realtime (`postgres_changes`) subscription used to
+  // live here. Since the Postgres cutover, writes land in the self-hosted
+  // PostgreSQL database, not Supabase, so Supabase's own `registrations`/
+  // `tournaments` tables never change and the subscription never fired --
+  // dead code kept no functional value. Live auto-refresh is currently
+  // manual-reload-only; refreshPageData() still runs after the viewer's own
+  // actions. See docs/POSTGRES_MIGRATION_AUDIT.md's Realtime follow-up for
+  // the architectural analysis of a real replacement.
 
   async function handleRegister(tournamentId: string) {
     if (!playerId || !player) return;
