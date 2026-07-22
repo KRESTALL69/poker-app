@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import {
   getVisibleTournamentByIdForPlayer,
   getTournamentParticipants,
@@ -14,8 +13,8 @@ import {
   cancelPlayerRegistration,
 } from "@/features/tournaments";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
-import { getTelegramUser } from "@/lib/telegram";
 import { logEvent } from "@/lib/activity-client";
+import { resolveCurrentPlayer } from "@/lib/current-player";
 import type {
   Player,
   RegistrationStatus,
@@ -277,19 +276,7 @@ const waitlistParticipants = participants.filter(
           throw new Error("Tournament id not found");
         }
 
-        const telegramUser = getTelegramUser();
-        let currentPlayer: Player;
-
-        if (telegramUser) {
-          currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
-        } else {
-          const meRes = await fetch("/api/auth/me").catch(() => null);
-          if (!meRes?.ok) {
-            throw new Error("Необходимо войти в систему");
-          }
-          const data = (await meRes.json()) as { player: Player };
-          currentPlayer = data.player;
-        }
+        const currentPlayer = await resolveCurrentPlayer();
 
         setPlayer(currentPlayer);
 
