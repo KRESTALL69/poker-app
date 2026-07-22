@@ -5,8 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ensurePlayerFromTelegramUser,
-  ensurePlayerFromEmail,
-  linkEmailToPlayer,
   acceptTerms,
   completeProfile,
 } from "@/features/auth";
@@ -17,7 +15,6 @@ import {
   getTournamentRegistrationCounts,
 } from "@/features/tournaments";
 import { PromotionToast } from "@/components/promotion-toast";
-import { supabase } from "@/lib/supabase";
 import {
   getTelegramUser,
   getTelegramWebApp,
@@ -500,32 +497,19 @@ export default function HomePage() {
     setEmailLinkLoading(true);
     setEmailLinkError(null);
 
-    // Validate + ensure the auth user exists server-side so Supabase sends an
-    // OTP code email instead of "Confirm Your Signup" for first-time addresses.
-    const prepareRes = await fetch("/api/auth/email-link/prepare", {
+    const res = await fetch("/api/auth/email/request-code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: normalized, initData: getTelegramWebApp()?.initData ?? "" }),
-    });
-    if (!prepareRes.ok) {
-      const data = (await prepareRes.json().catch(() => ({}))) as { error?: string };
-      setEmailLinkLoading(false);
-      setEmailLinkError(data.error ?? "Не удалось отправить код. Попробуйте снова.");
-      return;
-    }
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalized,
-      options: { shouldCreateUser: false },
+      body: JSON.stringify({
+        email: normalized,
+        purpose: "link_email",
+        telegramInitData: getTelegramWebApp()?.initData ?? "",
+      }),
     });
     setEmailLinkLoading(false);
-    if (error) {
-      console.error("[emailLink] signInWithOtp failed:", {
-        message: error.message,
-        status: error.status,
-        code: (error as unknown as Record<string, unknown>).code ?? null,
-      });
-      setEmailLinkError("Не удалось отправить код. Попробуйте снова.");
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setEmailLinkError(data.error ?? "Не удалось отправить код. Попробуйте снова.");
       return;
     }
     setEmailLinkStep("code");
@@ -538,18 +522,22 @@ export default function HomePage() {
     const normalized = emailLinkEmail.trim().toLowerCase();
     setEmailLinkLoading(true);
     setEmailLinkError(null);
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: normalized,
-      token: emailLinkCode.trim(),
-      type: "email",
+
+    const res = await fetch("/api/auth/email/verify-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normalized, code: emailLinkCode.trim(), purpose: "link_email" }),
     });
-    if (verifyError) {
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
       setEmailLinkLoading(false);
-      setEmailLinkError("Неверный или истёкший код.");
+      setEmailLinkError(data.error ?? "Неверный или истёкший код.");
       return;
     }
+
     try {
-      const updatedPlayer = await linkEmailToPlayer(player.id, normalized);
+      const { player: updatedPlayer } = (await res.json()) as { player: Player };
       setPlayer(updatedPlayer);
       logEvent("email_link_completed");
       setEmailLinkSuccess(true);
@@ -568,12 +556,17 @@ export default function HomePage() {
     if (emailLinkResendCooldown > 0) return;
     setEmailLinkLoading(true);
     setEmailLinkError(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: emailLinkEmail.trim().toLowerCase(),
-      options: { shouldCreateUser: false },
+    const res = await fetch("/api/auth/email/request-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: emailLinkEmail.trim().toLowerCase(),
+        purpose: "link_email",
+        telegramInitData: getTelegramWebApp()?.initData ?? "",
+      }),
     });
     setEmailLinkLoading(false);
-    if (error) {
+    if (!res.ok) {
       setEmailLinkError("Не удалось отправить код повторно.");
       return;
     }
@@ -679,24 +672,16 @@ export default function HomePage() {
             }
           }
         } else {
-          const { data: { session } } = await supabase.auth.getSession();
+          const meRes = await fetch("/api/auth/me").catch(() => null);
 
-          if (session?.user?.email) {
-            setPlayerLoading(true);
-            setPlayerError(null);
-
-            const webPlayer = await ensurePlayerFromEmail(session.user.email);
-
-            if (webPlayer.is_blocked) {
-              setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
-              return;
-            }
-
-            setPlayer(webPlayer);
+          if (meRes?.ok) {
+            const data = (await meRes.json()) as { player: Player };
+            const cookiePlayer = data.player;
+            setPlayer(cookiePlayer);
 
             if (
-              !webPlayer.accepted_terms_at ||
-              webPlayer.accepted_terms_version !== TERMS_VERSION
+              !cookiePlayer.accepted_terms_at ||
+              cookiePlayer.accepted_terms_version !== TERMS_VERSION
             ) {
               setScrolledToBottom(false);
               setShowProfileSetup(false);
@@ -704,14 +689,14 @@ export default function HomePage() {
             } else {
               setShowTerms(false);
 
-              if (!webPlayer.profile_completed_at) {
-                setNickname(webPlayer.display_name);
+              if (!cookiePlayer.profile_completed_at) {
+                setNickname(cookiePlayer.display_name);
                 setProfileError(null);
                 setShowProfileSetup(true);
               } else {
                 setShowProfileSetup(false);
 
-                await refreshHomeData(webPlayer, {
+                await refreshHomeData(cookiePlayer, {
                   showPromotionToast: false,
                 });
 
@@ -722,47 +707,10 @@ export default function HomePage() {
                 }
               }
             }
-          } else {
-            const meRes = await fetch("/api/auth/me").catch(() => null);
-
-            if (meRes?.ok) {
-              const data = (await meRes.json()) as { player: Player };
-              const cookiePlayer = data.player;
-              setPlayer(cookiePlayer);
-
-              if (
-                !cookiePlayer.accepted_terms_at ||
-                cookiePlayer.accepted_terms_version !== TERMS_VERSION
-              ) {
-                setScrolledToBottom(false);
-                setShowProfileSetup(false);
-                setShowTerms(true);
-              } else {
-                setShowTerms(false);
-
-                if (!cookiePlayer.profile_completed_at) {
-                  setNickname(cookiePlayer.display_name);
-                  setProfileError(null);
-                  setShowProfileSetup(true);
-                } else {
-                  setShowProfileSetup(false);
-
-                  await refreshHomeData(cookiePlayer, {
-                    showPromotionToast: false,
-                  });
-
-                  if (!loggedOpenRef.current) {
-                    loggedOpenRef.current = true;
-                    logEvent("app_opened");
-                    logEvent("page_view_home");
-                  }
-                }
-              }
-            } else if (meRes?.status === 403) {
-              setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
-            } else if (!isTelegramMiniAppContext()) {
-              router.replace("/login");
-            }
+          } else if (meRes?.status === 403) {
+            setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
+          } else if (!isTelegramMiniAppContext()) {
+            router.replace("/login");
           }
         }
       } catch (error) {

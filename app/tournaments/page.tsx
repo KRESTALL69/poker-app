@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { PromotionToast } from "@/components/promotion-toast";
-import { ensurePlayerFromTelegramUser, ensurePlayerFromEmail } from "@/features/auth";
+import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import {
   cancelPlayerRegistration,
   getVisibleCompletedTournamentsForPlayer,
@@ -12,7 +12,6 @@ import {
   getTournamentRegistrationCounts,
   registerPlayerForTournament,
 } from "@/features/tournaments";
-import { supabase } from "@/lib/supabase";
 import { getTelegramUser } from "@/lib/telegram";
 import { logEvent } from "@/lib/activity-client";
 import type {
@@ -214,11 +213,12 @@ export default function TournamentsPage() {
         if (telegramUser) {
           currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
         } else {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.user?.email) {
+          const meRes = await fetch("/api/auth/me").catch(() => null);
+          if (!meRes?.ok) {
             throw new Error("Необходимо войти в систему");
           }
-          currentPlayer = await ensurePlayerFromEmail(session.user.email);
+          const data = (await meRes.json()) as { player: Player };
+          currentPlayer = data.player;
         }
 
         setPlayer(currentPlayer);

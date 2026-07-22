@@ -13,20 +13,8 @@ COPY . .
 
 # NEXT_PUBLIC_* vars are baked into the client JS bundle at build time.
 # They MUST be supplied here — runtime injection does not affect the client.
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_APP_URL
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-
-# lib/supabase-admin.ts constructs its client eagerly at module load, so
-# `next build`'s page-data-collection step needs a non-empty value here even
-# though no route actually performs a live Supabase call during build (no
-# ISR/`revalidate` route reads the DB at build time, unlike ReRaise's
-# /api/leaderboard) — a placeholder is fine for this build arg specifically.
-ARG SUPABASE_SERVICE_ROLE_KEY
-ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 
 RUN npm run build
 
@@ -34,9 +22,8 @@ RUN npm run build
 # Runs Drizzle migrations (scripts/migrate.mjs) against Postgres. Extends
 # `deps`, not `builder` — a migration run needs node_modules (devDependencies
 # included, so drizzle-orm/postgres-js is present) plus the raw source
-# (drizzle.config.ts, lib/db/), never the compiled Next.js build output, and
-# has no reason to depend on Supabase build args at all. Same reasoning
-# ReRaise's own Dockerfile documents for its migrator stage.
+# (drizzle.config.ts, lib/db/), never the compiled Next.js build output.
+# Same reasoning ReRaise's own Dockerfile documents for its migrator stage.
 # Never built as part of the default `docker build` (last stage) — only
 # reachable via an explicit `--target migrator` build.
 FROM deps AS migrator

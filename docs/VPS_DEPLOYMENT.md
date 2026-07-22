@@ -50,7 +50,7 @@ VPS уже хостит:
 `Dockerfile` — 4 стадии, скопировано с проверенного шаблона ReRaise (`/opt/reraise/Dockerfile`), адаптировано:
 
 1. **`deps`** — `npm ci`.
-2. **`builder`** — `npm run build`. Требует build-args `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — не потому что есть ISR-роут с `revalidate` (как `/api/leaderboard` у ReRaise; у Poker App такого не найдено — см. `MIGRATION_PLAN.md`, Этап 6), а потому что `lib/supabase-admin.ts` конструирует клиент eagerly при загрузке модуля, и `next build`'s data-collection стадия не пройдёт без непустого значения. Для этого конкретного build-arg подходит и placeholder — реального обращения к Supabase во время сборки не происходит.
+2. **`builder`** — `npm run build`. Требует build-arg `NEXT_PUBLIC_APP_URL` (используется для абсолютных URL аватарок). Supabase-специфичные build-args (`NEXT_PUBLIC_SUPABASE_URL` и т.д.) удалены вместе с Supabase Auth — см. `docs/AUTH_MIGRATION.md`.
 3. **`migrator`** — наследует `deps`, не `builder` (тот же принцип, что у ReRaise): нужен только `node_modules` + исходники (`drizzle.config.ts`, `lib/db/`), компилировать Next.js не требуется. Собирается только явным `--target migrator` / `docker compose build migrate`, никогда не входит в обычный `docker build`.
 4. **`runner`** — non-root (`nextjs:1001`), standalone-output Next.js, `EXPOSE 3000`.
 

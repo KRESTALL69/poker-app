@@ -8,11 +8,9 @@ type DrizzleDb = ReturnType<typeof drizzle>;
 let instance: DrizzleDb | undefined;
 
 // Lazy — construction (and the DATABASE_URL check) happens on first real
-// use, not at module import time. Every domain's index.ts imports
-// Postgres*Repository unconditionally (see lib/repositories/*/index.ts), so
-// eager construction here would throw whenever DATABASE_PROVIDER=supabase
-// (today's default and current prod state, where DATABASE_URL isn't set)
-// just from loading the module graph, never mind actually using Postgres.
+// use, not at module import time, so builds/tests that never touch the DB
+// (e.g. `next build` with no DATABASE_URL set) don't crash just from
+// loading the module graph.
 function getDb(): DrizzleDb {
   if (!instance) {
     const connectionString = process.env.DATABASE_URL;

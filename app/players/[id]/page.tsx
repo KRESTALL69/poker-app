@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ensurePlayerFromTelegramUser,
-  ensurePlayerFromEmail,
   getPlayerById,
   submitNicknameForModeration,
 } from "@/features/auth";
@@ -18,7 +17,6 @@ import {
 } from "@/features/tournaments";
 import { getPlayerAchievements } from "@/features/achievements";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
-import { supabase } from "@/lib/supabase";
 import { getTelegramUser, getTelegramWebApp } from "@/lib/telegram";
 import { logEvent } from "@/lib/activity-client";
 import type {
@@ -201,9 +199,10 @@ export default function PlayerProfilePage() {
           ensuredViewer = await ensurePlayerFromTelegramUser(telegramUser);
           setViewerId(ensuredViewer.id);
         } else {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user?.email) {
-            ensuredViewer = await ensurePlayerFromEmail(session.user.email);
+          const meRes = await fetch("/api/auth/me").catch(() => null);
+          if (meRes?.ok) {
+            const data = (await meRes.json()) as { player: Player };
+            ensuredViewer = data.player;
             setViewerId(ensuredViewer.id);
           }
         }

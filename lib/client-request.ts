@@ -4,18 +4,9 @@ async function getAdminHeaders(): Promise<Record<string, string>> {
   const initData = window.Telegram?.WebApp?.initData ?? "";
   if (initData) return { "X-Telegram-Init-Data": initData };
 
-  // Fallback for web admin users authenticated via Supabase email session.
-  // Dynamically import to keep server bundles clean.
-  try {
-    const { supabase } = await import("@/lib/supabase");
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      return { "X-Supabase-Token": session.access_token };
-    }
-  } catch {
-    // session unavailable — request will be rejected by middleware
-  }
-
+  // Web admin users (email OTP or Telegram OAuth widget login) are
+  // identified by the dwc_tg_session cookie, sent automatically on
+  // same-origin fetch requests -- no header needed.
   return {};
 }
 

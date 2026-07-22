@@ -33,6 +33,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+export type EmailOtpPurpose = "login" | "link_email";
+
 // ---------------------------------------------------------------------------
 // seasons
 // ---------------------------------------------------------------------------
@@ -347,6 +349,42 @@ export const activityEvents = pgTable(
     typeCreatedIdx: index("activity_events_type_created").on(table.eventType, table.createdAt.desc()),
     playerIdFk: foreignKey({
       name: "activity_events_player_id_fkey",
+      columns: [table.playerId],
+      foreignColumns: [players.id],
+    }).onDelete("cascade"),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// email_otp_codes
+// ---------------------------------------------------------------------------
+// Self-hosted replacement for Supabase Auth's email OTP -- architecture
+// ported from ReRaise (see docs/AUTH_MIGRATION.md). playerId is nullable: a
+// "login" purpose code can exist before the player row does (the player is
+// only created once the code is verified).
+export const emailOtpCodes = pgTable(
+  "email_otp_codes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    email: text("email").notNull(),
+    purpose: text("purpose").notNull(),
+    playerId: uuid("player_id"),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "string" }).notNull(),
+    resendAfterAt: timestamp("resend_after_at", { withTimezone: true, mode: "string" }).notNull(),
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    consumedAt: timestamp("consumed_at", { withTimezone: true, mode: "string" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    purposeCheck: check("email_otp_codes_purpose_check", sql`${table.purpose} = ANY (ARRAY['login'::text, 'link_email'::text])`),
+    activeIdx: index("email_otp_codes_active_idx").on(table.email, table.purpose, table.consumedAt, table.expiresAt),
+    emailPurposeIdx: index("email_otp_codes_email_purpose_idx").on(table.email, table.purpose, table.createdAt),
+    expiresAtIdx: index("email_otp_codes_expires_at_idx").on(table.expiresAt),
+    playerIdIdx: index("email_otp_codes_player_id_idx").on(table.playerId),
+    playerIdFk: foreignKey({
+      name: "email_otp_codes_player_id_fkey",
       columns: [table.playerId],
       foreignColumns: [players.id],
     }).onDelete("cascade"),

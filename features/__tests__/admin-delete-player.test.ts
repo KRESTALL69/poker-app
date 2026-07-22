@@ -1,47 +1,69 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
-const { mockFrom } = vi.hoisted(() => ({ mockFrom: vi.fn() }));
-
-vi.mock("@/lib/supabase", () => ({
-  supabase: { from: mockFrom },
+const {
+  playerRepository,
+  tournamentLiveStateRepository,
+  achievementRepository,
+  resultRepository,
+  registrationRepository,
+} = vi.hoisted(() => ({
+  playerRepository: {
+    findById: vi.fn(),
+    deleteById: vi.fn(),
+  },
+  tournamentLiveStateRepository: {
+    deleteByPlayerId: vi.fn(),
+  },
+  achievementRepository: {
+    deleteByPlayerId: vi.fn(),
+  },
+  resultRepository: {
+    deleteByPlayerId: vi.fn(),
+  },
+  registrationRepository: {
+    deleteByPlayerId: vi.fn(),
+  },
 }));
+
+vi.mock("@/lib/repositories/player", () => ({ playerRepository }));
+vi.mock("@/lib/repositories/tournament-live-state", () => ({ tournamentLiveStateRepository }));
+vi.mock("@/lib/repositories/achievement", () => ({ achievementRepository }));
+vi.mock("@/lib/repositories/result", () => ({ resultRepository }));
+vi.mock("@/lib/repositories/registration", () => ({ registrationRepository }));
 
 import { deleteManualPlayer } from "@/features/admin";
 
-function makeChain(result: { data?: any; error?: any }) {
-  const chain: any = {};
-  for (const method of ["select", "eq", "delete"]) {
-    chain[method] = vi.fn().mockReturnValue(chain);
-  }
-  chain.single = vi.fn().mockResolvedValue(result);
-  chain.maybeSingle = vi.fn().mockResolvedValue(result);
-  chain.then = (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
-  return chain;
-}
-
-beforeEach(() => mockFrom.mockReset());
+beforeEach(() => {
+  playerRepository.findById.mockReset();
+  playerRepository.deleteById.mockReset();
+  tournamentLiveStateRepository.deleteByPlayerId.mockReset();
+  achievementRepository.deleteByPlayerId.mockReset();
+  resultRepository.deleteByPlayerId.mockReset();
+  registrationRepository.deleteByPlayerId.mockReset();
+});
 
 describe("deleteManualPlayer", () => {
-  it("deletes Telegram players and their related records", async () => {
-    mockFrom
-      .mockImplementationOnce(() =>
-        makeChain({ data: { id: "player-1", telegram_id: 123456789 }, error: null })
-      )
-      .mockImplementationOnce(() => makeChain({ error: null }))
-      .mockImplementationOnce(() => makeChain({ error: null }))
-      .mockImplementationOnce(() => makeChain({ error: null }))
-      .mockImplementationOnce(() => makeChain({ error: null }))
-      .mockImplementationOnce(() => makeChain({ error: null }));
+  it("deletes Telegram players and their related records, in order", async () => {
+    playerRepository.findById.mockResolvedValue({ id: "player-1", telegram_id: 123456789 });
+    tournamentLiveStateRepository.deleteByPlayerId.mockResolvedValue(undefined);
+    achievementRepository.deleteByPlayerId.mockResolvedValue(undefined);
+    resultRepository.deleteByPlayerId.mockResolvedValue(undefined);
+    registrationRepository.deleteByPlayerId.mockResolvedValue(undefined);
+    playerRepository.deleteById.mockResolvedValue(undefined);
 
     await expect(deleteManualPlayer("player-1")).resolves.toBeUndefined();
 
-    expect(mockFrom.mock.calls.map(([table]) => table)).toEqual([
-      "players",
-      "tournament_live_entries",
-      "player_achievements",
-      "results",
-      "registrations",
-      "players",
-    ]);
+    expect(tournamentLiveStateRepository.deleteByPlayerId).toHaveBeenCalledWith("player-1");
+    expect(achievementRepository.deleteByPlayerId).toHaveBeenCalledWith("player-1");
+    expect(resultRepository.deleteByPlayerId).toHaveBeenCalledWith("player-1");
+    expect(registrationRepository.deleteByPlayerId).toHaveBeenCalledWith("player-1");
+    expect(playerRepository.deleteById).toHaveBeenCalledWith("player-1");
+  });
+
+  it("throws when the player does not exist", async () => {
+    playerRepository.findById.mockResolvedValue(null);
+
+    await expect(deleteManualPlayer("missing-player")).rejects.toThrow("Игрок не найден");
+    expect(playerRepository.deleteById).not.toHaveBeenCalled();
   });
 });

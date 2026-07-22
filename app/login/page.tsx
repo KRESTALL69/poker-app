@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 
 type Step = "email" | "code";
 
@@ -17,11 +16,11 @@ export default function LoginPage() {
   const codeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
+    fetch("/api/auth/me", { cache: "no-store" }).then((res) => {
+      if (res.ok) {
         router.replace("/");
       }
-    });
+    }).catch(() => {});
   }, [router]);
 
   useEffect(() => {
@@ -52,14 +51,15 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: trimmedEmail,
-      options: { shouldCreateUser: true },
+    const res = await fetch("/api/auth/email/request-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: trimmedEmail, purpose: "login" }),
     });
 
     setLoading(false);
 
-    if (otpError) {
+    if (!res.ok) {
       setError("Не удалось отправить код. Проверьте email и попробуйте снова.");
       return;
     }
@@ -76,15 +76,15 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: trimmedCode,
-      type: "email",
+    const res = await fetch("/api/auth/email/verify-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), code: trimmedCode, purpose: "login" }),
     });
 
     setLoading(false);
 
-    if (verifyError) {
+    if (!res.ok) {
       setError("Неверный или истёкший код. Попробуйте снова.");
       return;
     }
@@ -97,14 +97,15 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
+    const res = await fetch("/api/auth/email/request-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), purpose: "login" }),
     });
 
     setLoading(false);
 
-    if (otpError) {
+    if (!res.ok) {
       setError("Не удалось отправить код повторно.");
       return;
     }

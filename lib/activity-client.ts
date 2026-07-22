@@ -33,19 +33,8 @@ async function getActivityContext(): Promise<{
     };
   }
 
-  try {
-    const { supabase } = await import("@/lib/supabase");
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      return {
-        headers: { "X-Supabase-Token": session.access_token },
-        platform: "web",
-        session_id,
-      };
-    }
-  } catch {}
-
-  // Cookie-based sessions (Telegram OAuth redirect): server reads cookie automatically
+  // Cookie-based web sessions (email OTP or Telegram OAuth widget login):
+  // server reads the dwc_tg_session cookie automatically.
   return { headers: {}, platform: "web", session_id };
 }
 

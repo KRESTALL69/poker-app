@@ -5,9 +5,6 @@ services:
       # NEXT_PUBLIC_* vars are baked into the client JS bundle at build time.
       # Changing them here requires a full rebuild (docker compose build).
       args:
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
     image: poker-app:latest
     container_name: poker-app
@@ -24,21 +21,19 @@ services:
       - ./storage:/app/public/storage
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       SUPPORT_ADMIN_CHAT_ID: ${SUPPORT_ADMIN_CHAT_ID}
       SESSION_SECRET: ${SESSION_SECRET}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
       GOOGLE_CLIENT_EMAIL: ${GOOGLE_CLIENT_EMAIL}
       GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY}
       GOOGLE_SHEETS_SPREADSHEET_ID: ${GOOGLE_SHEETS_SPREADSHEET_ID}
-      # Postgres cutover — DATABASE_URL resolves poker-clock-db by its
-      # Docker-internal service name because of the `networks:` override
-      # below, joining the same external network poker-clock-db publishes
-      # itself on. Never goes over the host's published 127.0.0.1:5432.
-      DATABASE_PROVIDER: ${DATABASE_PROVIDER:-supabase}
+      # DATABASE_URL resolves poker-clock-db by its Docker-internal service
+      # name because of the `networks:` override below, joining the same
+      # external network poker-clock-db publishes itself on. Never goes over
+      # the host's published 127.0.0.1:5432.
       DATABASE_URL: ${DATABASE_URL}
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/api/health"]
