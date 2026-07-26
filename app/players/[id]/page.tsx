@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  ensurePlayerFromTelegramUser,
   getPlayerById,
   submitNicknameForModeration,
 } from "@/features/auth";
@@ -17,8 +16,9 @@ import {
 } from "@/features/tournaments";
 import { getPlayerAchievements } from "@/features/achievements";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
-import { getTelegramUser, getTelegramWebApp } from "@/lib/telegram";
+import { getTelegramWebApp } from "@/lib/telegram";
 import { logEvent } from "@/lib/activity-client";
+import { resolveCurrentPlayer, setCurrentPlayer } from "@/lib/current-player";
 import type {
   Player,
   RegistrationStatus,
@@ -173,19 +173,13 @@ export default function PlayerProfilePage() {
           throw new Error("Player id not found");
         }
 
-        const telegramUser = getTelegramUser();
         let ensuredViewer: Player | null = null;
 
-        if (telegramUser) {
-          ensuredViewer = await ensurePlayerFromTelegramUser(telegramUser);
+        try {
+          ensuredViewer = await resolveCurrentPlayer();
           setViewerId(ensuredViewer.id);
-        } else {
-          const meRes = await fetch("/api/auth/me").catch(() => null);
-          if (meRes?.ok) {
-            const data = (await meRes.json()) as { player: Player };
-            ensuredViewer = data.player;
-            setViewerId(ensuredViewer.id);
-          }
+        } catch {
+          // No valid session — page still renders as a read-only view of this profile.
         }
 
         const [
@@ -327,6 +321,7 @@ export default function PlayerProfilePage() {
       }
 
       setPlayer(payload.player);
+      setCurrentPlayer(payload.player);
     } catch (err) {
       setAvatarError(
         err instanceof Error ? err.message : "Не удалось загрузить аватар"
@@ -361,6 +356,7 @@ export default function PlayerProfilePage() {
       const updatedPlayer = await submitNicknameForModeration(player, nextNickname);
 
       setPlayer(updatedPlayer);
+      setCurrentPlayer(updatedPlayer);
       setNickname(updatedPlayer.pending_display_name ?? updatedPlayer.display_name);
       setIsEditingNickname(false);
     } catch (err) {

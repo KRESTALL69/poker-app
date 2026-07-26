@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ensurePlayerFromTelegramUser,
-  acceptTerms,
-  completeProfile,
-} from "@/features/auth";
+import { acceptTerms, completeProfile } from "@/features/auth";
 import { TERMS_VERSION } from "@/lib/terms";
 import {
   getVisibleOpenTournamentsForPlayer,
@@ -24,6 +20,7 @@ import {
 import { TERMS_TEXT } from "@/config/terms";
 import type { Player, Tournament } from "@/types/domain";
 import { logEvent } from "@/lib/activity-client";
+import { resolveCurrentPlayer, setCurrentPlayer } from "@/lib/current-player";
 
 function getTournamentKindLabel(kind: Tournament["kind"]) {
   if (kind === "paid") {
@@ -396,6 +393,7 @@ export default function HomePage() {
 
       const updatedPlayer = await acceptTerms(player.id);
       setPlayer(updatedPlayer);
+      setCurrentPlayer(updatedPlayer);
       setShowTerms(false);
 
       if (!updatedPlayer.profile_completed_at) {
@@ -437,6 +435,7 @@ export default function HomePage() {
       const result = await completeProfile(player, nickname);
 
       setPlayer(result.player);
+      setCurrentPlayer(result.player);
 
       if (result.moderationRequired) {
         setShowProfileSetup(false);
@@ -539,6 +538,7 @@ export default function HomePage() {
     try {
       const { player: updatedPlayer } = (await res.json()) as { player: Player };
       setPlayer(updatedPlayer);
+      setCurrentPlayer(updatedPlayer);
       logEvent("email_link_completed");
       setEmailLinkSuccess(true);
       setTimeout(() => {
@@ -596,7 +596,7 @@ export default function HomePage() {
           setPlayerLoading(true);
           setPlayerError(null);
 
-          const ensuredPlayer = await ensurePlayerFromTelegramUser(telegramUser);
+          const ensuredPlayer = await resolveCurrentPlayer();
 
           if (ensuredPlayer.is_blocked) {
             setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
@@ -672,11 +672,8 @@ export default function HomePage() {
             }
           }
         } else {
-          const meRes = await fetch("/api/auth/me").catch(() => null);
-
-          if (meRes?.ok) {
-            const data = (await meRes.json()) as { player: Player };
-            const cookiePlayer = data.player;
+          try {
+            const cookiePlayer = await resolveCurrentPlayer();
             setPlayer(cookiePlayer);
 
             if (
@@ -707,10 +704,14 @@ export default function HomePage() {
                 }
               }
             }
-          } else if (meRes?.status === 403) {
-            setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
-          } else if (!isTelegramMiniAppContext()) {
-            router.replace("/login");
+          } catch (meError) {
+            const status = (meError as { status?: number })?.status;
+
+            if (status === 403) {
+              setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
+            } else if (!isTelegramMiniAppContext()) {
+              router.replace("/login");
+            }
           }
         }
       } catch (error) {

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { PromotionToast } from "@/components/promotion-toast";
-import { ensurePlayerFromTelegramUser } from "@/features/auth";
 import {
   cancelPlayerRegistration,
   getVisibleCompletedTournamentsForPlayer,
@@ -12,8 +11,8 @@ import {
   getTournamentRegistrationCounts,
   registerPlayerForTournament,
 } from "@/features/tournaments";
-import { getTelegramUser } from "@/lib/telegram";
 import { logEvent } from "@/lib/activity-client";
+import { resolveCurrentPlayer } from "@/lib/current-player";
 import type {
   Player,
   RegistrationStatus,
@@ -207,19 +206,7 @@ export default function TournamentsPage() {
   useEffect(() => {
     async function init() {
       try {
-        const telegramUser = getTelegramUser();
-        let currentPlayer: Player;
-
-        if (telegramUser) {
-          currentPlayer = await ensurePlayerFromTelegramUser(telegramUser);
-        } else {
-          const meRes = await fetch("/api/auth/me").catch(() => null);
-          if (!meRes?.ok) {
-            throw new Error("Необходимо войти в систему");
-          }
-          const data = (await meRes.json()) as { player: Player };
-          currentPlayer = data.player;
-        }
+        const currentPlayer = await resolveCurrentPlayer();
 
         setPlayer(currentPlayer);
         setPlayerId(currentPlayer.id);
