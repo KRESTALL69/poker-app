@@ -133,7 +133,13 @@ jobs:
           # migration is a no-op here.
           echo "== Applying any pending database migrations =="
           docker compose build migrate
-          docker compose run --rm migrate
+          # `-T` (no pseudo-tty) plus explicit stdin redirection: without
+          # both, `docker compose run` inherits this SSH session's stdin,
+          # which is still the open heredoc pipe — it greedily reads the
+          # rest of this very script as its own input, so bash never sees
+          # the commands below this line and the remote script exits clean
+          # (but early) right here, before the container is ever recreated.
+          docker compose run --rm -T migrate < /dev/null
 
           echo "== Recreating the app container only =="
           docker compose up -d --no-deps app
