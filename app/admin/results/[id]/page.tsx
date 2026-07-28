@@ -186,11 +186,7 @@ export default function AdminTournamentResultsPage() {
         } else {
           let entries = await getTournamentLiveEntries(tournamentId);
 
-          // Cash хранит google_sheet_tab_name только как UI-сигнал "таблица
-          // создана" (для лейбла кнопки) — /pull-sheet читает из турнирного
-          // Spreadsheet, а не из Cash Spreadsheet, поэтому для Cash его
-          // вызывать нельзя (см. cash-sheet-sync/route.ts).
-          if (nextTournament.kind !== "cash" && nextTournament.google_sheet_tab_name?.trim()) {
+          if (nextTournament.google_sheet_tab_name?.trim()) {
             try {
               const payload = await fetchAdminJson<{
                 rows: TournamentLiveEntry[];
@@ -914,7 +910,7 @@ export default function AdminTournamentResultsPage() {
             <button
               type="button"
               onClick={isFreeTournament ? handlePullFreeRows : handlePullFromSheet}
-              disabled={pulling || !tournament?.google_sheet_tab_name || isCashTournament}
+              disabled={pulling || !tournament?.google_sheet_tab_name}
               className="rounded-lg border border-white/10 px-3 py-3 text-sm font-semibold text-white/85 disabled:opacity-50"
             >
               {pulling ? "Обновляем..." : "Обновить из GS"}

@@ -840,6 +840,7 @@ export async function updateTournamentLiveEntries(
     cash_total_buy_in?: number;
     cash_exited?: boolean;
     cash_cash_out?: number;
+    sheet_row_number?: number;
   }>
 ) {
   const tournament = await getTournamentById(tournamentId);
@@ -866,6 +867,7 @@ export async function updateTournamentLiveEntries(
     if (row.cash_total_buy_in !== undefined) patch.cash_total_buy_in = row.cash_total_buy_in;
     if (row.cash_exited !== undefined) patch.cash_exited = row.cash_exited;
     if (row.cash_cash_out !== undefined) patch.cash_cash_out = row.cash_cash_out;
+    if (row.sheet_row_number !== undefined) patch.sheet_row_number = row.sheet_row_number;
 
     try {
       await tournamentLiveStateRepository.updateEntry(tournamentId, row.player_id, patch);

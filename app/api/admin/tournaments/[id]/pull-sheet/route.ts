@@ -4,8 +4,13 @@ import {
   getTournamentById,
   getTournamentLiveEntries,
   getTournamentResultsDraft,
+  updateTournamentLiveEntries,
 } from "@/features/tournaments";
-import { getSpreadsheetId, readSpreadsheetTabValues } from "@/lib/google-sheets";
+import {
+  getCashSpreadsheetId,
+  getSpreadsheetId,
+  readSpreadsheetTabValues,
+} from "@/lib/google-sheets";
 
 function parseBooleanCell(value: string | undefined) {
   if (!value) {
@@ -46,7 +51,9 @@ export async function POST(
       throw new Error("Для турнира еще не создана Google-таблица");
     }
 
-    const values = await readSpreadsheetTabValues(getSpreadsheetId(), tournament.google_sheet_tab_name);
+    const spreadsheetId =
+      tournament.kind === "cash" ? getCashSpreadsheetId() : getSpreadsheetId();
+    const values = await readSpreadsheetTabValues(spreadsheetId, tournament.google_sheet_tab_name);
     const dataRows = values.slice(7);
 
     const entryPrice = parseNumberCell(values[1]?.[4]);
@@ -90,6 +97,39 @@ export async function POST(
           winnings: sheetRow?.winnings ?? 0,
         };
       });
+
+      return NextResponse.json({
+        ok: true,
+        rows,
+        entryPrice,
+        addonPrice,
+        bountyPrice,
+      });
+    }
+
+    if (tournament.kind === "cash") {
+      // Тот же индекс колонок 0-5 (Player ID/System/Ник/Telegram/Статус
+      // регистрации/Пришел), что и у Paid/Free — совпадает по построению
+      // (см. buildCashSheetValues, cash-sheet-sync/route.ts). С колонки 6
+      // семантика другая: Вход(6)/Выход(7)/Вышел(8) вместо
+      // Re-buy/Addon/Nok — "Итого"(9) не читаем, это формула.
+      const cashUpdates = dataRows
+        .map((row: string[], index: number) => ({
+          player_id: row[0],
+          arrived: parseBooleanCell(row[5]),
+          cash_buy_in: 0,
+          cash_total_buy_in: parseNumberCell(row[6]),
+          cash_cash_out: parseNumberCell(row[7]),
+          cash_exited: parseBooleanCell(row[8]),
+          sheet_row_number: index + 8,
+        }))
+        .filter(
+          (row: { player_id: string }) =>
+            typeof row.player_id === "string" && row.player_id.trim().length > 0
+        );
+
+      await updateTournamentLiveEntries(id, cashUpdates);
+      const rows = await getTournamentLiveEntries(id);
 
       return NextResponse.json({
         ok: true,
