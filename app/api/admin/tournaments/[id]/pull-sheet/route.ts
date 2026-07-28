@@ -5,7 +5,7 @@ import {
   getTournamentLiveEntries,
   getTournamentResultsDraft,
 } from "@/features/tournaments";
-import { readSpreadsheetTabValues } from "@/lib/google-sheets";
+import { getSpreadsheetId, readSpreadsheetTabValues } from "@/lib/google-sheets";
 
 function parseBooleanCell(value: string | undefined) {
   if (!value) {
@@ -46,7 +46,7 @@ export async function POST(
       throw new Error("Для турнира еще не создана Google-таблица");
     }
 
-    const values = await readSpreadsheetTabValues(tournament.google_sheet_tab_name);
+    const values = await readSpreadsheetTabValues(getSpreadsheetId(), tournament.google_sheet_tab_name);
     const dataRows = values.slice(7);
 
     const entryPrice = parseNumberCell(values[1]?.[4]);

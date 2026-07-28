@@ -10,34 +10,13 @@ import {
   appendReportRow,
   applyTournamentSheetFormatting,
   buildSpreadsheetTabUrl,
+  buildTabName,
   ensureReadmeTab,
   ensureSpreadsheetTab,
+  formatTournamentDate,
+  getSpreadsheetId,
   replaceSpreadsheetTabValues,
 } from "@/lib/google-sheets";
-
-function buildTabName(title: string, startAt: string, tournamentId: string) {
-  const date = new Date(startAt);
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const shortTitle = title
-    .toUpperCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 24);
-
-  return `${day}.${month} | ${shortTitle} | ${tournamentId.slice(0, 4)}`;
-}
-
-function formatTournamentDate(date: string) {
-  return new Date(date).toLocaleString("ru-RU", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function getTournamentStatusLabel(status: string) {
   return status === "completed" ? "Закрыт" : "Открыт";
@@ -119,29 +98,34 @@ export async function syncTournamentLiveSheet(
   }
 
   const tournament = await getTournamentById(tournamentId);
+  const spreadsheetId = getSpreadsheetId();
   const tabName =
     tournament.google_sheet_tab_name?.trim() ||
     buildTabName(tournament.title, tournament.start_at, tournament.id);
   const exportData = await getTournamentLiveSheetData(tournamentId);
 
-  await ensureReadmeTab();
-  await replaceSpreadsheetTabValues("README", buildReadmeSheetValues());
+  await ensureReadmeTab(spreadsheetId);
+  await replaceSpreadsheetTabValues(spreadsheetId, "README", buildReadmeSheetValues());
 
-  const sheet = await ensureSpreadsheetTab(tabName);
+  const sheet = await ensureSpreadsheetTab(spreadsheetId, tabName);
   if (sheet.created) {
     try {
-      await appendReportRow(tournament.title, tabName);
+      await appendReportRow(spreadsheetId, tournament.title, tabName);
     } catch (error) {
       console.error("Failed to append row to Лист1", error);
     }
   }
-  await replaceSpreadsheetTabValues(tabName, buildLiveSheetValues(exportData, entryPrice, addonPrice, bountyPrice));
-  await applyTournamentSheetFormatting(tabName, exportData.rows.length);
+  await replaceSpreadsheetTabValues(
+    spreadsheetId,
+    tabName,
+    buildLiveSheetValues(exportData, entryPrice, addonPrice, bountyPrice)
+  );
+  await applyTournamentSheetFormatting(spreadsheetId, tabName, exportData.rows.length);
   await setTournamentGoogleSheetTabName(tournamentId, tabName);
 
   return {
     tabName,
-    url: buildSpreadsheetTabUrl(sheet.sheetId),
+    url: buildSpreadsheetTabUrl(spreadsheetId, sheet.sheetId),
     rowsCount: exportData.rows.length,
   };
 }

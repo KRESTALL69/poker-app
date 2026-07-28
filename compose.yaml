@@ -30,6 +30,7 @@ services:
       GOOGLE_CLIENT_EMAIL: ${GOOGLE_CLIENT_EMAIL}
       GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY}
       GOOGLE_SHEETS_SPREADSHEET_ID: ${GOOGLE_SHEETS_SPREADSHEET_ID}
+      GOOGLE_SHEETS_CASH_SPREADSHEET_ID: ${GOOGLE_SHEETS_CASH_SPREADSHEET_ID}
       # DATABASE_URL resolves poker-clock-db by its Docker-internal service
       # name because of the `networks:` override below, joining the same
       # external network poker-clock-db publishes itself on. Never goes over

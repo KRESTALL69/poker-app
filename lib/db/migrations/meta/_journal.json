@@ -15,6 +15,20 @@
       "when": 1784721568204,
       "tag": "0001_swift_swarm",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785240603601,
+      "tag": "0002_add_cash_fields_to_tournament_live_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785242167693,
+      "tag": "0003_add_cash_total_buy_in_to_tournament_live_entries",
+      "breakpoints": true
     }
   ]
 }

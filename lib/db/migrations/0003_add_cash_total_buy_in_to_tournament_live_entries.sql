@@ -1,0 +1,1 @@
+ALTER TABLE "tournament_live_entries" ADD COLUMN "cash_total_buy_in" integer DEFAULT 0 NOT NULL;

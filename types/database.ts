@@ -75,6 +75,10 @@ export type TournamentLiveEntryRow = {
   sheet_row_number: number | null;
   created_at: string;
   updated_at: string;
+  cash_buy_in: number;
+  cash_total_buy_in: number;
+  cash_exited: boolean;
+  cash_cash_out: number;
 };
 
 export type PlayerAchievementRow = {

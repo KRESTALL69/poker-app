@@ -289,6 +289,15 @@ export const tournamentLiveEntries = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
     winnings: integer("winnings").notNull().default(0),
+    // Cash game (kind="cash") fields — не используются турнирами free/paid.
+    // cashBuyIn — текущий ввод "Вход" из приложения, НЕ накопительная сумма;
+    // после каждой успешной синхронизации с Google Sheets (источник истины по
+    // накоплению) обнуляется, а cashTotalBuyIn обновляется значением оттуда —
+    // см. app/api/admin/tournaments/[id]/cash-sheet-sync/route.ts.
+    cashBuyIn: integer("cash_buy_in").notNull().default(0),
+    cashTotalBuyIn: integer("cash_total_buy_in").notNull().default(0),
+    cashExited: boolean("cash_exited").notNull().default(false),
+    cashCashOut: integer("cash_cash_out").notNull().default(0),
   },
   (table) => ({
     tournamentIdIdx: index("tournament_live_entries_tournament_id_idx").on(table.tournamentId),

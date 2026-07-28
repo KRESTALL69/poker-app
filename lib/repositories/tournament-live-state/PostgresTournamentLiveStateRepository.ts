@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
-import { players, registrations, tournamentLiveEntries } from "@/lib/db/schema";
+import { players, registrations, tournamentLiveEntries, tournaments } from "@/lib/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import type {
+  CashLiveEntryForPlayerStatsRow,
   TournamentLiveEntryPatch,
   TournamentLiveEntryWithDetails,
   TournamentLiveStateRepository,
@@ -51,6 +52,10 @@ export class PostgresTournamentLiveStateRepository implements TournamentLiveStat
         created_at: tournamentLiveEntries.createdAt,
         updated_at: tournamentLiveEntries.updatedAt,
         winnings: tournamentLiveEntries.winnings,
+        cash_buy_in: tournamentLiveEntries.cashBuyIn,
+        cash_total_buy_in: tournamentLiveEntries.cashTotalBuyIn,
+        cash_exited: tournamentLiveEntries.cashExited,
+        cash_cash_out: tournamentLiveEntries.cashCashOut,
         registrations: {
           status: registrations.status,
         },
@@ -67,6 +72,30 @@ export class PostgresTournamentLiveStateRepository implements TournamentLiveStat
       .orderBy(asc(tournamentLiveEntries.createdAt));
   }
 
+  async findCashEntriesForPlayerStats(): Promise<CashLiveEntryForPlayerStatsRow[]> {
+    return db
+      .select({
+        player_id: tournamentLiveEntries.playerId,
+        tournament_id: tournamentLiveEntries.tournamentId,
+        cash_total_buy_in: tournamentLiveEntries.cashTotalBuyIn,
+        cash_cash_out: tournamentLiveEntries.cashCashOut,
+        players: {
+          username: players.username,
+          display_name: players.displayName,
+        },
+      })
+      .from(tournamentLiveEntries)
+      .innerJoin(tournaments, eq(tournamentLiveEntries.tournamentId, tournaments.id))
+      .innerJoin(players, eq(tournamentLiveEntries.playerId, players.id))
+      .where(
+        and(
+          eq(tournaments.kind, "cash"),
+          eq(tournaments.status, "completed"),
+          eq(tournamentLiveEntries.arrived, true)
+        )
+      );
+  }
+
   async updateEntry(
     tournamentId: string,
     playerId: string,
@@ -80,6 +109,10 @@ export class PostgresTournamentLiveStateRepository implements TournamentLiveStat
     if (patch.place !== undefined) set.place = patch.place;
     if (patch.winnings !== undefined) set.winnings = patch.winnings;
     if (patch.sheet_row_number !== undefined) set.sheetRowNumber = patch.sheet_row_number;
+    if (patch.cash_buy_in !== undefined) set.cashBuyIn = patch.cash_buy_in;
+    if (patch.cash_total_buy_in !== undefined) set.cashTotalBuyIn = patch.cash_total_buy_in;
+    if (patch.cash_exited !== undefined) set.cashExited = patch.cash_exited;
+    if (patch.cash_cash_out !== undefined) set.cashCashOut = patch.cash_cash_out;
 
     await db
       .update(tournamentLiveEntries)

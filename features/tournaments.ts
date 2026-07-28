@@ -19,7 +19,11 @@ import type {
   ResultBySeasonRow,
   ResultForPlayerStatsRow,
 } from "@/lib/repositories/result/Interface";
-import type { TournamentLiveEntryWithDetails } from "@/lib/repositories/tournament-live-state/Interface";
+import type {
+  CashLiveEntryForPlayerStatsRow,
+  TournamentLiveEntryPatch,
+  TournamentLiveEntryWithDetails,
+} from "@/lib/repositories/tournament-live-state/Interface";
 import { syncPlayersAchievements } from "@/features/achievements";
 import { calculateRatingPoints, getPlaceCoefficient, FIXED_PLAYERS_COUNT } from "@/config/rating";
 import type {
@@ -103,6 +107,10 @@ function mapTournamentLiveEntryRow(
     place: row.place,
     winnings: row.winnings,
     sheet_row_number: row.sheet_row_number,
+    cash_buy_in: row.cash_buy_in,
+    cash_total_buy_in: row.cash_total_buy_in,
+    cash_exited: row.cash_exited,
+    cash_cash_out: row.cash_cash_out,
   };
 }
 
@@ -822,12 +830,16 @@ export async function updateTournamentLiveEntries(
   tournamentId: string,
   rows: Array<{
     player_id: string;
-    arrived: boolean;
-    rebuys: number;
-    addons: number;
-    knockouts: number;
-    place: number | null;
-    winnings: number;
+    arrived?: boolean;
+    rebuys?: number;
+    addons?: number;
+    knockouts?: number;
+    place?: number | null;
+    winnings?: number;
+    cash_buy_in?: number;
+    cash_total_buy_in?: number;
+    cash_exited?: boolean;
+    cash_cash_out?: number;
   }>
 ) {
   const tournament = await getTournamentById(tournamentId);
@@ -843,15 +855,20 @@ export async function updateTournamentLiveEntries(
   await ensureTournamentLiveEntries(tournamentId);
 
   for (const row of rows) {
+    const patch: TournamentLiveEntryPatch = {};
+    if (row.arrived !== undefined) patch.arrived = row.arrived;
+    if (row.rebuys !== undefined) patch.rebuys = row.rebuys;
+    if (row.addons !== undefined) patch.addons = row.addons;
+    if (row.knockouts !== undefined) patch.knockouts = row.knockouts;
+    if (row.place !== undefined) patch.place = row.place;
+    if (row.winnings !== undefined) patch.winnings = row.winnings;
+    if (row.cash_buy_in !== undefined) patch.cash_buy_in = row.cash_buy_in;
+    if (row.cash_total_buy_in !== undefined) patch.cash_total_buy_in = row.cash_total_buy_in;
+    if (row.cash_exited !== undefined) patch.cash_exited = row.cash_exited;
+    if (row.cash_cash_out !== undefined) patch.cash_cash_out = row.cash_cash_out;
+
     try {
-      await tournamentLiveStateRepository.updateEntry(tournamentId, row.player_id, {
-        arrived: row.arrived,
-        rebuys: row.rebuys,
-        addons: row.addons,
-        knockouts: row.knockouts,
-        place: row.place,
-        winnings: row.winnings,
-      });
+      await tournamentLiveStateRepository.updateEntry(tournamentId, row.player_id, patch);
     } catch (error) {
       throw new Error((error as { message?: string })?.message ?? "Unknown error");
     }
@@ -1036,6 +1053,45 @@ export async function completeTournamentFromLiveEntries(
   return {
     completedCount: liveEntries.length,
     seasonId: tournamentRow.season_id ?? null,
+  };
+}
+
+// Завершение Cash Game — сознательно отдельная функция, а не ветка в
+// completeTournamentFromLiveEntries: та требует place/entryPrice и пишет в
+// results (места, рейтинг) — понятия, которых у Cash Game просто нет. Здесь
+// только статус турнира + агрегаты для сводной строки в Лист1 (см.
+// app/api/admin/tournaments/[id]/complete-cash) — rating/achievements/results
+// не затрагиваются.
+export async function completeCashTournament(tournamentId: string) {
+  const tournament = await getTournamentById(tournamentId);
+
+  if (tournament.kind !== "cash") {
+    throw new Error("Завершение доступно только для Cash-турниров");
+  }
+
+  if (tournament.status === "completed") {
+    throw new Error("Турнир уже завершён");
+  }
+
+  const liveEntries = await getTournamentLiveEntries(tournamentId);
+  const arrivedEntries = liveEntries.filter((entry) => entry.arrived);
+
+  const playersCount = arrivedEntries.length;
+  const totalBuyIn = arrivedEntries.reduce((sum, entry) => sum + entry.cash_total_buy_in, 0);
+  const totalCashOut = arrivedEntries.reduce((sum, entry) => sum + entry.cash_cash_out, 0);
+
+  try {
+    await tournamentRepository.updateStatus(tournamentId, "completed");
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+
+  return {
+    title: tournament.title,
+    startAt: tournament.start_at,
+    playersCount,
+    totalBuyIn,
+    totalCashOut,
   };
 }
 
@@ -1323,6 +1379,58 @@ export async function getPlayerResultsStats(
   return Array.from(map.values()).sort((a, b) => {
     const netA = a.spent - a.winnings;
     const netB = b.spent - b.winnings;
+    return netB - netA;
+  });
+}
+
+export type CashPlayerResultsStats = {
+  player_id: string;
+  display_name: string;
+  username: string | null;
+  gamesCount: number;
+  totalBuyIn: number;
+  totalCashOut: number;
+};
+
+// Cash-аналог getPlayerResultsStats: та же схема (репозиторий отдаёт сырые
+// joined-строки, суммирование по игроку — здесь), но без season/rating —
+// у Cash Game нет ни того, ни другого, а данные берутся по ВСЕМ завершённым
+// играм, а не по сезону.
+export async function getCashPlayerResultsStats(): Promise<CashPlayerResultsStats[]> {
+  let data: CashLiveEntryForPlayerStatsRow[];
+  try {
+    data = await tournamentLiveStateRepository.findCashEntriesForPlayerStats();
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+
+  const map = new Map<string, CashPlayerResultsStats>();
+
+  for (const row of data ?? []) {
+    const player = Array.isArray(row.players) ? row.players[0] : row.players;
+    const existing = map.get(row.player_id);
+    const buyIn = row.cash_total_buy_in ?? 0;
+    const cashOut = row.cash_cash_out ?? 0;
+
+    if (existing) {
+      existing.gamesCount += 1;
+      existing.totalBuyIn += buyIn;
+      existing.totalCashOut += cashOut;
+    } else {
+      map.set(row.player_id, {
+        player_id: row.player_id,
+        display_name: player?.display_name ?? "Игрок",
+        username: player?.username ?? null,
+        gamesCount: 1,
+        totalBuyIn: buyIn,
+        totalCashOut: cashOut,
+      });
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    const netA = a.totalCashOut - a.totalBuyIn;
+    const netB = b.totalCashOut - b.totalBuyIn;
     return netB - netA;
   });
 }

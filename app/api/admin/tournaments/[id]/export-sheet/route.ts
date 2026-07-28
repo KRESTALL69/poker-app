@@ -7,8 +7,11 @@ import {
   applyTournamentSheetFormatting,
   appendReportRow,
   buildSpreadsheetTabUrl,
+  buildTabName,
   ensureReadmeTab,
   ensureSpreadsheetTab,
+  formatTournamentDate,
+  getSpreadsheetId,
   replaceSpreadsheetTabValues,
 } from "@/lib/google-sheets";
 
@@ -21,30 +24,6 @@ type FreeSheetRowInput = {
   place: number | null;
   winnings: number;
 };
-
-function buildTabName(title: string, startAt: string, tournamentId: string) {
-  const date = new Date(startAt);
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const shortTitle = title
-    .toUpperCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 24);
-
-  return `${day}.${month} | ${shortTitle} | ${tournamentId.slice(0, 4)}`;
-}
-
-function formatTournamentDate(date: string) {
-  return new Date(date).toLocaleString("ru-RU", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function getFreeTournamentStatusLabel(status: string) {
   if (status === "open") {
@@ -180,6 +159,7 @@ export async function syncTournamentSheet(
   bountyPrice = 0
 ) {
   const exportData = await getTournamentSheetExportData(tournamentId);
+  const spreadsheetId = getSpreadsheetId();
   const tabName =
     exportData.tournament.google_sheet_tab_name?.trim() ||
     buildTabName(
@@ -188,13 +168,13 @@ export async function syncTournamentSheet(
       exportData.tournament.id
     );
 
-  await ensureReadmeTab();
-  await replaceSpreadsheetTabValues("README", buildReadmeSheetValues());
+  await ensureReadmeTab(spreadsheetId);
+  await replaceSpreadsheetTabValues(spreadsheetId, "README", buildReadmeSheetValues());
 
-  const sheet = await ensureSpreadsheetTab(tabName);
+  const sheet = await ensureSpreadsheetTab(spreadsheetId, tabName);
   if (sheet.created) {
     try {
-      await appendReportRow(exportData.tournament.title, tabName);
+      await appendReportRow(spreadsheetId, exportData.tournament.title, tabName);
     } catch (error) {
       console.error("Failed to append row to Лист1", error);
     }
@@ -204,13 +184,13 @@ export async function syncTournamentSheet(
       ? buildFreeSheetValues(exportData, rows, entryPrice, addonPrice, bountyPrice)
       : buildLiveSheetValues(exportData, entryPrice, addonPrice, bountyPrice);
 
-  await replaceSpreadsheetTabValues(tabName, values);
-  await applyTournamentSheetFormatting(tabName, exportData.rows.length);
+  await replaceSpreadsheetTabValues(spreadsheetId, tabName, values);
+  await applyTournamentSheetFormatting(spreadsheetId, tabName, exportData.rows.length);
   await setTournamentGoogleSheetTabName(tournamentId, tabName);
 
   return {
     tabName,
-    url: buildSpreadsheetTabUrl(sheet.sheetId),
+    url: buildSpreadsheetTabUrl(spreadsheetId, sheet.sheetId),
   };
 }
 

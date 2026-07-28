@@ -52,6 +52,10 @@ type LiveFormRow = {
   knockouts: string;
   place: string;
   winnings: string;
+  cashBuyIn: string;
+  cashTotalBuyIn: number;
+  cashExited: boolean;
+  cashCashOut: string;
 };
 
 function getTournamentModeTitle(tournament: Tournament | null) {
@@ -222,6 +226,7 @@ export default function AdminTournamentResultsPage() {
   }, [tournamentId]);
 
   const isFreeTournament = tournament?.kind === "free";
+  const isCashTournament = tournament?.kind === "cash";
   const hasUnsavedFreeChanges = useMemo(() => {
     if (!isFreeTournament || !initialFreeSnapshot) {
       return false;
@@ -265,6 +270,10 @@ export default function AdminTournamentResultsPage() {
       knockouts: String(item.knockouts),
       place: item.place == null ? "" : String(item.place),
       winnings: String(item.winnings ?? 0),
+      cashBuyIn: String(item.cash_buy_in ?? 0),
+      cashTotalBuyIn: item.cash_total_buy_in ?? 0,
+      cashExited: item.cash_exited ?? false,
+      cashCashOut: String(item.cash_cash_out ?? 0),
     }));
   }
 
@@ -295,7 +304,16 @@ export default function AdminTournamentResultsPage() {
 
   function updateLiveRow(
     playerId: string,
-    field: "arrived" | "rebuys" | "addons" | "knockouts" | "place" | "winnings",
+    field:
+      | "arrived"
+      | "rebuys"
+      | "addons"
+      | "knockouts"
+      | "place"
+      | "winnings"
+      | "cashBuyIn"
+      | "cashExited"
+      | "cashCashOut",
     value: boolean | string
   ) {
     setLiveRows((prev) =>
@@ -559,6 +577,62 @@ export default function AdminTournamentResultsPage() {
     }
   }
 
+  async function handleSaveCashEntries() {
+    if (!tournamentId) {
+      return;
+    }
+
+    setMessage(null);
+    setError(null);
+
+    try {
+      setSaving(true);
+
+      // Для Cash "Создать таблицу" копит "Вход" в отдельном Cash Spreadsheet
+      // (не в турнирном) и возвращает подтверждённый Google Sheets суммарный
+      // вход — см. app/api/admin/tournaments/[id]/cash-sheet-sync.
+      const payload = await fetchAdminJson<{
+        ok: true;
+        tabName: string;
+        url: string;
+        totals: Array<{ player_id: string; cash_total_buy_in: number }>;
+      }>(`/api/admin/tournaments/${tournamentId}/cash-sheet-sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rows: liveRows.map((row) => ({
+            player_id: row.player_id,
+            arrived: row.arrived,
+            cash_buy_in: Number(row.cashBuyIn || 0),
+            cash_exited: row.cashExited,
+            cash_cash_out: Number(row.cashCashOut || 0),
+          })),
+        }),
+      });
+
+      const totalByPlayerId = new Map(
+        payload.totals.map((row) => [row.player_id, row.cash_total_buy_in])
+      );
+
+      const nextRows = liveRows.map((row) => ({
+        ...row,
+        cashBuyIn: "0",
+        cashTotalBuyIn: totalByPlayerId.get(row.player_id) ?? row.cashTotalBuyIn,
+      }));
+
+      setLiveRows(nextRows);
+      setInitialLiveSnapshot(JSON.stringify(nextRows));
+      setMessage("Данные сохранены, таблица обновлена");
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Ошибка сохранения данных";
+      setError(sanitizeDbError(raw, "Ошибка сохранения данных"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handlePullFromSheet() {
     if (!tournamentId) {
       return;
@@ -658,6 +732,37 @@ export default function AdminTournamentResultsPage() {
     }
   }
 
+  async function handleCompleteCashTournament() {
+    if (!tournamentId) {
+      return;
+    }
+
+    setMessage(null);
+    setError(null);
+
+    try {
+      setCompleting(true);
+
+      await fetchAdminJson<{ ok: true }>(
+        `/api/admin/tournaments/${tournamentId}/complete-cash`,
+        {
+          method: "POST",
+        }
+      );
+
+      setTournament((current) =>
+        current ? { ...current, status: "completed" } : current
+      );
+      setInitialLiveSnapshot(JSON.stringify(liveRows));
+      setMessage("Игра завершена, строка добавлена в Лист1");
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Ошибка завершения игры";
+      setError(sanitizeDbError(raw, "Ошибка завершения игры"));
+    } finally {
+      setCompleting(false);
+    }
+  }
+
   if (!accessChecked || loading) {
     return (
       <main className="min-h-screen bg-black px-4 py-6 text-white">
@@ -739,6 +844,7 @@ export default function AdminTournamentResultsPage() {
 
         {(isFreeTournament ? freeRows.length > 0 : liveRows.length > 0) ? (
           <>
+          {!isCashTournament ? (
           <div className="mt-4 grid grid-cols-3 gap-2">
             <div>
               <p className="mb-1 text-[11px] font-medium text-white/50">Entry price</p>
@@ -777,10 +883,17 @@ export default function AdminTournamentResultsPage() {
               />
             </div>
           </div>
+          ) : null}
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <button
               type="button"
-              onClick={isFreeTournament ? handleSyncFreeRows : handleSyncLiveRows}
+              onClick={
+                isFreeTournament
+                  ? handleSyncFreeRows
+                  : isCashTournament
+                    ? handleSaveCashEntries
+                    : handleSyncLiveRows
+              }
               disabled={saving}
               className="rounded-lg bg-yellow-500 px-3 py-3 text-sm font-semibold text-black disabled:opacity-60"
             >
@@ -805,7 +918,9 @@ export default function AdminTournamentResultsPage() {
               onClick={
                 isFreeTournament
                   ? handleCompleteFreeTournament
-                  : handleCompleteLiveTournament
+                  : isCashTournament
+                    ? handleCompleteCashTournament
+                    : handleCompleteLiveTournament
               }
               disabled={completing}
               className="rounded-lg bg-green-500 px-3 py-3 text-sm font-semibold text-black disabled:opacity-60"
@@ -975,152 +1090,257 @@ export default function AdminTournamentResultsPage() {
               В турнире пока нет зарегистрированных игроков для live-таблицы.
             </div>
           ) : (
-            liveRows.map((row) => (
-              <div
-                key={row.player_id}
-                className="rounded-xl border border-white/10 bg-white/5 p-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-base font-semibold text-white">
-                      {row.display_name}
-                    </p>
-                    {row.username ? (
-                      <p className="mt-1 text-sm text-white/45">@{row.username}</p>
-                    ) : null}
+            liveRows.map((row) =>
+              isCashTournament ? (
+                <div
+                  key={row.player_id}
+                  className="rounded-xl border border-white/10 bg-white/5 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-white">
+                        {row.display_name}
+                      </p>
+                      {row.username ? (
+                        <p className="mt-1 text-sm text-white/45">@{row.username}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <p className="text-[11px] font-medium text-white/60">Общий вход</p>
+                      {/* Только для отображения — источник истины Google Sheets
+                          (Cash Spreadsheet), обновляется по клику "Создать таблицу". */}
+                      <div className="flex h-11 w-28 items-center justify-center rounded-lg border border-white/10 bg-black/20 px-3 text-center text-base text-white/70">
+                        {row.cashTotalBuyIn}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <p className="text-[11px] font-medium text-white/60">Выигрыш</p>
+
+                  <div className="mt-3 grid grid-cols-4 gap-2 text-center text-[11px] font-medium text-white/60">
+                    <span>Пришел</span>
+                    <span>Вход</span>
+                    <span>Вышел</span>
+                    <span>Выход</span>
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    <label className="flex h-11 items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={row.arrived}
+                        onChange={(e) =>
+                          updateLiveRow(row.player_id, "arrived", e.target.checked)
+                        }
+                        className="h-4 w-4 accent-yellow-500"
+                      />
+                    </label>
+
                     <input
                       type="number"
                       min="0"
-                      value={row.winnings}
+                      value={row.cashBuyIn}
                       onFocus={() =>
                         updateLiveRow(
                           row.player_id,
-                          "winnings",
-                          clearZeroValue(row.winnings)
+                          "cashBuyIn",
+                          clearZeroValue(row.cashBuyIn)
                         )
                       }
                       onBlur={() =>
                         updateLiveRow(
                           row.player_id,
-                          "winnings",
-                          restoreZeroValue(row.winnings)
+                          "cashBuyIn",
+                          restoreZeroValue(row.cashBuyIn)
                         )
                       }
                       onChange={(e) =>
-                        updateLiveRow(row.player_id, "winnings", e.target.value)
+                        updateLiveRow(row.player_id, "cashBuyIn", e.target.value)
                       }
-                      className="h-11 w-28 rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+                      className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+                    />
+
+                    <label className="flex h-11 items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={row.cashExited}
+                        onChange={(e) =>
+                          updateLiveRow(row.player_id, "cashExited", e.target.checked)
+                        }
+                        className="h-4 w-4 accent-yellow-500"
+                      />
+                    </label>
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.cashCashOut}
+                      onFocus={() =>
+                        updateLiveRow(
+                          row.player_id,
+                          "cashCashOut",
+                          clearZeroValue(row.cashCashOut)
+                        )
+                      }
+                      onBlur={() =>
+                        updateLiveRow(
+                          row.player_id,
+                          "cashCashOut",
+                          restoreZeroValue(row.cashCashOut)
+                        )
+                      }
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "cashCashOut", e.target.value)
+                      }
+                      className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
                     />
                   </div>
                 </div>
+              ) : (
+                <div
+                  key={row.player_id}
+                  className="rounded-xl border border-white/10 bg-white/5 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-white">
+                        {row.display_name}
+                      </p>
+                      {row.username ? (
+                        <p className="mt-1 text-sm text-white/45">@{row.username}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <p className="text-[11px] font-medium text-white/60">Выигрыш</p>
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.winnings}
+                        onFocus={() =>
+                          updateLiveRow(
+                            row.player_id,
+                            "winnings",
+                            clearZeroValue(row.winnings)
+                          )
+                        }
+                        onBlur={() =>
+                          updateLiveRow(
+                            row.player_id,
+                            "winnings",
+                            restoreZeroValue(row.winnings)
+                          )
+                        }
+                        onChange={(e) =>
+                          updateLiveRow(row.player_id, "winnings", e.target.value)
+                        }
+                        className="h-11 w-28 rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+                      />
+                    </div>
+                  </div>
 
-                <div className="mt-3 grid grid-cols-5 gap-2 text-center text-[11px] font-medium text-white/60">
-                  <span>Пришел</span>
-                  <span>Re-buy</span>
-                  <span>Addon</span>
-                  <span>Nok</span>
-                  <span>Место</span>
-                </div>
+                  <div className="mt-3 grid grid-cols-5 gap-2 text-center text-[11px] font-medium text-white/60">
+                    <span>Пришел</span>
+                    <span>Re-buy</span>
+                    <span>Addon</span>
+                    <span>Nok</span>
+                    <span>Место</span>
+                  </div>
 
-                <div className="mt-2 grid grid-cols-5 gap-2">
-                  <label className="flex h-11 items-center justify-center">
+                  <div className="mt-2 grid grid-cols-5 gap-2">
+                    <label className="flex h-11 items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={row.arrived}
+                        onChange={(e) =>
+                          updateLiveRow(row.player_id, "arrived", e.target.checked)
+                        }
+                        className="h-4 w-4 accent-yellow-500"
+                      />
+                    </label>
+
                     <input
-                      type="checkbox"
-                      checked={row.arrived}
-                      onChange={(e) =>
-                        updateLiveRow(row.player_id, "arrived", e.target.checked)
+                      type="number"
+                      min="0"
+                      value={row.rebuys}
+                      onFocus={() =>
+                        updateLiveRow(
+                          row.player_id,
+                          "rebuys",
+                          clearZeroValue(row.rebuys)
+                        )
                       }
-                      className="h-4 w-4 accent-yellow-500"
+                      onBlur={() =>
+                        updateLiveRow(
+                          row.player_id,
+                          "rebuys",
+                          restoreZeroValue(row.rebuys)
+                        )
+                      }
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "rebuys", e.target.value)
+                      }
+                      className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
                     />
-                  </label>
 
-                  <input
-                    type="number"
-                    min="0"
-                    value={row.rebuys}
-                    onFocus={() =>
-                      updateLiveRow(
-                        row.player_id,
-                        "rebuys",
-                        clearZeroValue(row.rebuys)
-                      )
-                    }
-                    onBlur={() =>
-                      updateLiveRow(
-                        row.player_id,
-                        "rebuys",
-                        restoreZeroValue(row.rebuys)
-                      )
-                    }
-                    onChange={(e) =>
-                      updateLiveRow(row.player_id, "rebuys", e.target.value)
-                    }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
-                  />
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.addons}
+                      onFocus={() =>
+                        updateLiveRow(
+                          row.player_id,
+                          "addons",
+                          clearZeroValue(row.addons)
+                        )
+                      }
+                      onBlur={() =>
+                        updateLiveRow(
+                          row.player_id,
+                          "addons",
+                          restoreZeroValue(row.addons)
+                        )
+                      }
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "addons", e.target.value)
+                      }
+                      className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+                    />
 
-                  <input
-                    type="number"
-                    min="0"
-                    value={row.addons}
-                    onFocus={() =>
-                      updateLiveRow(
-                        row.player_id,
-                        "addons",
-                        clearZeroValue(row.addons)
-                      )
-                    }
-                    onBlur={() =>
-                      updateLiveRow(
-                        row.player_id,
-                        "addons",
-                        restoreZeroValue(row.addons)
-                      )
-                    }
-                    onChange={(e) =>
-                      updateLiveRow(row.player_id, "addons", e.target.value)
-                    }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
-                  />
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.knockouts}
+                      onFocus={() =>
+                        updateLiveRow(
+                          row.player_id,
+                          "knockouts",
+                          clearZeroValue(row.knockouts)
+                        )
+                      }
+                      onBlur={() =>
+                        updateLiveRow(
+                          row.player_id,
+                          "knockouts",
+                          restoreZeroValue(row.knockouts)
+                        )
+                      }
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "knockouts", e.target.value)
+                      }
+                      className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+                    />
 
-                  <input
-                    type="number"
-                    min="0"
-                    value={row.knockouts}
-                    onFocus={() =>
-                      updateLiveRow(
-                        row.player_id,
-                        "knockouts",
-                        clearZeroValue(row.knockouts)
-                      )
-                    }
-                    onBlur={() =>
-                      updateLiveRow(
-                        row.player_id,
-                        "knockouts",
-                        restoreZeroValue(row.knockouts)
-                      )
-                    }
-                    onChange={(e) =>
-                      updateLiveRow(row.player_id, "knockouts", e.target.value)
-                    }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
-                  />
-
-                  <input
-                    type="number"
-                    min="1"
-                    value={row.place}
-                    onChange={(e) =>
-                      updateLiveRow(row.player_id, "place", e.target.value)
-                    }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
-                  />
+                    <input
+                      type="number"
+                      min="1"
+                      value={row.place}
+                      onChange={(e) =>
+                        updateLiveRow(row.player_id, "place", e.target.value)
+                      }
+                      className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
+                    />
+                  </div>
                 </div>
-              </div>
-            ))
+              )
+            )
           )}
         </div>
       </div>

@@ -119,6 +119,10 @@ export type TournamentLiveEntry = {
   place: number | null;
   winnings: number;
   sheet_row_number: number | null;
+  cash_buy_in: number;
+  cash_total_buy_in: number;
+  cash_exited: boolean;
+  cash_cash_out: number;
 };
 
 export type PlayerAchievement = {
