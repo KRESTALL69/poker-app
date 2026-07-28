@@ -147,12 +147,23 @@ app_settings (
 )
 ```
 
-## graphify
+## Graphify
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+В проекте используется Graphify (`python -m graphify`, пакет `graphifyy`) для построения графа кодовой базы: узлы, "god nodes", сообщества, связи между файлами. Граф лежит в `graphify-out/` **внутри этого проекта** — не путать с графом соседних проектов (`reraise-miniapp` и др.).
 
-Rules:
-- For codebase questions, first run `python -m graphify query "<question>"` when graphify-out/graph.json exists. Use `python -m graphify path "<A>" "<B>"` for relationships and `python -m graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `python -m graphify update .` to keep the graph current (AST-only, no API cost).
+Текущая конфигурация:
+- Graphify не подключён как MCP-сервер в этой конфигурации — это CLI-инструмент, вызывается напрямую командой `python -m graphify ...`.
+- Граф строится и обновляется в AST-only режиме, без обращения к внешним LLM / OpenRouter — `graphify update .` не требует API-ключа и не тратит токены.
+- `query` / `path` / `explain` читают уже построенный `graph.json` напрямую и не требуют дополнительной платной настройки.
+
+Правила:
+- Перед архитектурно значимыми изменениями сначала обращаться к существующему графу, а не сразу к grep/чтению файлов.
+- Для поиска архитектурного контекста использовать `python -m graphify query "<question>"`, `python -m graphify path "<A>" "<B>"`, `python -m graphify explain "<concept>"` — эти команды работают без дополнительной платной настройки.
+- Если `graphify-out/wiki/index.md` существует, использовать его для навигации вместо чтения исходников напрямую.
+- `graphify-out/GRAPH_REPORT.md` читать только для широкого архитектурного обзора либо когда query/path/explain не дали достаточно контекста.
+- После изменений, затрагивающих связи между модулями, выполнять `python -m graphify update .`.
+- Не выполнять полную пересборку (`graphify extract`), если достаточно `graphify update .`.
+- Всегда запускать Graphify из корня текущего проекта.
+- Перед командой проверять текущий рабочий каталог, чтобы случайно не обновить граф соседнего проекта.
+- Никогда не индексировать секреты и `.env.local` — Graphify по умолчанию их исключает (встроенный фильтр `.env*`, ключи, credentials, tokens), но не полагаться на это вслепую при добавлении новых типов секретных файлов.
+- `graphify-out/` каждого проекта хранится внутри этого проекта и не переносится в общую папку.

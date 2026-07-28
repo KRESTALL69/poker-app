@@ -186,7 +186,11 @@ export default function AdminTournamentResultsPage() {
         } else {
           let entries = await getTournamentLiveEntries(tournamentId);
 
-          if (nextTournament.google_sheet_tab_name?.trim()) {
+          // Cash хранит google_sheet_tab_name только как UI-сигнал "таблица
+          // создана" (для лейбла кнопки) — /pull-sheet читает из турнирного
+          // Spreadsheet, а не из Cash Spreadsheet, поэтому для Cash его
+          // вызывать нельзя (см. cash-sheet-sync/route.ts).
+          if (nextTournament.kind !== "cash" && nextTournament.google_sheet_tab_name?.trim()) {
             try {
               const payload = await fetchAdminJson<{
                 rows: TournamentLiveEntry[];
@@ -622,6 +626,9 @@ export default function AdminTournamentResultsPage() {
         cashTotalBuyIn: totalByPlayerId.get(row.player_id) ?? row.cashTotalBuyIn,
       }));
 
+      setTournament((current) =>
+        current ? { ...current, google_sheet_tab_name: payload.tabName } : current
+      );
       setLiveRows(nextRows);
       setInitialLiveSnapshot(JSON.stringify(nextRows));
       setMessage("Данные сохранены, таблица обновлена");
@@ -907,7 +914,7 @@ export default function AdminTournamentResultsPage() {
             <button
               type="button"
               onClick={isFreeTournament ? handlePullFreeRows : handlePullFromSheet}
-              disabled={pulling || !tournament?.google_sheet_tab_name}
+              disabled={pulling || !tournament?.google_sheet_tab_name || isCashTournament}
               className="rounded-lg border border-white/10 px-3 py-3 text-sm font-semibold text-white/85 disabled:opacity-50"
             >
               {pulling ? "Обновляем..." : "Обновить из GS"}
@@ -1109,21 +1116,21 @@ export default function AdminTournamentResultsPage() {
                       <p className="text-[11px] font-medium text-white/60">Общий вход</p>
                       {/* Только для отображения — источник истины Google Sheets
                           (Cash Spreadsheet), обновляется по клику "Создать таблицу". */}
-                      <div className="flex h-11 w-28 items-center justify-center rounded-lg border border-white/10 bg-black/20 px-3 text-center text-base text-white/70">
+                      <p className="text-lg font-semibold text-white">
                         {row.cashTotalBuyIn}
-                      </div>
+                      </p>
                     </div>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-4 gap-2 text-center text-[11px] font-medium text-white/60">
+                  <div className="mt-3 grid grid-cols-[auto_1fr_auto_1fr] gap-2 text-center text-[11px] font-medium text-white/60">
                     <span>Пришел</span>
                     <span>Вход</span>
                     <span>Вышел</span>
                     <span>Выход</span>
                   </div>
 
-                  <div className="mt-2 grid grid-cols-4 gap-2">
-                    <label className="flex h-11 items-center justify-center">
+                  <div className="mt-2 grid grid-cols-[auto_1fr_auto_1fr] gap-2">
+                    <label className="flex h-11 w-11 items-center justify-center">
                       <input
                         type="checkbox"
                         checked={row.arrived}
@@ -1158,7 +1165,7 @@ export default function AdminTournamentResultsPage() {
                       className="h-11 w-full rounded-lg border border-white/10 bg-black/30 px-3 text-center text-base outline-none"
                     />
 
-                    <label className="flex h-11 items-center justify-center">
+                    <label className="flex h-11 w-11 items-center justify-center">
                       <input
                         type="checkbox"
                         checked={row.cashExited}

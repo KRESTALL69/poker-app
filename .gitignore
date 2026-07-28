@@ -52,3 +52,4 @@ graphify-out/
 # Locally-stored avatars (LocalAvatarStorageRepository bind mount target,
 # see compose.yaml) — VPS-only runtime data, never committed.
 /storage/
+/docs/

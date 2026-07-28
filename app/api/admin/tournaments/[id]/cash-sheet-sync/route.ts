@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getTournamentById,
   getTournamentLiveEntries,
+  setTournamentGoogleSheetTabName,
   updateTournamentLiveEntries,
 } from "@/features/tournaments";
 import {
@@ -180,6 +181,13 @@ export async function POST(
         cash_cash_out: row.cashOut,
       }))
     );
+
+    // Тот же механизм, что у free/paid (setTournamentGoogleSheetTabName) —
+    // источник правды для UI "таблица уже создана" (кнопка/лейбл на
+    // странице результатов). "Обновить из GS" для Cash сознательно НЕ
+    // завязан на это поле: тот путь читает /pull-sheet из турнирного
+    // Spreadsheet, а не из Cash Spreadsheet — см. page.tsx.
+    await setTournamentGoogleSheetTabName(id, tabName);
 
     return NextResponse.json({
       ok: true,
