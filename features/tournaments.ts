@@ -1519,6 +1519,16 @@ export async function setTournamentTotalPrizePool(
   }
 }
 
+const SEASON_PRIZE_POOL_SHARE = 0.05; // Доля от общего призового фонда сезона, которая сохраняется в season.prize_pool.
+
+// season.prize_pool хранит НЕ 100% общего призового фонда сезона, а 5% от
+// него, округлённые вверх до ближайших 500 ₽ — общая формула для обоих
+// путей пересчёта (recalculateSeasonPrizePoolFromDb и recomputeSeasonPrizePool
+// ниже), чтобы не дублировать округление и процент в двух местах.
+function calculateSeasonPrizePoolShare(totalPrizePool: number): number {
+  return Math.ceil((totalPrizePool * SEASON_PRIZE_POOL_SHARE) / 500) * 500;
+}
+
 // Обычное завершение бесплатного турнира: полный пересчёт season.prize_pool
 // из уже сохранённых total_prize_pool завершённых бесплатных турниров
 // сезона — идемпотентно (пересчитывает с нуля, а не прибавляет), поэтому
@@ -1527,22 +1537,22 @@ export async function setTournamentTotalPrizePool(
 // путь. Google Sheets остаётся отдельным источником только для ручной
 // сверки, см. recomputeSeasonPrizePool ниже.
 export async function recalculateSeasonPrizePoolFromDb(seasonId: string): Promise<number> {
-  let sum: number;
+  let totalPrizePool: number;
   try {
-    sum = await tournamentRepository.sumTotalPrizePoolBySeasonId(seasonId, ["free"]);
+    totalPrizePool = await tournamentRepository.sumTotalPrizePoolBySeasonId(seasonId, ["free"]);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  const roundedPrizePool = Math.ceil(sum / 500) * 500;
+  const prizePool = calculateSeasonPrizePoolShare(totalPrizePool);
 
   try {
-    await seasonRepository.updatePrizePool(seasonId, roundedPrizePool);
+    await seasonRepository.updatePrizePool(seasonId, prizePool);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return roundedPrizePool;
+  return prizePool;
 }
 
 const LIST1_TAB_NAME_COLUMN = 1; // "Источник" — google_sheet_tab_name турнира.
@@ -1551,11 +1561,14 @@ const LIST1_PRIZE_POOL_COLUMN = 9; // "Общий призовой" (см. appen
 // Административная ручная синхронизация: полный пересчёт season.prize_pool
 // по Лист1 турнирного Spreadsheet — используется только когда админ
 // подправил данные прямо в таблице и хочет применить исправление к БД.
-// Сами данные Лист1 читает вызывающий (route) — здесь только сопоставление
-// с сезоном (по google_sheet_tab_name) и запись в БД, по тому же разделению
-// обязанностей, что и у completeCashTournament (DB) + route-уровня Google
-// Sheets I/O. free+paid — оба вида турниров пишут строку в Лист1; Cash
-// использует отдельный Spreadsheet и сюда не попадает.
+// Как и в recalculateSeasonPrizePoolFromDb выше, в season.prize_pool
+// сохраняется не сам общий призовой фонд, а его 5%-доля (см.
+// calculateSeasonPrizePoolShare). Сами данные Лист1 читает вызывающий
+// (route) — здесь только сопоставление с сезоном (по google_sheet_tab_name)
+// и запись в БД, по тому же разделению обязанностей, что и у
+// completeCashTournament (DB) + route-уровня Google Sheets I/O. free+paid —
+// оба вида турниров пишут строку в Лист1; Cash использует отдельный
+// Spreadsheet и сюда не попадает.
 export async function recomputeSeasonPrizePool(
   seasonId: string,
   list1Rows: string[][]
@@ -1573,22 +1586,22 @@ export async function recomputeSeasonPrizePool(
   const tabNameSet = new Set(tabNames);
   const dataRows = list1Rows.slice(1); // строка 0 — заголовок ("Турнир","Источник",...).
 
-  const sum = dataRows.reduce((total, row) => {
+  const totalPrizePool = dataRows.reduce((total, row) => {
     const tabName = row[LIST1_TAB_NAME_COLUMN];
     if (!tabName || !tabNameSet.has(tabName)) {
       return total;
     }
-    const prizePool = Number(row[LIST1_PRIZE_POOL_COLUMN]);
-    return total + (Number.isFinite(prizePool) ? prizePool : 0);
+    const rowPrizePool = Number(row[LIST1_PRIZE_POOL_COLUMN]);
+    return total + (Number.isFinite(rowPrizePool) ? rowPrizePool : 0);
   }, 0);
 
-  const roundedPrizePool = Math.ceil(sum / 500) * 500;
+  const prizePool = calculateSeasonPrizePoolShare(totalPrizePool);
 
   try {
-    await seasonRepository.updatePrizePool(seasonId, roundedPrizePool);
+    await seasonRepository.updatePrizePool(seasonId, prizePool);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 
-  return roundedPrizePool;
+  return prizePool;
 }

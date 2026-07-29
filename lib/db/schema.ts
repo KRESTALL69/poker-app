@@ -47,11 +47,12 @@ export const seasons = pgTable(
     endDate: date("end_date"),
     isActive: boolean("is_active").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
-    // Накопительный призовой фонд сезона — сумма колонки "Общий призовой"
-    // Лист1 по всем турнирам сезона (free+paid), округлённая вверх до 500.
-    // Пересчитывается features/tournaments.ts::recomputeSeasonPrizePool()
-    // после завершения бесплатного турнира — здесь только хранится готовое
-    // значение, само API рейтинга Google Sheets не читает.
+    // НЕ 100% общего призового фонда сезона — это 5% от него, округлённые
+    // вверх до 500 (см. calculateSeasonPrizePoolShare, features/tournaments.ts).
+    // Пересчитывается идемпотентно из БД при завершении бесплатного турнира
+    // (recalculateSeasonPrizePoolFromDb) либо вручную из Google Sheets
+    // (recomputeSeasonPrizePool) — здесь только хранится готовое значение,
+    // само API рейтинга Google Sheets не читает.
     prizePool: integer("prize_pool").notNull().default(0),
   },
   (table) => ({
