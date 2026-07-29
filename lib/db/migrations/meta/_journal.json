@@ -29,6 +29,20 @@
       "when": 1785242167693,
       "tag": "0003_add_cash_total_buy_in_to_tournament_live_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785312773252,
+      "tag": "0004_add_prize_pool_to_seasons",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785315077638,
+      "tag": "0005_lucky_killraven",
+      "breakpoints": true
     }
   ]
 }

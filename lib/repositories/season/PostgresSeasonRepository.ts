@@ -9,6 +9,7 @@ function mapSeasonRow(row: {
   startDate: string;
   endDate: string | null;
   isActive: boolean;
+  prizePool: number;
 }): SeasonRow {
   return {
     id: row.id,
@@ -16,6 +17,7 @@ function mapSeasonRow(row: {
     start_date: row.startDate,
     end_date: row.endDate,
     is_active: row.isActive,
+    prize_pool: row.prizePool,
   };
 }
 
@@ -72,5 +74,9 @@ export class PostgresSeasonRepository implements SeasonRepository {
 
   async closeActiveSeason(endDate: string): Promise<void> {
     await db.update(seasons).set({ isActive: false, endDate }).where(eq(seasons.isActive, true));
+  }
+
+  async updatePrizePool(seasonId: string, prizePool: number): Promise<void> {
+    await db.update(seasons).set({ prizePool }).where(eq(seasons.id, seasonId));
   }
 }

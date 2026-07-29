@@ -1,0 +1,1 @@
+ALTER TABLE "seasons" ADD COLUMN "prize_pool" integer DEFAULT 0 NOT NULL;

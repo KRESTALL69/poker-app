@@ -4,6 +4,7 @@ export interface SeasonRow {
   start_date: string;
   end_date: string | null;
   is_active: boolean;
+  prize_pool: number;
 }
 
 export interface SeasonRepository {
@@ -20,4 +21,5 @@ export interface SeasonRepository {
   activateById(seasonId: string): Promise<void>;
   /** Closes whichever season is currently active, regardless of id. */
   closeActiveSeason(endDate: string): Promise<void>;
+  updatePrizePool(seasonId: string, prizePool: number): Promise<void>;
 }

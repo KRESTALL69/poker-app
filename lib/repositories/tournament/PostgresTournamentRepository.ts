@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { tournaments } from "@/lib/db/schema";
-import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import type { Tournament, TournamentKind, TournamentStatus } from "@/types/domain";
 import type {
   TournamentCreateInput,
@@ -154,5 +154,46 @@ export class PostgresTournamentRepository implements TournamentRepository {
   async listSeasonIds(): Promise<Array<string | null>> {
     const rows = await db.select({ seasonId: tournaments.seasonId }).from(tournaments);
     return rows.map((row) => row.seasonId);
+  }
+
+  async findGoogleSheetTabNamesBySeasonId(
+    seasonId: string,
+    kinds: TournamentKind[]
+  ): Promise<string[]> {
+    const rows = await db
+      .select({ tabName: tournaments.googleSheetTabName })
+      .from(tournaments)
+      .where(
+        and(
+          eq(tournaments.seasonId, seasonId),
+          inArray(tournaments.kind, kinds),
+          isNotNull(tournaments.googleSheetTabName)
+        )
+      );
+    return rows.map((row) => row.tabName as string);
+  }
+
+  async updateTotalPrizePool(tournamentId: string, totalPrizePool: number): Promise<void> {
+    await db
+      .update(tournaments)
+      .set({ totalPrizePool })
+      .where(eq(tournaments.id, tournamentId));
+  }
+
+  async sumTotalPrizePoolBySeasonId(
+    seasonId: string,
+    kinds: TournamentKind[]
+  ): Promise<number> {
+    const [row] = await db
+      .select({ total: sql<string>`coalesce(sum(${tournaments.totalPrizePool}), 0)` })
+      .from(tournaments)
+      .where(
+        and(
+          eq(tournaments.seasonId, seasonId),
+          inArray(tournaments.kind, kinds),
+          eq(tournaments.status, "completed")
+        )
+      );
+    return Number(row?.total ?? 0);
   }
 }

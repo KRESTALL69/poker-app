@@ -36,4 +36,13 @@ export interface TournamentRepository {
   findIdAndSeasonId(tournamentId: string): Promise<{ id: string; season_id: string | null }>;
   updateStatus(tournamentId: string, status: string): Promise<void>;
   listSeasonIds(): Promise<Array<string | null>>;
+  /** Только непустые google_sheet_tab_name — для сопоставления с Лист1 (см. recomputeSeasonPrizePool). */
+  findGoogleSheetTabNamesBySeasonId(
+    seasonId: string,
+    kinds: TournamentKind[]
+  ): Promise<string[]>;
+  /** Снимок "Общий призовой" турнира на момент его завершения (см. total_prize_pool). */
+  updateTotalPrizePool(tournamentId: string, totalPrizePool: number): Promise<void>;
+  /** Сумма total_prize_pool по завершённым турнирам сезона указанных видов — источник для идемпотентного recalculateSeasonPrizePoolFromDb. */
+  sumTotalPrizePoolBySeasonId(seasonId: string, kinds: TournamentKind[]): Promise<number>;
 }

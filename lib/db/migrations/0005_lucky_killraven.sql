@@ -1,0 +1,1 @@
+ALTER TABLE "tournaments" ADD COLUMN "total_prize_pool" integer;

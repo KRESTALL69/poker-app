@@ -17,6 +17,7 @@ type LeaderboardRow = {
 
 export default function LeaderboardPage() {
   const [seasonTitle, setSeasonTitle] = useState("");
+  const [prizePool, setPrizePool] = useState(0);
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +33,11 @@ export default function LeaderboardPage() {
             ? activeSeason.title
             : "Активный сезон"
         );
+        // Только чтение уже готового значения из БД (seasons.prize_pool) —
+        // без обращения к Google Sheets на каждый заход в рейтинг; сам
+        // призовой фонд пополняется при завершении бесплатного турнира,
+        // см. features/tournaments.ts::addToSeasonPrizePool.
+        setPrizePool(activeSeason.prize_pool ?? 0);
 
         const leaderboard = await getSeasonLeaderboard(activeSeason.id);
         setRows(leaderboard);
@@ -99,6 +105,17 @@ export default function LeaderboardPage() {
             Регламент рейтинга
           </Link>
         </div>
+
+        {prizePool > 0 ? (
+          <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
+            <p className="text-xs uppercase tracking-wide text-white/50">
+              Призовой фонд сезона
+            </p>
+            <p className="mt-1 text-2xl font-bold text-white">
+              {prizePool.toLocaleString("ru-RU")}
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5">
           <div className="grid grid-cols-[48px_1fr_90px] gap-3 border-b border-white/10 px-4 py-3 text-xs uppercase tracking-wide text-white/50">

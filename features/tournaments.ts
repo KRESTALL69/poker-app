@@ -1501,3 +1501,94 @@ export async function getSeasonById(seasonId: string) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
 }
+
+// Снимок "Общий призовой" турнира на момент завершения — фиксирует именно
+// то значение, что уже посчитано в complete-free/route.ts (та же формула,
+// что раньше уходила только в calculateRatingPoints). Служит источником
+// для recalculateSeasonPrizePoolFromDb: без этого снимка пришлось бы
+// пересчитывать сумму по results, где нет признака "arrived" и легко
+// ошибиться с неявившимися игроками.
+export async function setTournamentTotalPrizePool(
+  tournamentId: string,
+  totalPrizePool: number
+): Promise<void> {
+  try {
+    await tournamentRepository.updateTotalPrizePool(tournamentId, totalPrizePool);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+}
+
+// Обычное завершение бесплатного турнира: полный пересчёт season.prize_pool
+// из уже сохранённых total_prize_pool завершённых бесплатных турниров
+// сезона — идемпотентно (пересчитывает с нуля, а не прибавляет), поэтому
+// повторный вызов complete-free для того же турнира не приводит к двойному
+// начислению. Google Sheets здесь не используется — это не отчёт, а рабочий
+// путь. Google Sheets остаётся отдельным источником только для ручной
+// сверки, см. recomputeSeasonPrizePool ниже.
+export async function recalculateSeasonPrizePoolFromDb(seasonId: string): Promise<number> {
+  let sum: number;
+  try {
+    sum = await tournamentRepository.sumTotalPrizePoolBySeasonId(seasonId, ["free"]);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+
+  const roundedPrizePool = Math.ceil(sum / 500) * 500;
+
+  try {
+    await seasonRepository.updatePrizePool(seasonId, roundedPrizePool);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+
+  return roundedPrizePool;
+}
+
+const LIST1_TAB_NAME_COLUMN = 1; // "Источник" — google_sheet_tab_name турнира.
+const LIST1_PRIZE_POOL_COLUMN = 9; // "Общий призовой" (см. appendReportRow, lib/google-sheets.ts).
+
+// Административная ручная синхронизация: полный пересчёт season.prize_pool
+// по Лист1 турнирного Spreadsheet — используется только когда админ
+// подправил данные прямо в таблице и хочет применить исправление к БД.
+// Сами данные Лист1 читает вызывающий (route) — здесь только сопоставление
+// с сезоном (по google_sheet_tab_name) и запись в БД, по тому же разделению
+// обязанностей, что и у completeCashTournament (DB) + route-уровня Google
+// Sheets I/O. free+paid — оба вида турниров пишут строку в Лист1; Cash
+// использует отдельный Spreadsheet и сюда не попадает.
+export async function recomputeSeasonPrizePool(
+  seasonId: string,
+  list1Rows: string[][]
+): Promise<number> {
+  let tabNames: string[];
+  try {
+    tabNames = await tournamentRepository.findGoogleSheetTabNamesBySeasonId(seasonId, [
+      "free",
+      "paid",
+    ]);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+
+  const tabNameSet = new Set(tabNames);
+  const dataRows = list1Rows.slice(1); // строка 0 — заголовок ("Турнир","Источник",...).
+
+  const sum = dataRows.reduce((total, row) => {
+    const tabName = row[LIST1_TAB_NAME_COLUMN];
+    if (!tabName || !tabNameSet.has(tabName)) {
+      return total;
+    }
+    const prizePool = Number(row[LIST1_PRIZE_POOL_COLUMN]);
+    return total + (Number.isFinite(prizePool) ? prizePool : 0);
+  }, 0);
+
+  const roundedPrizePool = Math.ceil(sum / 500) * 500;
+
+  try {
+    await seasonRepository.updatePrizePool(seasonId, roundedPrizePool);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+
+  return roundedPrizePool;
+}

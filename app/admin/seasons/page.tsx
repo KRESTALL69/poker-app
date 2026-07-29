@@ -13,6 +13,7 @@ type Season = {
   end_date: string | null;
   is_active: boolean;
   tournament_count: number;
+  prize_pool: number;
 };
 
 function formatDate(dateStr: string | null): string {
@@ -155,6 +156,28 @@ export default function AdminSeasonsPage() {
       await loadSeasons();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Не удалось завершить сезон");
+    } finally {
+      setProcessing(null);
+    }
+  }
+
+  async function handleRecomputePrizePool(season: Season) {
+    if (processing) return;
+    clearMessages();
+    setProcessing(`recompute-prize-pool-${season.id}`);
+    try {
+      const data = await fetchAdminJson<{ ok: true; prize_pool: number }>(
+        `/api/admin/seasons/${season.id}/recompute-prize-pool`,
+        { method: "POST" }
+      );
+      setSeasons((current) =>
+        current.map((s) => (s.id === season.id ? { ...s, prize_pool: data.prize_pool } : s))
+      );
+      setActionSuccess(`Призовой фонд сезона «${season.title}» пересчитан из Google Sheets: ${data.prize_pool.toLocaleString("ru-RU")}`);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Не удалось пересчитать призовой фонд"
+      );
     } finally {
       setProcessing(null);
     }
@@ -320,6 +343,7 @@ export default function AdminSeasonsPage() {
               {seasons.map((season) => {
                 const isClosing = processing === `close-${season.id}`;
                 const isActivating = processing === `activate-${season.id}`;
+                const isRecomputing = processing === `recompute-prize-pool-${season.id}`;
 
                 return (
                   <div
@@ -350,10 +374,11 @@ export default function AdminSeasonsPage() {
                           <span>Начало: {formatDate(season.start_date)}</span>
                           <span>Конец: {formatDate(season.end_date)}</span>
                           <span>Турниров: {season.tournament_count}</span>
+                          <span>Призовой фонд: {season.prize_pool.toLocaleString("ru-RU")}</span>
                         </div>
                       </div>
 
-                      <div className="shrink-0">
+                      <div className="flex shrink-0 flex-col items-end gap-2">
                         {season.is_active ? (
                           <button
                             type="button"
@@ -373,6 +398,15 @@ export default function AdminSeasonsPage() {
                             {isActivating ? "..." : "Сделать активным"}
                           </button>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleRecomputePrizePool(season)}
+                          disabled={!!processing}
+                          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/70 transition disabled:opacity-40 hover:border-white/40"
+                        >
+                          {isRecomputing ? "..." : "Пересчитать призовой фонд из GS"}
+                        </button>
                       </div>
                     </div>
                   </div>

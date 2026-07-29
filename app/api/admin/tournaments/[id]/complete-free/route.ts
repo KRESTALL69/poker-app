@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { getPlayerDirectoryForExport, getPlayerResultsStats, getSeasonById, saveTournamentResults } from "@/features/tournaments";
+import {
+  getPlayerDirectoryForExport,
+  getPlayerResultsStats,
+  getSeasonById,
+  recalculateSeasonPrizePoolFromDb,
+  saveTournamentResults,
+  setTournamentTotalPrizePool,
+} from "@/features/tournaments";
 import { syncTournamentSheet } from "@/app/api/admin/tournaments/[id]/export-sheet/route";
 import { writePlayerDirectorySheet, writePlayerResultsSheet } from "@/lib/google-sheets";
 import { calculateRatingPoints, getPlaceCoefficient, FIXED_PLAYERS_COUNT } from "@/config/rating";
@@ -42,6 +49,12 @@ export async function POST(
         const knockouts = r.knockouts ?? 0;
         return sum + (1 + rebuys) * entryPrice + addons * addonPrice + knockouts * bountyPrice;
       }, 0);
+
+    // Снимок totalPrizePool на самом турнире — источник для идемпотентного
+    // пересчёта season.prize_pool из БД (см. recalculateSeasonPrizePoolFromDb
+    // ниже). Сохраняется до saveTournamentResults, чтобы значение было
+    // зафиксировано даже если что-то из шагов ниже упадёт.
+    await setTournamentTotalPrizePool(id, totalPrizePool);
 
     const saveResult = await saveTournamentResults(
       id,
@@ -90,6 +103,19 @@ export async function POST(
     const season = saveResult.seasonId ? await getSeasonById(saveResult.seasonId).catch(() => null) : null;
     const stats = await getPlayerResultsStats(saveResult.seasonId);
     await writePlayerResultsSheet(stats, season?.title);
+
+    // Призовой фонд сезона — вспомогательная витрина для страницы рейтинга,
+    // не часть основного потока завершения турнира. Полный пересчёт из БД
+    // (а не += totalPrizePool) — идемпотентно, без обращения к Google
+    // Sheets. Падение здесь не должно откатывать уже сохранённые
+    // results/Sheets — поэтому отдельный try/catch, в отличие от шагов выше.
+    if (saveResult.seasonId) {
+      try {
+        await recalculateSeasonPrizePoolFromDb(saveResult.seasonId);
+      } catch (error) {
+        console.error("[rating] Failed to recalculate season prize pool", error);
+      }
+    }
 
     const directory = await getPlayerDirectoryForExport();
     await writePlayerDirectorySheet(directory);

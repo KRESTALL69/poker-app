@@ -47,6 +47,12 @@ export const seasons = pgTable(
     endDate: date("end_date"),
     isActive: boolean("is_active").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+    // Накопительный призовой фонд сезона — сумма колонки "Общий призовой"
+    // Лист1 по всем турнирам сезона (free+paid), округлённая вверх до 500.
+    // Пересчитывается features/tournaments.ts::recomputeSeasonPrizePool()
+    // после завершения бесплатного турнира — здесь только хранится готовое
+    // значение, само API рейтинга Google Sheets не читает.
+    prizePool: integer("prize_pool").notNull().default(0),
   },
   (table) => ({
     // Партиционный unique — гарантирует ровно один активный сезон на уровне БД
@@ -132,6 +138,19 @@ export const tournaments = pgTable(
     location: text("location"),
     googleSheetTabName: text("google_sheet_tab_name"),
     kind: text("kind").notNull().default("free"),
+    // Снимок "Общий призовой" на момент завершения турнира — источник для
+    // идемпотентного пересчёта seasons.prize_pool из БД, без Google Sheets
+    // (см. recalculateSeasonPrizePoolFromDb, features/tournaments.ts). null
+    // означает "ещё не завершён / не считается".
+    //
+    // Намеренно НЕ вычисляется как SUM(results.spent): results.spent
+    // считается для каждой зарегистрированной строки без фильтра по
+    // "пришёл", поэтому неявившиеся (no-show) игроки всё равно дают
+    // ненулевой spent (=entryPrice) и завысили бы сумму. total_prize_pool —
+    // снимок того же значения, что уже фильтрует по arrived и используется
+    // для расчёта рейтинга (calculateRatingPoints в complete-free/route.ts),
+    // поэтому обязано совпадать с этой бизнес-логикой 1-в-1.
+    totalPrizePool: integer("total_prize_pool"),
   },
   (table) => ({
     statusIdx: index("idx_tournaments_status").on(table.status),
