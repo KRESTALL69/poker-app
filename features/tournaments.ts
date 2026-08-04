@@ -1543,20 +1543,30 @@ export async function recalculateSeasonPrizePoolFromDb(seasonId: string): Promis
   // этого поля — см. миграцию 0005), пересчёт по неполным данным дал бы
   // заниженное значение и перезаписал бы корректное. Останавливаемся вместо
   // этого — season.prize_pool не трогаем. Устраняется через
-  // backfillTotalPrizePoolFromList1 ниже.
-  let hasNullSnapshots: boolean;
+  // backfillTotalPrizePoolFromList1 ниже. Список конкретных турниров без
+  // total_prize_pool — в тексте ошибки и в логе, чтобы админ/разработчик не
+  // лез в БД руками, а сразу видел, что именно чинить.
+  let candidates: Awaited<ReturnType<typeof tournamentRepository.findCompletedForTotalPrizePoolBackfill>>;
   try {
-    hasNullSnapshots = await tournamentRepository.hasCompletedWithNullTotalPrizePool(seasonId, [
+    candidates = await tournamentRepository.findCompletedForTotalPrizePoolBackfill(seasonId, [
       "free",
     ]);
   } catch (error) {
     throw new Error((error as { message?: string })?.message ?? "Unknown error");
   }
-  if (hasNullSnapshots) {
-    throw new Error(
-      "Пересчёт остановлен: среди завершённых бесплатных турниров сезона есть турниры без total_prize_pool. " +
-        "season.prize_pool не изменён. Выполните backfillTotalPrizePoolFromList1 (POST /api/admin/seasons/[id]/backfill-total-prize-pool) и повторите."
-    );
+
+  const missingTotalPrizePool = candidates.filter((t) => t.total_prize_pool === null);
+  if (missingTotalPrizePool.length > 0) {
+    const list = missingTotalPrizePool
+      .map((t) => `- ${t.google_sheet_tab_name ?? t.title} (id: ${t.id})`)
+      .join("\n");
+    const message = [
+      "Пересчёт остановлен: у следующих завершённых бесплатных турниров сезона нет total_prize_pool:",
+      list,
+      "season.prize_pool не изменён. Выполните backfillTotalPrizePoolFromList1 (POST /api/admin/seasons/[id]/backfill-total-prize-pool) и повторите.",
+    ].join("\n\n");
+    console.error("[rating] recalculateSeasonPrizePoolFromDb blocked:", message);
+    throw new Error(message);
   }
 
   let totalPrizePool: number;
@@ -1637,25 +1647,29 @@ export type BackfillTotalPrizePoolResult = {
   recalculateError: string | null;
 };
 
-// Одноразовый backfill tournaments.total_prize_pool из Лист1 — для
-// исторических завершённых бесплатных турниров сезона, у которых снимок не
-// был записан (появился только с миграцией 0005, см.
-// setTournamentTotalPrizePool выше). Источник истины — Лист1, тот же приём
-// сопоставления по google_sheet_tab_name, что и у recomputeSeasonPrizePool.
-// Заполняет ТОЛЬКО NULL — уже заполненные total_prize_pool не трогает,
-// поэтому повторный запуск безопасен (идемпотентно). После заполнения сразу
-// вызывает существующий recalculateSeasonPrizePoolFromDb — ошибку оттуда
-// (например, если что-то так и осталось NULL) не пробрасываем дальше, а
-// возвращаем в составе результата, чтобы вызывающий видел полную картину.
+/**
+ * One-time recovery function.
+ *
+ * Backfills total_prize_pool from Лист1 (Google Sheets) for historical
+ * completed free tournaments that predate the introduction of
+ * tournaments.total_prize_pool (migration 0005). Not part of normal
+ * application flow — normal completion (complete-free) sets this snapshot
+ * itself via setTournamentTotalPrizePool at completion time and never needs
+ * this function.
+ *
+ * Идемпотентно: заполняет ТОЛЬКО NULL, уже заполненные total_prize_pool не
+ * трогает, поэтому повторный запуск безопасен. Источник истины — Лист1, тот
+ * же приём сопоставления по google_sheet_tab_name, что и у
+ * recomputeSeasonPrizePool. После заполнения сразу вызывает существующий
+ * recalculateSeasonPrizePoolFromDb — ошибку оттуда (например, если что-то
+ * так и осталось NULL) не пробрасываем дальше, а возвращаем в составе
+ * результата, чтобы вызывающий видел полную картину.
+ */
 export async function backfillTotalPrizePoolFromList1(
   seasonId: string,
   list1Rows: string[][]
 ): Promise<BackfillTotalPrizePoolResult> {
-  let candidates: Array<{
-    id: string;
-    google_sheet_tab_name: string | null;
-    total_prize_pool: number | null;
-  }>;
+  let candidates: Awaited<ReturnType<typeof tournamentRepository.findCompletedForTotalPrizePoolBackfill>>;
   try {
     candidates = await tournamentRepository.findCompletedForTotalPrizePoolBackfill(seasonId, [
       "free",

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { tournaments } from "@/lib/db/schema";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import type { Tournament, TournamentKind, TournamentStatus } from "@/types/domain";
 import type {
   TournamentCreateInput,
@@ -200,10 +200,18 @@ export class PostgresTournamentRepository implements TournamentRepository {
   async findCompletedForTotalPrizePoolBackfill(
     seasonId: string,
     kinds: TournamentKind[]
-  ): Promise<Array<{ id: string; google_sheet_tab_name: string | null; total_prize_pool: number | null }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      title: string;
+      google_sheet_tab_name: string | null;
+      total_prize_pool: number | null;
+    }>
+  > {
     return db
       .select({
         id: tournaments.id,
+        title: tournaments.title,
         google_sheet_tab_name: tournaments.googleSheetTabName,
         total_prize_pool: tournaments.totalPrizePool,
       })
@@ -215,24 +223,5 @@ export class PostgresTournamentRepository implements TournamentRepository {
           eq(tournaments.status, "completed")
         )
       );
-  }
-
-  async hasCompletedWithNullTotalPrizePool(
-    seasonId: string,
-    kinds: TournamentKind[]
-  ): Promise<boolean> {
-    const [row] = await db
-      .select({ id: tournaments.id })
-      .from(tournaments)
-      .where(
-        and(
-          eq(tournaments.seasonId, seasonId),
-          inArray(tournaments.kind, kinds),
-          eq(tournaments.status, "completed"),
-          isNull(tournaments.totalPrizePool)
-        )
-      )
-      .limit(1);
-    return row !== undefined;
   }
 }

@@ -2,12 +2,20 @@ import { NextResponse } from "next/server";
 import { backfillTotalPrizePoolFromList1 } from "@/features/tournaments";
 import { getSpreadsheetId, readSpreadsheetTabValues } from "@/lib/google-sheets";
 
-// Одноразовый backfill tournaments.total_prize_pool из Лист1 для завершённых
-// бесплатных турниров сезона, у которых снимок остался NULL (турниры,
-// завершённые до появления total_prize_pool — см. миграцию 0005). Заполняет
-// только NULL, повторный вызов безопасен. После заполнения сразу пересчитывает
-// season.prize_pool через recalculateSeasonPrizePoolFromDb — см.
-// features/tournaments.ts::backfillTotalPrizePoolFromList1.
+/**
+ * One-time recovery endpoint.
+ *
+ * Used only for backfilling historical tournaments that were completed
+ * before tournaments.total_prize_pool was introduced.
+ *
+ * Not part of normal application flow.
+ *
+ * Заполняет только total_prize_pool IS NULL для завершённых бесплатных
+ * турниров сезона (источник — Лист1 турнирного Spreadsheet), уже заполненные
+ * не трогает — повторный вызов безопасен. После заполнения сразу
+ * пересчитывает season.prize_pool через recalculateSeasonPrizePoolFromDb —
+ * см. features/tournaments.ts::backfillTotalPrizePoolFromList1.
+ */
 export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string }> }
