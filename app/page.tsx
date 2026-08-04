@@ -188,7 +188,9 @@ export default function HomePage() {
   const [checkedTelegram, setCheckedTelegram] = useState(false);
   const [isInsideTelegram, setIsInsideTelegram] = useState(false);
   const [playerLoading, setPlayerLoading] = useState(false);
-  const [playerError, setPlayerError] = useState<string | null>(null);
+  const [playerError, setPlayerError] = useState<
+    { message: string; blocked: boolean } | null
+  >(null);
   const [promotionToast, setPromotionToast] = useState<string | null>(null);
   const [nearestTournament, setNearestTournament] = useState<Tournament | null>(
     null
@@ -303,6 +305,17 @@ export default function HomePage() {
     document.body.appendChild(container);
     return () => { document.body.removeChild(container); };
   }, []);
+
+  function openSupportChat() {
+    logEvent("support_opened");
+    const url = "https://t.me/dont_worry_club_bot?start=support";
+    const webApp = getTelegramWebApp();
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(url);
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
 
   function handleTelegramLogin() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -599,7 +612,10 @@ export default function HomePage() {
           const ensuredPlayer = await resolveCurrentPlayer();
 
           if (ensuredPlayer.is_blocked) {
-            setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
+            setPlayerError({
+              message: "Доступ заблокирован. Обратитесь к администратору клуба.",
+              blocked: true,
+            });
             return;
           }
 
@@ -708,7 +724,10 @@ export default function HomePage() {
             const status = (meError as { status?: number })?.status;
 
             if (status === 403) {
-              setPlayerError("Доступ заблокирован. Обратитесь к администратору клуба.");
+              setPlayerError({
+                message: "Доступ заблокирован. Обратитесь к администратору клуба.",
+                blocked: true,
+              });
             } else if (!isTelegramMiniAppContext()) {
               router.replace("/login");
             }
@@ -717,7 +736,7 @@ export default function HomePage() {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown player sync error";
-        setPlayerError(message);
+        setPlayerError({ message, blocked: false });
       } finally {
         setPlayerLoading(false);
         setInitializing(false);
@@ -936,30 +955,42 @@ export default function HomePage() {
           </div>
           <div className="rounded-2xl bg-white/5 p-5">
             {playerError ? (
-              <p className="mb-3 text-sm text-red-300">{playerError}</p>
+              <p className="mb-3 text-sm text-red-300">{playerError.message}</p>
             ) : (
               <p className="mb-3 text-sm text-white/70">
                 Войдите, чтобы продолжить
               </p>
             )}
-            <Link
-              href="/login"
-              className="block w-full rounded-xl bg-yellow-500 py-3 text-center font-semibold text-black"
-            >
-              Войти через email
-            </Link>
-            <div className="mt-4 flex items-center gap-3">
-              <div className="flex-1 border-t border-white/10" />
-              <span className="text-xs text-white/40">или</span>
-              <div className="flex-1 border-t border-white/10" />
-            </div>
-            <button
-              type="button"
-              onClick={handleTelegramLogin}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-semibold text-white"
-            >
-              Войти через Telegram
-            </button>
+            {playerError?.blocked ? (
+              <button
+                type="button"
+                onClick={openSupportChat}
+                className="block w-full rounded-xl bg-yellow-500 py-3 text-center font-semibold text-black"
+              >
+                Написать в поддержку
+              </button>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="block w-full rounded-xl bg-yellow-500 py-3 text-center font-semibold text-black"
+                >
+                  Войти через email
+                </Link>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="flex-1 border-t border-white/10" />
+                  <span className="text-xs text-white/40">или</span>
+                  <div className="flex-1 border-t border-white/10" />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTelegramLogin}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-semibold text-white"
+                >
+                  Войти через Telegram
+                </button>
+              </>
+            )}
           </div>
         </div>
       </main>
@@ -1082,7 +1113,7 @@ export default function HomePage() {
 
         {playerError ? (
           <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-            {playerError}
+            {playerError.message}
           </div>
         ) : null}
 
@@ -1160,16 +1191,7 @@ export default function HomePage() {
 
                 <button
                     type="button"
-                    onClick={() => {
-                      logEvent("support_opened");
-                      const url = "https://t.me/dont_worry_club_bot?start=support";
-                      const webApp = getTelegramWebApp();
-                      if (webApp?.openTelegramLink) {
-                        webApp.openTelegramLink(url);
-                      } else {
-                        window.open(url, "_blank", "noopener,noreferrer");
-                      }
-                    }}
+                    onClick={openSupportChat}
                     className="w-full rounded-2xl border border-white/10 bg-white/[0.05] p-5 text-left text-white transition active:scale-[0.99]"
                   >
                     <div className="flex items-center gap-2 text-white/65">
