@@ -45,4 +45,11 @@ export interface TournamentRepository {
   updateTotalPrizePool(tournamentId: string, totalPrizePool: number): Promise<void>;
   /** Сумма total_prize_pool по завершённым турнирам сезона указанных видов — источник для идемпотентного recalculateSeasonPrizePoolFromDb. */
   sumTotalPrizePoolBySeasonId(seasonId: string, kinds: TournamentKind[]): Promise<number>;
+  /** Завершённые турниры сезона указанных видов — для сопоставления с Лист1 при backfillTotalPrizePoolFromList1. */
+  findCompletedForTotalPrizePoolBackfill(
+    seasonId: string,
+    kinds: TournamentKind[]
+  ): Promise<Array<{ id: string; google_sheet_tab_name: string | null; total_prize_pool: number | null }>>;
+  /** Есть ли среди завершённых турниров сезона указанных видов хотя бы один с total_prize_pool IS NULL — защита recalculateSeasonPrizePoolFromDb от тихого пересчёта по неполным данным. */
+  hasCompletedWithNullTotalPrizePool(seasonId: string, kinds: TournamentKind[]): Promise<boolean>;
 }

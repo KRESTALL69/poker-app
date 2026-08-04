@@ -1537,6 +1537,28 @@ function calculateSeasonPrizePoolShare(totalPrizePool: number): number {
 // путь. Google Sheets остаётся отдельным источником только для ручной
 // сверки, см. recomputeSeasonPrizePool ниже.
 export async function recalculateSeasonPrizePoolFromDb(seasonId: string): Promise<number> {
+  // Защита от тихой недосчёт-перезаписи: SQL SUM молча пропускает NULL-строки,
+  // поэтому если среди завершённых free-турниров сезона есть хотя бы один без
+  // total_prize_pool (например, старые турниры, завершённые до появления
+  // этого поля — см. миграцию 0005), пересчёт по неполным данным дал бы
+  // заниженное значение и перезаписал бы корректное. Останавливаемся вместо
+  // этого — season.prize_pool не трогаем. Устраняется через
+  // backfillTotalPrizePoolFromList1 ниже.
+  let hasNullSnapshots: boolean;
+  try {
+    hasNullSnapshots = await tournamentRepository.hasCompletedWithNullTotalPrizePool(seasonId, [
+      "free",
+    ]);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+  if (hasNullSnapshots) {
+    throw new Error(
+      "Пересчёт остановлен: среди завершённых бесплатных турниров сезона есть турниры без total_prize_pool. " +
+        "season.prize_pool не изменён. Выполните backfillTotalPrizePoolFromList1 (POST /api/admin/seasons/[id]/backfill-total-prize-pool) и повторите."
+    );
+  }
+
   let totalPrizePool: number;
   try {
     totalPrizePool = await tournamentRepository.sumTotalPrizePoolBySeasonId(seasonId, ["free"]);
@@ -1604,4 +1626,96 @@ export async function recomputeSeasonPrizePool(
   }
 
   return prizePool;
+}
+
+export type BackfillTotalPrizePoolResult = {
+  filled: Array<{ tournamentId: string; tabName: string; totalPrizePool: number }>;
+  skippedAlreadyFilled: string[];
+  skippedNoTabName: string[];
+  skippedNoMatchInList1: string[];
+  seasonPrizePool: number | null;
+  recalculateError: string | null;
+};
+
+// Одноразовый backfill tournaments.total_prize_pool из Лист1 — для
+// исторических завершённых бесплатных турниров сезона, у которых снимок не
+// был записан (появился только с миграцией 0005, см.
+// setTournamentTotalPrizePool выше). Источник истины — Лист1, тот же приём
+// сопоставления по google_sheet_tab_name, что и у recomputeSeasonPrizePool.
+// Заполняет ТОЛЬКО NULL — уже заполненные total_prize_pool не трогает,
+// поэтому повторный запуск безопасен (идемпотентно). После заполнения сразу
+// вызывает существующий recalculateSeasonPrizePoolFromDb — ошибку оттуда
+// (например, если что-то так и осталось NULL) не пробрасываем дальше, а
+// возвращаем в составе результата, чтобы вызывающий видел полную картину.
+export async function backfillTotalPrizePoolFromList1(
+  seasonId: string,
+  list1Rows: string[][]
+): Promise<BackfillTotalPrizePoolResult> {
+  let candidates: Array<{
+    id: string;
+    google_sheet_tab_name: string | null;
+    total_prize_pool: number | null;
+  }>;
+  try {
+    candidates = await tournamentRepository.findCompletedForTotalPrizePoolBackfill(seasonId, [
+      "free",
+    ]);
+  } catch (error) {
+    throw new Error((error as { message?: string })?.message ?? "Unknown error");
+  }
+
+  const dataRows = list1Rows.slice(1); // строка 0 — заголовок.
+  const list1ByTabName = new Map<string, number>();
+  for (const row of dataRows) {
+    const tabName = row[LIST1_TAB_NAME_COLUMN];
+    if (!tabName) continue;
+    const value = Number(row[LIST1_PRIZE_POOL_COLUMN]);
+    if (Number.isFinite(value)) {
+      list1ByTabName.set(tabName, value);
+    }
+  }
+
+  const filled: BackfillTotalPrizePoolResult["filled"] = [];
+  const skippedAlreadyFilled: string[] = [];
+  const skippedNoTabName: string[] = [];
+  const skippedNoMatchInList1: string[] = [];
+
+  for (const candidate of candidates) {
+    if (candidate.total_prize_pool !== null) {
+      skippedAlreadyFilled.push(candidate.id);
+      continue;
+    }
+    if (!candidate.google_sheet_tab_name) {
+      skippedNoTabName.push(candidate.id);
+      continue;
+    }
+    const value = list1ByTabName.get(candidate.google_sheet_tab_name);
+    if (value === undefined) {
+      skippedNoMatchInList1.push(candidate.id);
+      continue;
+    }
+    await setTournamentTotalPrizePool(candidate.id, value);
+    filled.push({
+      tournamentId: candidate.id,
+      tabName: candidate.google_sheet_tab_name,
+      totalPrizePool: value,
+    });
+  }
+
+  let seasonPrizePool: number | null = null;
+  let recalculateError: string | null = null;
+  try {
+    seasonPrizePool = await recalculateSeasonPrizePoolFromDb(seasonId);
+  } catch (error) {
+    recalculateError = (error as { message?: string })?.message ?? "Unknown error";
+  }
+
+  return {
+    filled,
+    skippedAlreadyFilled,
+    skippedNoTabName,
+    skippedNoMatchInList1,
+    seasonPrizePool,
+    recalculateError,
+  };
 }
