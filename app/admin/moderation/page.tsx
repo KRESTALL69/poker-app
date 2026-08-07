@@ -333,7 +333,7 @@ export default function AdminModerationPage() {
               </p>
             </div>
             <span className="text-sm text-white/45">
-              {searchQuery.trim() ? filteredPlayers.length : Math.min(players.length, 80)}
+              {searchQuery.trim() ? filteredPlayers.length : players.length}
             </span>
           </div>
 
