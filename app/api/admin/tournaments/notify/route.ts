@@ -1,10 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import {
   getTournamentById,
   getTournamentNotificationRecipientsByAudience,
   type TournamentNotificationAudience,
-  type TournamentNotificationRecipient,
 } from "@/features/tournaments";
+import { sendTelegramMessageWithRetry, NOTIFY_TIME_BUDGET_MS } from "@/lib/telegram-notify";
 
 export type NotificationFailure = {
   player_id: string;
@@ -13,70 +14,6 @@ export type NotificationFailure = {
   telegram_id: number | null;
   reason: string;
 };
-
-function describeTelegramError(errorCode: number | undefined, description: string | undefined) {
-  const normalized = description?.toLowerCase() ?? "";
-
-  if (normalized.includes("chat not found")) {
-    return "Чат не найден";
-  }
-
-  if (normalized.includes("bot was blocked by the user")) {
-    return "Пользователь заблокировал бота";
-  }
-
-  if (normalized.includes("user is deactivated")) {
-    return "Аккаунт пользователя удалён";
-  }
-
-  if (errorCode === 429) {
-    return "Превышен лимит Telegram";
-  }
-
-  if (errorCode === 400) {
-    return "Некорректные данные";
-  }
-
-  return description || "Неизвестная ошибка";
-}
-
-async function sendTelegramMessage(
-  token: string,
-  recipient: TournamentNotificationRecipient,
-  message: string
-): Promise<{ ok: true } | { ok: false; reason: string }> {
-  if (typeof recipient.telegram_id !== "number") {
-    return { ok: false, reason: "Нет Telegram ID" };
-  }
-
-  try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${token}/sendMessage`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          chat_id: recipient.telegram_id,
-          text: message,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => null);
-      return {
-        ok: false,
-        reason: describeTelegramError(errorBody?.error_code, errorBody?.description),
-      };
-    }
-
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: "Ошибка сети" };
-  }
-}
 
 export async function POST(request: Request) {
   try {
@@ -127,11 +64,23 @@ export async function POST(request: Request) {
       ? allRecipients.filter((recipient) => recipientPlayerIds.has(recipient.player_id))
       : allRecipients;
 
+    const batchId = randomUUID();
+    const total = recipients.length;
+    const deadlineAt = Date.now() + NOTIFY_TIME_BUDGET_MS;
+
+    console.log(`notification batch=${batchId} started recipients=${total}`);
+
     let successCount = 0;
     const failedRecipients: NotificationFailure[] = [];
 
-    for (const recipient of recipients) {
-      const result = await sendTelegramMessage(token, recipient, message);
+    for (let i = 0; i < recipients.length; i += 1) {
+      const recipient = recipients[i];
+      const result = await sendTelegramMessageWithRetry(token, recipient, message, {
+        batchId,
+        index: i + 1,
+        total,
+        deadlineAt,
+      });
 
       if (result.ok) {
         successCount += 1;
@@ -146,6 +95,10 @@ export async function POST(request: Request) {
         reason: result.reason,
       });
     }
+
+    console.log(
+      `notification batch=${batchId} finished success=${successCount} failed=${failedRecipients.length}`
+    );
 
     return NextResponse.json({
       ok: true,

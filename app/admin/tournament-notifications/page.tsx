@@ -242,7 +242,10 @@ export default function AdminTournamentNotificationsPage() {
             message: messageText.trim(),
             recipientPlayerIds: recipients.map((recipient) => recipient.player_id),
           }),
-        }
+        },
+        // Sending is not idempotent — a client-side retry here would
+        // re-send Telegram messages to everyone who already received one.
+        0
       );
 
       setResult(payload);

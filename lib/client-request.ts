@@ -12,17 +12,22 @@ async function getAdminHeaders(): Promise<Record<string, string>> {
 
 export async function fetchAdminJson<T>(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: RequestInit,
+  retries?: number
 ): Promise<T> {
   const adminHeaders = await getAdminHeaders();
 
-  return fetchJsonWithRetry<T>(input, {
-    ...init,
-    headers: {
-      ...adminHeaders,
-      ...(init?.headers as Record<string, string> | undefined),
+  return fetchJsonWithRetry<T>(
+    input,
+    {
+      ...init,
+      headers: {
+        ...adminHeaders,
+        ...(init?.headers as Record<string, string> | undefined),
+      },
     },
-  });
+    retries
+  );
 }
 
 export async function fetchJsonWithRetry<T>(
