@@ -215,18 +215,52 @@ export async function ensureReadmeTab(spreadsheetId: string) {
   return ensureSpreadsheetTab(spreadsheetId, "README");
 }
 
+// Единственная обязательная колонка каждой строки, которую когда-либо пишет
+// это приложение в Лист1 (и appendReportRow, и appendCashReportRow всегда
+// заполняют A). Раньше следующая строка для values.append определялась
+// автоматическим table detection Google Sheets по всему диапазону A:M/A:L —
+// случайная строка-мусор, оставленная вручную где-то ниже реальных данных
+// (например, формулы, перетащенные за собой в пустые строки), сбивала это
+// автоопределение и уводила новую запись в произвольные строку/колонку
+// (см. инцидент со съехавшим Лист1, восстановлено вручную). Теперь
+// следующая строка определяется намеренно только по этой колонке — мусор в
+// любых других колонках больше не может повлиять на то, куда пишем.
+const LIST1_FIRST_DATA_ROW = 2; // строка 1 — всегда header.
+const LIST1_SCAN_LAST_ROW = 5000;
+
+async function findNextList1Row(
+  sheets: ReturnType<typeof getGoogleSheetsClient>,
+  spreadsheetId: string
+): Promise<number> {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `Лист1!A${LIST1_FIRST_DATA_ROW}:A${LIST1_SCAN_LAST_ROW}`,
+  });
+
+  const values = response.data.values ?? [];
+  let lastFilledOffset = -1;
+  values.forEach((row, index) => {
+    const cell = row[0];
+    if (cell !== undefined && cell !== null && cell !== "") {
+      lastFilledOffset = index;
+    }
+  });
+
+  return LIST1_FIRST_DATA_ROW + lastFilledOffset + 1;
+}
+
 export async function appendReportRow(
   spreadsheetId: string,
   title: string,
   tabName: string
 ) {
   const sheets = getGoogleSheetsClient();
+  const nextRow = await findNextList1Row(sheets, spreadsheetId);
 
-  await sheets.spreadsheets.values.append({
+  await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: "Лист1!A:M",
+    range: `Лист1!A${nextRow}:M${nextRow}`,
     valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
     requestBody: {
       values: [[
         title,
@@ -297,11 +331,12 @@ export async function appendCashReportRow(spreadsheetId: string, row: CashReport
     });
   }
 
-  await sheets.spreadsheets.values.append({
+  const nextRow = await findNextList1Row(sheets, spreadsheetId);
+
+  await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: "Лист1!A:L",
+    range: `Лист1!A${nextRow}:L${nextRow}`,
     valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
     requestBody: {
       values: [[
         row.title,
