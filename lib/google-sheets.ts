@@ -17,6 +17,80 @@ function normalizePrivateKey(rawValue: string | undefined) {
   return unwrapped.replace(/\\n/g, "\n");
 }
 
+// Методы Sheets API v4, изменяющие данные/структуру — единый список для
+// guardGoogleSheetsResource() ниже. Намеренно с запасом (batchClear/*ByDataFilter
+// сейчас в проекте не используются, но если появятся — уже защищены).
+const GOOGLE_SHEETS_WRITE_METHODS = new Set([
+  "update",
+  "append",
+  "clear",
+  "batchUpdate",
+  "batchClear",
+  "batchUpdateByDataFilter",
+  "batchClearByDataFilter",
+]);
+
+function isGoogleSheetsWriteAllowed(): boolean {
+  if (process.env.NODE_ENV === "production") {
+    return true;
+  }
+  return process.env.ALLOW_GOOGLE_SHEETS_WRITE === "true";
+}
+
+function buildGoogleSheetsWriteBlockedError(
+  pathLabel: string,
+  methodName: string,
+  args: unknown[]
+): Error {
+  const params = (args[0] ?? {}) as { spreadsheetId?: string; range?: string };
+  return new Error(
+    [
+      `Google Sheets write blocked: local-dev write guard.`,
+      `  environment: NODE_ENV=${process.env.NODE_ENV ?? "undefined"}`,
+      `  spreadsheetId: ${params.spreadsheetId ?? "unknown"}`,
+      `  operation: ${pathLabel}.${methodName}${params.range ? ` (range: ${params.range})` : ""}`,
+      `To write intentionally from a non-production environment: point GOOGLE_SHEETS_SPREADSHEET_ID` +
+        ` / GOOGLE_SHEETS_CASH_SPREADSHEET_ID at a dedicated TEST spreadsheet and set ALLOW_GOOGLE_SHEETS_WRITE=true.`,
+    ].join("\n")
+  );
+}
+
+// Проксирует googleapis-ресурс (sheets / spreadsheets / spreadsheets.values):
+// read-методы (get) проходят насквозь как есть, write-методы блокируются вне
+// production без ALLOW_GOOGLE_SHEETS_WRITE=true. Proxy-таргет — пустой
+// объект, а не сам ресурс: свойства googleapis-клиентов non-configurable,
+// и подмена значения для них через `get`-ловушку на самом объекте нарушила
+// бы инвариант Proxy. `overrides` подменяет конкретные вложенные ресурсы
+// (например spreadsheets.values) их же гардированной версией.
+function guardGoogleSheetsResource<T extends object>(
+  resource: T,
+  pathLabel: string,
+  overrides: Record<string, unknown> = {}
+): T {
+  return new Proxy({} as T, {
+    get(_target, prop) {
+      if (typeof prop === "string" && prop in overrides) {
+        return overrides[prop];
+      }
+      const value = Reflect.get(resource as object, prop, resource);
+      if (typeof value !== "function") {
+        return value;
+      }
+      const bound = (value as (...callArgs: unknown[]) => unknown).bind(resource);
+      const methodName = String(prop);
+      if (!GOOGLE_SHEETS_WRITE_METHODS.has(methodName)) {
+        return bound;
+      }
+      return (...args: unknown[]) => {
+        if (isGoogleSheetsWriteAllowed()) {
+          return bound(...args);
+        }
+        throw buildGoogleSheetsWriteBlockedError(pathLabel, methodName, args);
+      };
+    },
+  });
+}
+
 function getGoogleSheetsClient() {
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
   const privateKey = normalizePrivateKey(process.env.GOOGLE_PRIVATE_KEY);
@@ -34,7 +108,15 @@ function getGoogleSheetsClient() {
     ],
   });
 
-  return google.sheets({ version: "v4", auth });
+  const client = google.sheets({ version: "v4", auth });
+
+  // Единственная точка защиты: все функции этого файла получают клиент
+  // только отсюда, поэтому оборачивать каждую по отдельности не нужно.
+  const guardedValues = guardGoogleSheetsResource(client.spreadsheets.values, "spreadsheets.values");
+  const guardedSpreadsheets = guardGoogleSheetsResource(client.spreadsheets, "spreadsheets", {
+    values: guardedValues,
+  });
+  return guardGoogleSheetsResource(client, "sheets", { spreadsheets: guardedSpreadsheets });
 }
 
 export function getSpreadsheetId() {
