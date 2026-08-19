@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { getActiveSeason, getSeasonLeaderboard } from "@/features/tournaments";
 import { getPlayerAvatarFallback, getPlayerAvatarUrl } from "@/lib/player-avatar";
 import { logEvent } from "@/lib/activity-client";
+import { resolveCurrentPlayer } from "@/lib/current-player";
+import { canSeePrizePoolCard } from "@/lib/leaderboard-access";
 
 type LeaderboardRow = {
   player_id: string;
@@ -21,6 +23,12 @@ export default function LeaderboardPage() {
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // "Призовой фонд сезона" карточка видна только игрокам с доступом к paid
+  // турнирам — тот же source of truth (player.can_access_paid), что и
+  // фильтр "Платные" на /tournaments. Fail-closed по умолчанию: пока
+  // текущий игрок не резолвится (или резолв упал), карточка скрыта, а не
+  // показывается по умолчанию.
+  const [canAccessPaid, setCanAccessPaid] = useState(false);
 
   useEffect(() => {
     logEvent("rating_opened");
@@ -50,7 +58,19 @@ export default function LeaderboardPage() {
       }
     }
 
+    async function loadPlayerAccess() {
+      try {
+        const currentPlayer = await resolveCurrentPlayer();
+        setCanAccessPaid(canSeePrizePoolCard(currentPlayer));
+      } catch {
+        // Not logged in / resolution failed -- keep the card hidden rather
+        // than fail the whole rating page over an access-visibility check.
+        setCanAccessPaid(false);
+      }
+    }
+
     loadLeaderboard();
+    loadPlayerAccess();
   }, []);
 
   if (loading) {
@@ -106,7 +126,7 @@ export default function LeaderboardPage() {
           </Link>
         </div>
 
-        {prizePool > 0 ? (
+        {prizePool > 0 && canAccessPaid ? (
           <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
             <p className="text-xs uppercase tracking-wide text-white/50">
               Призовой фонд сезона
